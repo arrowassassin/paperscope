@@ -246,13 +246,22 @@ async fn stream_body<R: Read>(
             match reader.read(&mut block[filled..filled + want]).await {
                 Ok(0) => break,
                 Ok(n) => filled += n,
-                Err(_) => return Err(StreamError::Io),
+                Err(_) => {
+                    esp_println::println!("upload: read error at {received}+{filled} of {len}"); // TEMP
+                    return Err(StreamError::Io);
+                }
             }
         }
         if filled == 0 {
+            esp_println::println!("upload: stream ended at {received} of {len}"); // TEMP
             return Err(StreamError::Io);
         }
+        let t0 = now_ms();
         sink(&block[..filled]).map_err(StreamError::Fs)?;
+        let dt = now_ms().wrapping_sub(t0);
+        if dt > 400 {
+            esp_println::println!("upload: card write of {filled} B took {dt} ms at {received}"); // TEMP
+        }
         received += filled;
         let now = now_ms();
         if now.wrapping_sub(last_report) >= 1000 {
@@ -669,6 +678,7 @@ impl PathRouterService for DropService {
         crate::touch(now_ms());
         let parts = request.parts;
         let route = routes::route(parts.method(), path.encoded());
+        esp_println::println!("req {} {}", parts.method(), path.encoded()); // TEMP
         log::debug!("http: {} {}", parts.method(), path.encoded());
 
         if let Route::Ws = route {

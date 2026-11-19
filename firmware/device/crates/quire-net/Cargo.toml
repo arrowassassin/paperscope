@@ -62,3 +62,7 @@ hal = [
     "dep:embedded-tls",
     "dep:rand_core",
 ]
+
+# TEMP diagnostic
+[target.'cfg(target_arch = "riscv32")'.dependencies]
+esp-println = { workspace = true }

@@ -2109,6 +2109,7 @@ dependencies = [
  "embedded-tls",
  "esp-alloc",
  "esp-hal",
+ "esp-println",
  "esp-radio",
  "flate2",
  "heapless 0.9.3",

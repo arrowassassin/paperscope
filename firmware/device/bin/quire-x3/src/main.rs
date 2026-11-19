@@ -546,10 +546,12 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
             display.set_upside_down(ui.settings.left_handed);
             let gc_every = ui.settings.gc_every_pages;
             let frame = ui.frame();
+            let shown_at = uptime_ms(); // TEMP
             display.show(frame, refresh, gc_every, || {
                 // Keys keep being sampled during the panel's busy wait; they are queued
                 // in the state machine and delivered on the next loop pass.
             });
+            println!("display: {:?} refresh blocked {} ms on {}", refresh, uptime_ms().wrapping_sub(shown_at), ui.top_name()); // TEMP
             if quire_net::mirror_wanted() && now_ms.wrapping_sub(last_mirror) >= 500 {
                 last_mirror = now_ms;
                 let r = frame.as_bitmap();
