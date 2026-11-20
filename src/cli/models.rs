@@ -6,14 +6,16 @@ pub async fn run(args: ModelsArgs) -> Result<i32> {
     let manager = ModelManager::new();
     match args.command {
         ModelsCommand::List => {
-            println!("{:<22} {:>8}  {:<9} {}", "MODEL", "SIZE", "INSTALLED", "DESCRIPTION");
+            println!("{:<24} {:>7}  {:<9} {:<16} {}", "MODEL", "SIZE", "INSTALLED", "LANGUAGES", "DESCRIPTION");
             for m in manager.list() {
                 println!(
-                    "{:<22} {:>6}MB  {:<9} {}",
+                    "{:<24} {:>5}MB  {:<9} {:<16} {}{}",
                     m.id,
                     m.size_mb,
                     if m.installed { "yes" } else { "no" },
-                    m.name
+                    m.languages,
+                    m.name,
+                    if m.is_default { " [default]" } else { "" }
                 );
             }
         }

@@ -1,10 +1,10 @@
 use super::{SearchArgs, Workspace, EXIT_FOUND, EXIT_MODEL_MISSING, EXIT_NOT_FOUND};
-use crate::core::models::{ModelManager, DEFAULT_EMBEDDING};
+use crate::core::models::DEFAULT_EMBEDDING;
 use anyhow::Result;
 
 pub async fn run(args: SearchArgs) -> Result<i32> {
     let ws = Workspace::new();
-    if args.semantic && !ModelManager::new().model_path(DEFAULT_EMBEDDING).exists() {
+    if args.semantic && !ws.embedding_model_installed() {
         eprintln!(
             "embedding model is not installed; run `paper models install {DEFAULT_EMBEDDING}` \
              or drop --semantic for keyword-only search"
@@ -21,7 +21,7 @@ pub async fn run(args: SearchArgs) -> Result<i32> {
         println!("{}", serde_json::to_string_pretty(&hits)?);
     } else if hits.is_empty() {
         println!("No matches for {:?}.", args.query);
-        if !ModelManager::new().model_path(DEFAULT_EMBEDDING).exists() {
+        if !ws.embedding_model_installed() {
             eprintln!("hint: install the embedding model for semantic search (paper models install {DEFAULT_EMBEDDING})");
         }
     } else {

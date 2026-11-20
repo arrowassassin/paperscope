@@ -1,9 +1,9 @@
 use super::connection::Connection;
 use anyhow::Result;
 
-/// Embedding width of EmbeddingGemma. Kept as a constant so the schema and the
-/// embedder can never silently disagree.
-pub const EMBEDDING_DIMS: usize = 768;
+/// Embedding width of the supported models. Kept as a constant so the schema and
+/// the embedder can never silently disagree.
+pub use crate::core::models::specs::EMBEDDING_DIMS;
 
 /// Schema for `chunks.db`.
 ///

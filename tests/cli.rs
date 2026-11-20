@@ -110,10 +110,11 @@ fn models_list_does_not_download_anything() {
     let out = paper(home.path(), &["models", "list"]);
     assert!(out.status.success());
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.contains("embeddinggemma"));
-    assert!(stdout.contains("bge-reranker-v2-m3"));
+    assert!(stdout.contains("bge-small-en-v1.5"));
+    assert!(stdout.contains("multilingual-e5-small"));
+    assert!(stdout.contains("bge-reranker-base"));
     // No weights were fetched as a side effect of listing.
-    assert!(!home.path().join("models").join("embeddinggemma.safetensors").exists());
+    assert!(!home.path().join("models").join("bge-small-en-v1.5").exists());
 }
 
 #[test]

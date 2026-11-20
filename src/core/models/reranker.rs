@@ -1,3 +1,4 @@
+use super::specs::ModelSpec;
 use crate::core::search::Hit;
 use anyhow::{Context, Result};
 use candle_core::{DType, Device, IndexOp, Tensor};
@@ -8,58 +9,57 @@ use candle_transformers::models::xlm_roberta::{
 use std::path::Path;
 use tokenizers::Tokenizer;
 
-/// Cross-encoder reranker (`BAAI/bge-reranker-v2-m3`, an XLM-RoBERTa sequence
-/// classifier with a single logit). Runs entirely on the local CPU via Candle.
+/// `BAAI/bge-reranker-base`: an XLM-RoBERTa sequence classifier producing one
+/// relevance logit per `(query, passage)` pair. Runs on the local CPU.
 pub struct Reranker {
     model: XLMRobertaForSequenceClassification,
     tokenizer: Tokenizer,
     device: Device,
-    max_tokens: usize,
 }
 
 impl Reranker {
-    pub fn new(model_path: &Path, tokenizer_path: &Path) -> Result<Self> {
+    pub fn new(model_dir: &Path, spec: &ModelSpec) -> Result<Self> {
         let device = Device::Cpu;
-        let dir = model_path.parent().context("model path has no parent")?;
-        let config_text = std::fs::read_to_string(dir.join("config.json"))
-            .context("reading reranker config.json")?;
+        let config_path = model_dir.join("config.json");
+        let config_text = std::fs::read_to_string(&config_path)
+            .with_context(|| format!("reading {}", config_path.display()))?;
         let config: XlmConfig = serde_json::from_str(&config_text)?;
-        let max_tokens = config.max_position_embeddings.min(512);
 
-        let tokenizer = Tokenizer::from_file(tokenizer_path)
+        let tokenizer_path = model_dir.join("tokenizer.json");
+        let mut tokenizer = Tokenizer::from_file(&tokenizer_path)
             .map_err(|e| anyhow::anyhow!("loading {}: {e}", tokenizer_path.display()))?;
-        let vb = unsafe { VarBuilder::from_mmaped_safetensors(&[model_path], DType::F32, &device)? };
+        tokenizer
+            .with_padding(None)
+            .with_truncation(Some(tokenizers::TruncationParams {
+                max_length: spec.max_tokens,
+                ..Default::default()
+            }))
+            .map_err(|e| anyhow::anyhow!("configuring truncation: {e}"))?;
+
+        let weights = model_dir.join("model.safetensors");
+        let vb = unsafe { VarBuilder::from_mmaped_safetensors(&[&weights], DType::F32, &device)? };
         let model = XLMRobertaForSequenceClassification::new(1, &config, vb)?;
 
         Ok(Self {
             model,
             tokenizer,
             device,
-            max_tokens,
         })
     }
 
-    /// Score every `(query, passage)` pair and return hits sorted best-first,
-    /// with `score` replaced by the sigmoid of the cross-encoder logit.
+    /// Re-score hits with the cross-encoder, best first. `Hit::score` becomes a
+    /// calibrated-ish probability in `0..1` (sigmoid of the relevance logit).
     pub fn rerank(&self, query: &str, hits: Vec<Hit>) -> Result<Vec<Hit>> {
         if hits.is_empty() {
             return Ok(hits);
         }
-        let mut tokenizer = self.tokenizer.clone();
-        tokenizer
-            .with_truncation(Some(tokenizers::TruncationParams {
-                max_length: self.max_tokens,
-                ..Default::default()
-            }))
-            .map_err(|e| anyhow::anyhow!("configuring truncation: {e}"))?;
-
         let mut scored: Vec<(Hit, f32)> = Vec::with_capacity(hits.len());
         for hit in hits {
-            let encoding = tokenizer
-                .encode((query.to_string(), hit.snippet.clone()), true)
+            let encoding = self
+                .tokenizer
+                .encode((query.to_string(), hit.content.clone()), true)
                 .map_err(|e| anyhow::anyhow!("tokenizing pair: {e}"))?;
-            let input_ids =
-                Tensor::new(encoding.get_ids(), &self.device)?.unsqueeze(0)?;
+            let input_ids = Tensor::new(encoding.get_ids(), &self.device)?.unsqueeze(0)?;
             let attention_mask =
                 Tensor::new(encoding.get_attention_mask(), &self.device)?.unsqueeze(0)?;
             let token_type_ids = input_ids.zeros_like()?;

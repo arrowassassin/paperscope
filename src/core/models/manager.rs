@@ -5,16 +5,15 @@ use anyhow::{bail, Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::Client;
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncWriteExt;
 
-/// Lazily downloads, verifies and loads the two supported models.
+/// Downloads, verifies and loads models. Every artifact is pinned by commit and
+/// SHA256; nothing is fetched implicitly during search.
 pub struct ModelManager {
     cache_dir: PathBuf,
     client: Client,
-    specs: HashMap<&'static str, ModelSpec>,
-    /// When true, no network access happens; missing models are an error.
+    specs: Vec<ModelSpec>,
     offline: bool,
 }
 
@@ -45,64 +44,82 @@ impl ModelManager {
         &self.cache_dir
     }
 
-    pub fn model_path(&self, model_id: &str) -> PathBuf {
-        self.cache_dir.join(format!("{model_id}.safetensors"))
-    }
-
-    fn tokenizer_path(&self, model_id: &str) -> PathBuf {
-        self.cache_dir.join(format!("{model_id}_tokenizer.json"))
+    pub fn specs(&self) -> &[ModelSpec] {
+        &self.specs
     }
 
     pub fn spec(&self, model_id: &str) -> Result<&ModelSpec> {
         self.specs
-            .get(model_id)
+            .iter()
+            .find(|s| s.id == model_id)
             .ok_or_else(|| anyhow::anyhow!("unknown model: {model_id}"))
     }
 
-    /// Return a verified local copy of the model, downloading it if necessary.
+    pub fn model_dir(&self, model_id: &str) -> PathBuf {
+        self.cache_dir.join(model_id)
+    }
+
+    pub fn file_path(&self, model_id: &str, file: &str) -> PathBuf {
+        self.model_dir(model_id).join(file)
+    }
+
+    /// True when every artifact is present *and* matches its pinned hash.
+    pub fn is_installed(&self, model_id: &str) -> bool {
+        let Ok(spec) = self.spec(model_id) else {
+            return false;
+        };
+        spec.files.iter().all(|f| {
+            let path = self.file_path(model_id, f.name);
+            path.exists() && verify_sha256(&path, f.sha256).unwrap_or(false)
+        })
+    }
+
+    /// Ensure every file of `model_id` is present and verified, downloading what
+    /// is missing or corrupt. Returns the model directory.
     pub async fn ensure(&self, model_id: &str) -> Result<PathBuf> {
         let spec = self.spec(model_id)?.clone();
-        tokio::fs::create_dir_all(&self.cache_dir).await?;
-        let dest = self.model_path(model_id);
+        let dir = self.model_dir(model_id);
+        tokio::fs::create_dir_all(&dir).await?;
 
-        if dest.exists() && Self::verify_sha256(&dest, spec.sha256)? {
-            self.ensure_tokenizer(model_id, spec.tokenizer_url).await?;
-            return Ok(dest);
+        for file in spec.files {
+            let dest = dir.join(file.name);
+            if dest.exists() && verify_sha256(&dest, file.sha256)? {
+                continue;
+            }
+            if dest.exists() {
+                tracing::warn!("{} failed checksum verification; re-downloading", file.name);
+            }
+            if self.offline {
+                bail!(
+                    "{model_id}/{} is missing or corrupt and PAPER_OFFLINE is set",
+                    file.name
+                );
+            }
+            let url = format!(
+                "https://huggingface.co/{}/resolve/{}/{}",
+                spec.repo, spec.revision, file.name
+            );
+            self.download(&url, &dest, &format!("{model_id}/{}", file.name), file.size)
+                .await?;
+            if !verify_sha256(&dest, file.sha256)? {
+                let _ = tokio::fs::remove_file(&dest).await;
+                bail!(
+                    "checksum mismatch for {model_id}/{}; deleted the corrupt download",
+                    file.name
+                );
+            }
         }
-        if dest.exists() {
-            tracing::warn!("cached {model_id} failed checksum verification; re-downloading");
-        }
-        if self.offline {
-            bail!("model {model_id} is not installed and PAPER_OFFLINE is set");
-        }
-
-        self.download(spec.url, &dest, spec.name, spec.size_mb).await?;
-        if !Self::verify_sha256(&dest, spec.sha256)? {
-            let _ = tokio::fs::remove_file(&dest).await;
-            bail!("checksum mismatch for {model_id}; deleted the corrupt download");
-        }
-        self.ensure_tokenizer(model_id, spec.tokenizer_url).await?;
-        Ok(dest)
+        Ok(dir)
     }
 
-    async fn ensure_tokenizer(&self, model_id: &str, url: &str) -> Result<PathBuf> {
-        let path = self.tokenizer_path(model_id);
-        if path.exists() {
-            return Ok(path);
-        }
-        if self.offline {
-            bail!("tokenizer for {model_id} is missing and PAPER_OFFLINE is set");
-        }
-        self.download(url, &path, "tokenizer", 0).await?;
-        Ok(path)
-    }
-
-    async fn download(&self, url: &str, dest: &Path, label: &str, size_mb: u64) -> Result<()> {
-        let pb = ProgressBar::new(size_mb * 1_000_000);
+    async fn download(&self, url: &str, dest: &Path, label: &str, size: u64) -> Result<()> {
+        let pb = ProgressBar::new(size);
         pb.set_style(
-            ProgressStyle::with_template("{msg} [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({eta})")
-                .unwrap_or_else(|_| ProgressStyle::default_bar())
-                .progress_chars("##-"),
+            ProgressStyle::with_template(
+                "{msg} [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({eta})",
+            )
+            .unwrap_or_else(|_| ProgressStyle::default_bar())
+            .progress_chars("##-"),
         );
         pb.set_message(format!("Downloading {label}"));
 
@@ -114,12 +131,8 @@ impl ModelManager {
             .with_context(|| format!("downloading {url}"))?
             .error_for_status()
             .with_context(|| format!("download failed for {url}"))?;
-        if let Some(total) = resp.content_length() {
-            pb.set_length(total);
-        }
 
-        // Write to a temporary file first so an interrupted download can never be
-        // mistaken for a valid model.
+        // `.partial` first: an interrupted download is never mistaken for a model.
         let tmp = dest.with_extension("partial");
         let mut file = tokio::fs::File::create(&tmp).await?;
         let mut downloaded = 0u64;
@@ -135,71 +148,82 @@ impl ModelManager {
         Ok(())
     }
 
-    pub fn verify_sha256(path: &Path, expected: &str) -> Result<bool> {
-        let mut file = std::fs::File::open(path)?;
-        let mut hasher = Sha256::new();
-        std::io::copy(&mut file, &mut hasher)?;
-        let actual = hex::encode(hasher.finalize());
-        Ok(actual.eq_ignore_ascii_case(expected))
-    }
-
-    pub fn is_installed(&self, model_id: &str) -> bool {
-        let Ok(spec) = self.spec(model_id) else {
-            return false;
-        };
-        self.model_path(model_id).exists()
-            && Self::verify_sha256(&self.model_path(model_id), spec.sha256).unwrap_or(false)
-    }
-
     pub fn list(&self) -> Vec<ModelInfo> {
-        let mut infos: Vec<ModelInfo> = self
-            .specs
-            .values()
+        self.specs
+            .iter()
             .map(|s| ModelInfo {
-                id: s.id,
-                name: s.name,
-                size_mb: s.size_mb,
+                id: s.id.to_string(),
+                name: s.name.to_string(),
+                size_mb: s.size_mb(),
                 kind: s.kind,
-                license: s.license,
-                installed: self.model_path(s.id).exists(),
+                license: s.license.to_string(),
+                languages: s.languages.to_string(),
+                installed: self.is_installed(s.id),
+                is_default: s.id == DEFAULT_EMBEDDING,
             })
-            .collect();
-        infos.sort_by_key(|m| m.id);
-        infos
+            .collect()
     }
 
-    pub async fn get_embedder(&self) -> Result<Embedder> {
-        let path = self.ensure(DEFAULT_EMBEDDING).await?;
-        Embedder::new(&path, &self.tokenizer_path(DEFAULT_EMBEDDING))
+    pub fn load_embedder(&self, model_id: &str) -> Result<Embedder> {
+        let spec = self.spec(model_id)?;
+        if spec.kind != ModelKind::Embedding {
+            bail!("{model_id} is not an embedding model");
+        }
+        Embedder::new(&self.model_dir(model_id), spec)
     }
 
-    pub async fn get_reranker(&self) -> Result<Reranker> {
-        let path = self.ensure(OPTIONAL_RERANKER).await?;
-        Reranker::new(&path, &self.tokenizer_path(OPTIONAL_RERANKER))
+    /// Load the default embedder if (and only if) it is already on disk.
+    pub fn embedder_if_installed(&self, model_id: &str) -> Option<Embedder> {
+        match self.load_embedder(model_id) {
+            Ok(e) => Some(e),
+            Err(e) => {
+                tracing::debug!("embedder {model_id} unavailable: {e}");
+                None
+            }
+        }
     }
 
-    /// The reranker is opt-in: only load it when it is already present locally.
-    pub async fn reranker_if_installed(&self) -> Result<Option<Reranker>> {
-        if self.model_path(OPTIONAL_RERANKER).exists() {
-            Ok(Some(self.get_reranker().await?))
-        } else {
-            Ok(None)
+    pub fn load_reranker(&self) -> Result<Reranker> {
+        let spec = self.spec(OPTIONAL_RERANKER)?;
+        Reranker::new(&self.model_dir(OPTIONAL_RERANKER), spec)
+    }
+
+    pub fn reranker_if_installed(&self) -> Option<Reranker> {
+        match self.load_reranker() {
+            Ok(r) => Some(r),
+            Err(e) => {
+                tracing::debug!("reranker unavailable: {e}");
+                None
+            }
         }
     }
 
     pub async fn remove(&self, model_id: &str) -> Result<()> {
-        let _ = tokio::fs::remove_file(self.model_path(model_id)).await;
-        let _ = tokio::fs::remove_file(self.tokenizer_path(model_id)).await;
+        self.spec(model_id)?;
+        let dir = self.model_dir(model_id);
+        if dir.exists() {
+            tokio::fs::remove_dir_all(&dir).await?;
+        }
         Ok(())
     }
 }
 
+pub fn verify_sha256(path: &Path, expected: &str) -> Result<bool> {
+    let mut file = std::fs::File::open(path)?;
+    let mut hasher = Sha256::new();
+    std::io::copy(&mut file, &mut hasher)?;
+    let actual = hex::encode(hasher.finalize());
+    Ok(actual.eq_ignore_ascii_case(expected))
+}
+
 #[derive(Debug, serde::Serialize)]
 pub struct ModelInfo {
-    pub id: &'static str,
-    pub name: &'static str,
+    pub id: String,
+    pub name: String,
     pub size_mb: u64,
     pub kind: ModelKind,
-    pub license: &'static str,
+    pub license: String,
+    pub languages: String,
     pub installed: bool,
+    pub is_default: bool,
 }

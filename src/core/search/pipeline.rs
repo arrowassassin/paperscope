@@ -11,12 +11,23 @@ use std::path::PathBuf;
 /// Deterministic, non-generative embedder used in tests and in `--no-model`
 /// keyword-only operation.
 pub trait QueryEmbedder {
+    /// Embed a document chunk.
     fn embed(&self, text: &str) -> Result<Vec<f32>>;
+
+    /// Embed a search query. Models with an asymmetric retrieval instruction
+    /// (BGE, E5) override this; symmetric models just use `embed`.
+    fn embed_query(&self, text: &str) -> Result<Vec<f32>> {
+        self.embed(text)
+    }
 }
 
 impl QueryEmbedder for Embedder {
     fn embed(&self, text: &str) -> Result<Vec<f32>> {
-        Embedder::embed(self, text)
+        Embedder::embed_document(self, text)
+    }
+
+    fn embed_query(&self, text: &str) -> Result<Vec<f32>> {
+        Embedder::embed_query(self, text)
     }
 }
 
@@ -61,7 +72,7 @@ impl SearchPipeline {
         let mut sem_hits: Vec<RawHit> = Vec::new();
         if kw_hits.len() < self.config.keyword_sufficiency_threshold {
             if let Some(embedder) = &self.embedder {
-                let query_vec = embedder.embed(query)?;
+                let query_vec = embedder.embed_query(query)?;
                 sem_hits = tier1_search(&self.conn, &query_vec, roots, self.config.semantic_limit)?
                     .into_iter()
                     .filter(|hit| hit.score >= self.config.semantic_min_score)
@@ -70,22 +81,57 @@ impl SearchPipeline {
         }
 
         let fused = rrf_fuse(&kw_hits, &sem_hits, self.config.rrf_k, self.config.fused_limit);
-        let mut hits = self.hydrate(&fused)?;
+        let relevance = relevance_map(&kw_hits, &sem_hits);
+        let mut hits = self.hydrate(&fused, &relevance)?;
 
         if let Some(reranker) = &self.reranker {
-            hits = reranker.rerank(query, hits)?;
+            // Only the top candidates go through the cross-encoder: it is one
+            // forward pass per pair, so reranking everything would be far slower.
+            let rest = hits.split_off(self.config.rerank_top.min(hits.len()));
+            let mut reranked = reranker.rerank(query, hits)?;
+            reranked.extend(rest);
+            hits = reranked;
         }
 
         for hit in &mut hits {
-            hit.confidence = confidence_for(hit.score);
+            hit.confidence = self.confidence_for(hit, query, &kw_hits, &sem_hits);
             hit.engine = Engine::Local;
             hit.why_matched = why_matched(hit, &kw_hits, &sem_hits);
         }
         Ok(hits)
     }
 
+    /// Confidence describes the *evidence*, not the rank position.
+    ///
+    /// A lone keyword hit is not automatically strong evidence: normalising bm25
+    /// within a result set of size one would otherwise always yield 1.0.
+    fn confidence_for(
+        &self,
+        hit: &Hit,
+        query: &str,
+        keyword: &[RawHit],
+        semantic: &[RawHit],
+    ) -> Confidence {
+        let kw = keyword.iter().any(|h| h.chunk_id == hit.source_id);
+        let sem = semantic.iter().find(|h| h.chunk_id == hit.source_id);
+        match (kw, sem) {
+            // Corroborated by two independent retrievers.
+            (true, Some(_)) => Confidence::High,
+            // Every content word of the query literally appears in the chunk.
+            (true, None) if full_term_coverage(query, &hit.content) => Confidence::High,
+            (true, None) => Confidence::Medium,
+            (false, Some(sem)) if sem.score >= 0.75 => Confidence::High,
+            (false, Some(sem)) if sem.score >= 0.5 => Confidence::Medium,
+            _ => Confidence::Low,
+        }
+    }
+
     /// Turn `(chunk_id, rrf_score)` pairs into full citations.
-    fn hydrate(&self, fused: &[(i64, f32)]) -> Result<Vec<Hit>> {
+    ///
+    /// RRF scores only define the *order* — they are tiny fractions like 0.016
+    /// and meaningless to a user. The displayed `score` is the underlying
+    /// normalised relevance, which is also what confidence is derived from.
+    fn hydrate(&self, fused: &[(i64, f32)], relevance: &HashMap<i64, f32>) -> Result<Vec<Hit>> {
         let mut hits = Vec::with_capacity(fused.len());
         let mut stmt = self.conn.inner().prepare(
             "SELECT id, path, page, line_start, line_end, content FROM chunks WHERE id = ?",
@@ -98,8 +144,9 @@ impl SearchPipeline {
                     page: row.get(2)?,
                     line_start: row.get(3)?,
                     line_end: row.get(4)?,
-                    snippet: row.get::<_, String>(5)?,
-                    score,
+                    snippet: String::new(),
+                    content: row.get::<_, String>(5)?,
+                    score: relevance.get(&id).copied().unwrap_or(score),
                     why_matched: String::new(),
                     confidence: Confidence::Low,
                     engine: Engine::Local,
@@ -107,7 +154,7 @@ impl SearchPipeline {
             });
             match row {
                 Ok(mut hit) => {
-                    hit.snippet = make_snippet(&hit.snippet);
+                    hit.snippet = make_snippet(&hit.content);
                     hits.push(hit);
                 }
                 // A chunk can disappear between the scan and hydration.
@@ -144,14 +191,32 @@ pub fn rrf_fuse(
     fused
 }
 
-fn confidence_for(score: f32) -> Confidence {
-    if score > 0.8 {
-        Confidence::High
-    } else if score > 0.5 {
-        Confidence::Medium
-    } else {
-        Confidence::Low
+/// Best available relevance per chunk: the semantic cosine similarity when we
+/// have one, otherwise the normalised keyword score.
+fn relevance_map(keyword: &[RawHit], semantic: &[RawHit]) -> HashMap<i64, f32> {
+    let mut map = HashMap::new();
+    for hit in keyword {
+        map.insert(hit.chunk_id, hit.score.clamp(0.0, 1.0));
     }
+    for hit in semantic {
+        let entry = map.entry(hit.chunk_id).or_insert(0.0);
+        *entry = entry.max(hit.score.clamp(0.0, 1.0));
+    }
+    map
+}
+
+/// True when every content word of the query occurs in the text, i.e. an exact
+/// lexical match rather than a partial `OR` match.
+fn full_term_coverage(query: &str, text: &str) -> bool {
+    let text = text.to_lowercase();
+    let mut terms = query
+        .split_whitespace()
+        .map(|t| t.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase())
+        .filter(|t| t.len() >= 3);
+    let Some(first) = terms.next() else {
+        return false;
+    };
+    text.contains(&first) && terms.all(|t| text.contains(&t))
 }
 
 fn make_snippet(content: &str) -> String {

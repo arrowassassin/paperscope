@@ -1,6 +1,6 @@
 use super::{IndexArgs, Workspace, EXIT_FOUND, EXIT_MODEL_MISSING};
 use crate::core::index::Indexer;
-use crate::core::models::{ModelManager, DEFAULT_EMBEDDING};
+use crate::core::models::DEFAULT_EMBEDDING;
 use anyhow::Result;
 use std::path::PathBuf;
 
@@ -29,7 +29,7 @@ pub async fn run(args: IndexArgs) -> Result<i32> {
         "indexed {} file(s) ({} chunks), {} unchanged, {} skipped, {} removed",
         stats.indexed, stats.chunks, stats.unchanged, stats.skipped, pruned
     );
-    if !ModelManager::new().model_path(DEFAULT_EMBEDDING).exists() {
+    if !ws.embedding_model_installed() {
         eprintln!("hint: `paper models install {DEFAULT_EMBEDDING}` enables semantic search");
     }
     if args.watch {

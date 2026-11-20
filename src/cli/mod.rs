@@ -6,7 +6,7 @@ pub mod search;
 
 use crate::core::config::Config;
 use crate::core::index::{init_db, Connection};
-use crate::core::models::{ModelManager, DEFAULT_EMBEDDING, OPTIONAL_RERANKER};
+use crate::core::models::{ModelManager, DEFAULT_EMBEDDING, MULTILINGUAL_EMBEDDING, OPTIONAL_RERANKER};
 use crate::core::paths::Paths;
 use crate::core::search::{SearchPipeline, SharedEmbedder};
 use anyhow::Result;
@@ -65,32 +65,37 @@ impl Workspace {
     }
 
     /// Load the embedder only when it is already on disk: searching must never
-    /// trigger a surprise 200 MB download.
+    /// trigger a surprise download. If both embedding models are present the
+    /// multilingual one wins, since it also covers English.
     pub fn embedder(&self) -> Option<SharedEmbedder> {
         let manager = ModelManager::new();
-        if !manager.model_path(DEFAULT_EMBEDDING).exists() {
-            return None;
+        for candidate in [MULTILINGUAL_EMBEDDING, DEFAULT_EMBEDDING] {
+            if !manager.is_installed(candidate) {
+                continue;
+            }
+            if let Some(embedder) = manager.embedder_if_installed(candidate) {
+                return Some(std::sync::Arc::new(embedder) as SharedEmbedder);
+            }
         }
-        let tokenizer = manager
-            .cache_dir()
-            .join(format!("{DEFAULT_EMBEDDING}_tokenizer.json"));
-        crate::core::models::Embedder::new(&manager.model_path(DEFAULT_EMBEDDING), &tokenizer)
-            .map(|e| std::sync::Arc::new(e) as SharedEmbedder)
-            .map_err(|e| tracing::warn!("embedding model unavailable: {e}"))
-            .ok()
+        None
     }
 
     pub fn pipeline(&self) -> Result<SearchPipeline> {
         Ok(SearchPipeline::new(
             self.open_index()?,
             self.embedder(),
-            None,
+            ModelManager::new().reranker_if_installed(),
             self.config.search(),
         ))
     }
 
+    pub fn embedding_model_installed(&self) -> bool {
+        let manager = ModelManager::new();
+        manager.is_installed(DEFAULT_EMBEDDING) || manager.is_installed(MULTILINGUAL_EMBEDDING)
+    }
+
     pub fn reranker_installed(&self) -> bool {
-        ModelManager::new().model_path(OPTIONAL_RERANKER).exists()
+        ModelManager::new().is_installed(OPTIONAL_RERANKER)
     }
 }
 

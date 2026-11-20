@@ -104,7 +104,7 @@ fn init_db_is_idempotent() {
 fn vec_table_accepts_and_retrieves_embeddings() {
     let conn = memory_db();
     let id = insert_chunk(&conn, "/a.txt", "warranty covers 24 months");
-    let vector = vec![0.5f32; 768];
+    let vector = vec![0.5f32; paper::core::index::EMBEDDING_DIMS];
     conn.inner()
         .execute(
             "INSERT INTO chunks_vec (rowid, embedding) VALUES (?, ?)",

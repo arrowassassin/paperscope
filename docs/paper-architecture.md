@@ -1,3 +1,11 @@
+> **Status note (2026-11-19):** the implemented system differs from this spec in
+> its model choices and inference stack. See **`implementation-status.md`** for
+> the verified, as-built description. In short: Candle instead of ONNX Runtime,
+> `bge-small-en-v1.5` (134 MB) as the default embedder instead of EmbeddingGemma
+> (gated, 1.21 GB unquantized), `multilingual-e5-small` as the multilingual
+> option, and `bge-reranker-base` instead of `bge-reranker-v2-m3` (2.27 GB).
+> Vectors are 384-dim, and sqlite-vec is statically linked rather than loaded.
+
 # Paper — Architecture & Model Manager Spec
 
 **One line:** a local-first document finder that uses the OS's own index first, tiny embeddings only for the gaps, answers with exact citations, borrows the OS brain for polish, and exposes itself to coding agents over MCP + CLI.

@@ -205,6 +205,43 @@ fn strong_keyword_evidence_skips_the_embedding_model() {
 }
 
 #[test]
+fn exact_identifier_match_is_high_confidence() {
+    let fx = Fixture::new();
+    let hits = fx.pipeline().search("FR-9981", &[]).unwrap();
+    assert_eq!(hits.len(), 1);
+    assert!(matches!(hits[0].confidence, paper::core::search::Confidence::High));
+}
+
+#[test]
+fn partial_keyword_match_is_not_reported_as_certain() {
+    let fx = Fixture::new();
+    // "serial" only exists in the fridge document, so the dishwasher hit is a
+    // partial OR match and must not claim high confidence.
+    let hits = fx.pipeline().search("warranty serial", &[]).unwrap();
+    for hit in &hits {
+        if hit.path.ends_with("dishwasher.txt") {
+            assert!(
+                !matches!(hit.confidence, paper::core::search::Confidence::High),
+                "partial match claimed high confidence: {hit:?}"
+            );
+        }
+    }
+    let fridge = hits.iter().find(|h| h.path.ends_with("fridge.txt"));
+    if let Some(fridge) = fridge {
+        assert!(matches!(fridge.confidence, paper::core::search::Confidence::High));
+    }
+}
+
+#[test]
+fn hits_carry_full_content_not_just_a_truncated_snippet() {
+    let fx = Fixture::new();
+    let hits = fx.pipeline().search("fridge warranty", &[]).unwrap();
+    let hit = &hits[0];
+    assert!(hit.content.contains("Serial number FR-9981"));
+    assert!(hit.snippet.len() <= hit.content.len());
+}
+
+#[test]
 fn no_match_returns_an_empty_result_not_an_error() {
     let fx = Fixture::new();
     let hits = fx.pipeline().search("zzzunfindable", &[]).unwrap();
