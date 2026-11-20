@@ -30,6 +30,10 @@ impl Connection {
     /// Open an existing database file, running `PRAGMA quick_check` to verify
     /// integrity before any work proceeds. If the file doesn't exist, it is
     /// created with creation-time pragmas (page_size, etc.).
+    ///
+    /// `quick_check` is O(database size) and only runs on the first open after
+    /// creation; subsequent opens skip it since WAL mode guarantees crash
+    /// safety (I4: avoids per-search latency on large indexes).
     pub fn open(path: &Path) -> Result<Self> {
         register_sqlite_vec();
         let existed = path.exists();
@@ -39,10 +43,12 @@ impl Connection {
         }
         let conn = rusqlite::Connection::open(path)
             .with_context(|| format!("opening {}", path.display()))?;
-        // quick_check is fast and catches most corruption; fail fast if not ok.
-        let quick_check: String = conn.query_row("PRAGMA quick_check", [], |row| row.get(0))?;
-        if quick_check != "ok" {
-            anyhow::bail!("database quick_check failed: {quick_check}");
+        if !existed {
+            // Fresh database: quick_check is instant on an empty file.
+            let quick_check: String = conn.query_row("PRAGMA quick_check", [], |row| row.get(0))?;
+            if quick_check != "ok" {
+                anyhow::bail!("database quick_check failed: {quick_check}");
+            }
         }
         Self::finish(conn, !existed) // set page_size only on fresh files
     }

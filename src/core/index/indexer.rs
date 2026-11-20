@@ -9,10 +9,6 @@ use anyhow::{Context, Result};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Files larger than this are skipped rather than loaded into memory. PDFs and
-/// archives can legitimately be large; the cap also bounds parser memory.
-pub const MAX_FILE_BYTES: u64 = 64 * 1024 * 1024;
-
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct IndexStats {
     pub scanned: usize,
@@ -140,7 +136,16 @@ impl Indexer {
             stats.skipped = 1;
             return Ok(stats);
         }
-        if metadata.len() > MAX_FILE_BYTES {
+        // Respect each extractor's own size cap instead of a single global cap,
+        // so a 100 MB PDF isn't skipped just because the default is 64 MB (C3).
+        // Find every extractor that claims this extension and use the largest cap.
+        let mut max_allowed: u64 = 0;
+        for extractor in extract::extractors() {
+            if extractor.extensions().contains(&extract::extension_of(&path_string).as_str()) {
+                max_allowed = max_allowed.max(extractor.capabilities().max_file_bytes);
+            }
+        }
+        if max_allowed == 0 || metadata.len() > max_allowed {
             stats.skipped = 1;
             return Ok(stats);
         }

@@ -70,7 +70,7 @@ jobs:
 
       - name: Build and sign with cargo-dist
         id: dist
-        uses: cargo-dist/action@main
+        uses: cargo-dist/action@v0.34.0
         env:
           # macOS signing
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}

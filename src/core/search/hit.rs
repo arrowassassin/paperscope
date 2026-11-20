@@ -31,4 +31,4 @@ pub struct Hit {
 pub enum Confidence { High, Medium, Low }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum Engine { Local, AppleFM, WindowsAion, GeminiNano, OpenRouter }
+pub enum Engine { Local }

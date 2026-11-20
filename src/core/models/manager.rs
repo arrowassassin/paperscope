@@ -5,7 +5,9 @@ use anyhow::{bail, Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::Client;
 use sha2::{Digest, Sha256};
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use tokio::io::AsyncWriteExt;
 
 /// Downloads, verifies and loads models. Every artifact is pinned by commit and
@@ -15,6 +17,9 @@ pub struct ModelManager {
     client: Client,
     specs: Vec<ModelSpec>,
     offline: bool,
+    /// Installed model IDs cached in memory so repeated `is_installed()` calls
+    /// don't re-hash multi-GB model files on every search (I1).
+    installed_cache: Mutex<HashSet<String>>,
 }
 
 impl Default for ModelManager {
@@ -37,6 +42,7 @@ impl ModelManager {
             client: Client::new(),
             specs: all_specs(),
             offline,
+            installed_cache: Mutex::new(HashSet::new()),
         }
     }
 
@@ -64,14 +70,26 @@ impl ModelManager {
     }
 
     /// True when every artifact is present *and* matches its pinned hash.
+    /// Results are cached so repeated calls don't re-hash multi-GB files (I1).
     pub fn is_installed(&self, model_id: &str) -> bool {
+        // Fast path: already verified in this process.
+        {
+            let cache = self.installed_cache.lock().unwrap();
+            if cache.contains(model_id) {
+                return true;
+            }
+        }
         let Ok(spec) = self.spec(model_id) else {
             return false;
         };
-        spec.files.iter().all(|f| {
+        let installed = spec.files.iter().all(|f| {
             let path = self.file_path(model_id, f.name);
             path.exists() && verify_sha256(&path, f.sha256).unwrap_or(false)
-        })
+        });
+        if installed {
+            self.installed_cache.lock().unwrap().insert(model_id.to_string());
+        }
+        installed
     }
 
     /// Ensure every file of `model_id` is present and verified, downloading what
@@ -109,10 +127,20 @@ impl ModelManager {
                 );
             }
         }
+        self.installed_cache.lock().unwrap().insert(model_id.to_string());
         Ok(dir)
     }
 
     async fn download(&self, url: &str, dest: &Path, label: &str, size: u64) -> Result<()> {
+        // Resume support: if a `.partial` file exists, request bytes from where
+        // we left off (I2). Hugging Face supports Range requests.
+        let tmp = dest.with_extension("partial");
+        let mut downloaded = if tmp.exists() {
+            tmp.metadata().map(|m| m.len()).unwrap_or(0)
+        } else {
+            0
+        };
+
         let pb = ProgressBar::new(size);
         pb.set_style(
             ProgressStyle::with_template(
@@ -122,10 +150,13 @@ impl ModelManager {
             .progress_chars("##-"),
         );
         pb.set_message(format!("Downloading {label}"));
+        pb.set_position(downloaded);
 
-        let mut resp = self
-            .client
-            .get(url)
+        let mut builder = self.client.get(url);
+        if downloaded > 0 {
+            builder = builder.header(reqwest::header::RANGE, format!("bytes={downloaded}-"));
+        }
+        let mut resp = builder
             .send()
             .await
             .with_context(|| format!("downloading {url}"))?
@@ -133,9 +164,11 @@ impl ModelManager {
             .with_context(|| format!("download failed for {url}"))?;
 
         // `.partial` first: an interrupted download is never mistaken for a model.
-        let tmp = dest.with_extension("partial");
-        let mut file = tokio::fs::File::create(&tmp).await?;
-        let mut downloaded = 0u64;
+        let mut file = tokio::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&tmp)
+            .await?;
         while let Some(chunk) = resp.chunk().await? {
             file.write_all(&chunk).await?;
             downloaded += chunk.len() as u64;

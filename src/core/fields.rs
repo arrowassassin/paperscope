@@ -1,20 +1,50 @@
+use chrono::NaiveDate;
 use regex::Regex;
 use serde_json::json;
+use std::sync::OnceLock;
+
+fn iso_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\b(\d{4}-\d{2}-\d{2})\b").unwrap())
+}
+
+fn dmy_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\b(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})\b").unwrap())
+}
+
+fn symbol_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"([$€£₹¥])\s*(\d{1,3}(?:[,\s]\d{3})*(?:[.,]\d+)?|\d+(?:[.,]\d+)?)").unwrap())
+}
+
+fn code_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"(\d{1,3}(?:[,\s]\d{3})*(?:[.,]\d+)?|\d+(?:[.,]\d+)?)\s+(USD|EUR|GBP|INR|JPY)\b").unwrap())
+}
 
 /// Extract ISO 8601 dates (YYYY-MM-DD) and DD Mon YYYY dates from text.
+/// Invalid calendar dates (e.g. `2027-99-99`) are rejected — only verifiable
+/// dates are returned (C4).
 pub fn extract_dates(text: &str) -> Vec<String> {
     let mut dates = Vec::new();
 
     // ISO 8601: YYYY-MM-DD
-    let iso_re = Regex::new(r"\b(\d{4}-\d{2}-\d{2})\b").unwrap();
-    for cap in iso_re.captures_iter(text) {
-        dates.push(cap[1].to_string());
+    for cap in iso_regex().captures_iter(text) {
+        let s = &cap[1];
+        if NaiveDate::parse_from_str(s, "%Y-%m-%d").is_ok() {
+            dates.push(s.to_string());
+        }
     }
 
     // DD Mon YYYY (e.g., "15 Jan 2027", "1 January 2027")
-    let dmy_re = Regex::new(r"\b(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})\b").unwrap();
-    for cap in dmy_re.captures_iter(text) {
-        dates.push(cap[1].to_string());
+    for cap in dmy_regex().captures_iter(text) {
+        let s = &cap[1];
+        if NaiveDate::parse_from_str(s, "%d %b %Y").is_ok()
+            || NaiveDate::parse_from_str(s, "%d %B %Y").is_ok()
+        {
+            dates.push(s.to_string());
+        }
     }
 
     // Deduplicate while preserving order
@@ -29,8 +59,7 @@ pub fn extract_amounts(text: &str) -> Vec<(f64, String)> {
     let mut amounts = Vec::new();
 
     // Pattern: symbol + amount (e.g., $1,234.56, €1.234,56, £100, ₹5000, ¥10000)
-    let symbol_re = Regex::new(r"([$€£₹¥])\s*(\d{1,3}(?:[,\s]\d{3})*(?:[.,]\d+)?|\d+(?:[.,]\d+)?)").unwrap();
-    for cap in symbol_re.captures_iter(text) {
+    for cap in symbol_regex().captures_iter(text) {
         let symbol = &cap[1];
         let amount_str = &cap[2];
         if let Some((amount, code)) = parse_amount_with_symbol(amount_str, symbol) {
@@ -39,8 +68,7 @@ pub fn extract_amounts(text: &str) -> Vec<(f64, String)> {
     }
 
     // Pattern: amount + code (e.g., 1234.56 USD, 1.234,56 EUR)
-    let code_re = Regex::new(r"(\d{1,3}(?:[,\s]\d{3})*(?:[.,]\d+)?|\d+(?:[.,]\d+)?)\s+(USD|EUR|GBP|INR|JPY)\b").unwrap();
-    for cap in code_re.captures_iter(text) {
+    for cap in code_regex().captures_iter(text) {
         let amount_str = &cap[1];
         let code = &cap[2];
         if let Some(amount) = parse_number(amount_str) {
@@ -98,7 +126,7 @@ fn parse_number(s: &str) -> Option<f64> {
     } else if s.contains('.') {
         // Could be 1.234 (thousands European) or 1234.56 (decimal)
         let parts: Vec<&str> = s.split('.').collect();
-        if parts.len() == 2 && parts[1].len() == 3 && parts.len() == 2 {
+        if parts.len() == 2 && parts[1].len() == 3 {
             // Likely thousands: 1.234
             s.replace('.', "").parse().ok()
         } else {

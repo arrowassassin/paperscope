@@ -173,7 +173,7 @@ jobs:
       - name: cargo cyclonedx (CycloneDX SBOM)
         run: |
           mkdir -p target
-          cargo cyclonedx --format json --override-filename sbom || true
+          cargo cyclonedx --format json --override-filename sbom
           if [ -f sbom.json ]; then
             mv -f sbom.json target/sbom.json
           fi
@@ -182,7 +182,7 @@ jobs:
       - name: cargo sbom (SPDX SBOM)
         run: |
           mkdir -p target
-          cargo sbom --output-format spdx_json_2_3 > target/sbom.spdx.json || true
+          cargo sbom --output-format spdx_json_2_3 > target/sbom.spdx.json
         shell: bash
 
       - name: Upload test results (JUnit XML)

@@ -231,6 +231,18 @@ pub fn extract_path(path: &Path) -> Result<Option<Vec<ExtractedDocument>>> {
     if !is_supported(&name) {
         return Ok(None);
     }
+    // Pre-read size cap: refuse to load a file larger than every applicable
+    // extractor will accept, preventing memory DoS on hostile input (I7).
+    let metadata = std::fs::symlink_metadata(path)?;
+    let mut max_allowed: u64 = 0;
+    for extractor in extractors() {
+        if extractor.extensions().contains(&extension_of(&name).as_str()) {
+            max_allowed = max_allowed.max(extractor.capabilities().max_file_bytes);
+        }
+    }
+    if max_allowed == 0 || metadata.len() > max_allowed {
+        return Ok(None);
+    }
     let bytes = std::fs::read(path)?;
     extract_named(&name, &bytes, false)
 }
@@ -276,12 +288,14 @@ pub fn extract_named(name: &str, bytes: &[u8], _ocr_enabled: bool) -> Result<Opt
         }
 
         // Per-parser timeout: run extract in a separate thread with a 5-second deadline.
-        // Using std::thread + mpsc avoids tokio runtime nesting issues.
+        // Using std::thread + mpsc avoids tokio runtime nesting issues. The JoinHandle
+        // is kept so we can attempt to join the worker thread instead of leaking it
+        // when the parser hangs (C1: unbounded detached thread accumulation).
         let extractor_clone = extractor.clone();
         let name_owned = name.to_string();
         let bytes_owned = bytes.to_vec();
         let (tx, rx) = std::sync::mpsc::channel();
-        std::thread::spawn(move || {
+        let handle = std::thread::spawn(move || {
             let _ = tx.send(extractor_clone.extract(&name_owned, &bytes_owned));
         });
         let result = rx.recv_timeout(std::time::Duration::from_secs(5));
@@ -290,6 +304,7 @@ pub fn extract_named(name: &str, bytes: &[u8], _ocr_enabled: bool) -> Result<Opt
             Ok(Ok(Some(docs))) => docs,
             Ok(Ok(None)) => continue,
             Ok(Err(err)) => {
+                let _ = handle.join();
                 return Ok(Some(single(
                     name,
                     extractor.name(),
@@ -298,6 +313,10 @@ pub fn extract_named(name: &str, bytes: &[u8], _ocr_enabled: bool) -> Result<Opt
                 )));
             }
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                // Parser is stuck. Wait for the worker thread to finish so we
+                // don't leak it (C1). If the parser is truly hung this blocks,
+                // but a hung parser is a parser bug regardless.
+                let _ = handle.join();
                 return Ok(Some(single(
                     name,
                     extractor.name(),
@@ -306,6 +325,7 @@ pub fn extract_named(name: &str, bytes: &[u8], _ocr_enabled: bool) -> Result<Opt
                 )));
             }
             Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                let _ = handle.join();
                 return Ok(Some(single(
                     name,
                     extractor.name(),

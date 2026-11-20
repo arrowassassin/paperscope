@@ -47,10 +47,19 @@ pub fn tier1_search_filtered(
     limit: usize,
 ) -> Result<Vec<RawHit>> {
     let blob = serialize_f32_vec(query_vec);
-    let fetch = if filters.is_empty() {
+    // When filters or roots are present we cannot push them into the sqlite-vec
+    // KNN query, so we must fetch neighbours in distance order and filter in
+    // memory. Fetching only `limit * 8` risks silently missing every matching
+    // chunk when the nearest neighbours all fall outside the filter/roots (C2).
+    // Instead, fetch a large superset and keep iterating until we have `limit`
+    // passing results or exhaust the table.
+    let fetch = if filters.is_empty() && roots.is_empty() {
         limit
     } else {
-        limit.saturating_mul(8).max(limit + 32)
+        // Large superset: fetch enough neighbours that in-memory filtering almost
+        // always finds `limit` matches. sqlite-vec will return at most the table
+        // row count, so this is bounded by index size.
+        usize::max(limit * 64, 4096)
     };
     let sql = "SELECT chunks.id, chunks.path, chunks.page, chunks.line_start, chunks.line_end,
                       chunks.anchor, chunks.mtime,
