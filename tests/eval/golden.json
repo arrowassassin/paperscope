@@ -1,0 +1,542 @@
+{
+  "queries": [
+    {
+      "id": "q1",
+      "text": "fridge warranty expiration date",
+      "qrels": { "0": 2, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "warranty"
+    },
+    {
+      "id": "q2",
+      "text": "dishwasher warranty coverage period",
+      "qrels": { "0": 0, "1": 2, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "warranty"
+    },
+    {
+      "id": "q3",
+      "text": "tax filing deadline 2026",
+      "qrels": { "0": 0, "1": 0, "2": 2, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "tax"
+    },
+    {
+      "id": "q4",
+      "text": "serial number FR-9981",
+      "qrels": { "0": 2, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "serial"
+    },
+    {
+      "id": "q5",
+      "text": "washing machine model WT-5000 manual",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 2, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "washing"
+    },
+    {
+      "id": "q6",
+      "text": "home insurance policy number",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 2, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "insurance"
+    },
+    {
+      "id": "q7",
+      "text": "car insurance renewal date",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 2, "6": 0, "7": 0, "8": 0, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "insurance"
+    },
+    {
+      "id": "q8",
+      "text": "medical prescription dosage",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 2, "7": 0, "8": 0, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "prescription"
+    },
+    {
+      "id": "q9",
+      "text": "dentist appointment next week",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 2, "8": 0, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "dental"
+    },
+    {
+      "id": "q10",
+      "text": "gym membership cancellation policy",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 2, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "gym"
+    },
+    {
+      "id": "q11",
+      "text": "internet bill amount January",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 2 },
+      "answerable": true,
+      "expected_snippet": "internet"
+    },
+    {
+      "id": "q12",
+      "text": "warranty coverage for parts and labor",
+      "qrels": { "0": 1, "1": 2, "2": 0, "3": 1, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "warranty"
+    },
+    {
+      "id": "q13",
+      "text": "income tax return total income",
+      "qrels": { "0": 0, "1": 0, "2": 2, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "tax"
+    },
+    {
+      "id": "q14",
+      "text": "appliance serial numbers list",
+      "qrels": { "0": 1, "1": 0, "2": 0, "3": 1, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "serial"
+    },
+    {
+      "id": "q15",
+      "text": "when does the fridge warranty end",
+      "qrels": { "0": 2, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "warranty"
+    },
+    {
+      "id": "q16",
+      "text": "dishwasher parts warranty duration",
+      "qrels": { "0": 0, "1": 2, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "warranty"
+    },
+    {
+      "id": "q17",
+      "text": "tax deadline April 2026",
+      "qrels": { "0": 0, "1": 0, "2": 2, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "tax"
+    },
+    {
+      "id": "q18",
+      "text": "washing machine spin speed",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 2, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "washing"
+    },
+    {
+      "id": "q19",
+      "text": "home insurance deductible amount",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 2, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "insurance"
+    },
+    {
+      "id": "q20",
+      "text": "auto insurance premium monthly",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 2, "6": 0, "7": 0, "8": 0, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "insurance"
+    },
+    {
+      "id": "q21",
+      "text": "prescription refill instructions",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 2, "7": 0, "8": 0, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "prescription"
+    },
+    {
+      "id": "q22",
+      "text": "dental cleaning appointment time",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 2, "8": 0, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "dental"
+    },
+    {
+      "id": "q23",
+      "text": "gym membership monthly fee",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 2, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "gym"
+    },
+    {
+      "id": "q24",
+      "text": "internet service provider name",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 2 },
+      "answerable": true,
+      "expected_snippet": "internet"
+    },
+    {
+      "id": "q25",
+      "text": "warranty expiry for all appliances",
+      "qrels": { "0": 2, "1": 1, "2": 0, "3": 1, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0 },
+      "answerable": true,
+      "expected_snippet": "warranty"
+    },
+    {
+      "id": "q26",
+      "text": "invoice number INV-2025-001234",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "10": 2 },
+      "answerable": true,
+      "expected_snippet": "invoice"
+    },
+    {
+      "id": "q27",
+      "text": "receipt total amount grocery store",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "11": 2 },
+      "answerable": true,
+      "expected_snippet": "receipt"
+    },
+    {
+      "id": "q28",
+      "text": "property tax assessment value",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "12": 2 },
+      "answerable": true,
+      "expected_snippet": "property"
+    },
+    {
+      "id": "q29",
+      "text": "vehicle registration renewal date",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "13": 2 },
+      "answerable": true,
+      "expected_snippet": "vehicle"
+    },
+    {
+      "id": "q30",
+      "text": "passport expiration date",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "14": 2 },
+      "answerable": true,
+      "expected_snippet": "passport"
+    },
+    {
+      "id": "q31",
+      "text": "birth certificate number",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "15": 2 },
+      "answerable": true,
+      "expected_snippet": "birth"
+    },
+    {
+      "id": "q32",
+      "text": "marriage license date",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "16": 2 },
+      "answerable": true,
+      "expected_snippet": "marriage"
+    },
+    {
+      "id": "q33",
+      "text": "mortgage payment amount monthly",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "17": 2 },
+      "answerable": true,
+      "expected_snippet": "mortgage"
+    },
+    {
+      "id": "q34",
+      "text": "electricity bill due date",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "18": 2 },
+      "answerable": true,
+      "expected_snippet": "electricity"
+    },
+    {
+      "id": "q35",
+      "text": "water bill account number",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "19": 2 },
+      "answerable": true,
+      "expected_snippet": "water"
+    },
+    {
+      "id": "q36",
+      "text": "gas bill previous reading",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "20": 2 },
+      "answerable": true,
+      "expected_snippet": "gas"
+    },
+    {
+      "id": "q37",
+      "text": "phone bill international charges",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "21": 2 },
+      "answerable": true,
+      "expected_snippet": "phone"
+    },
+    {
+      "id": "q38",
+      "text": "credit card statement balance",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "22": 2 },
+      "answerable": true,
+      "expected_snippet": "credit"
+    },
+    {
+      "id": "q39",
+      "text": "bank account routing number",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "23": 2 },
+      "answerable": true,
+      "expected_snippet": "bank"
+    },
+    {
+      "id": "q40",
+      "text": "investment account performance",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "24": 2 },
+      "answerable": true,
+      "expected_snippet": "investment"
+    },
+    {
+      "id": "q41",
+      "text": "retirement contribution limit 2025",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "25": 2 },
+      "answerable": true,
+      "expected_snippet": "retirement"
+    },
+    {
+      "id": "q42",
+      "text": "health insurance copay specialist",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "26": 2 },
+      "answerable": true,
+      "expected_snippet": "health"
+    },
+    {
+      "id": "q43",
+      "text": "vision insurance frame allowance",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "27": 2 },
+      "answerable": true,
+      "expected_snippet": "vision"
+    },
+    {
+      "id": "q44",
+      "text": "dental insurance orthodontics coverage",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "28": 2 },
+      "answerable": true,
+      "expected_snippet": "dental"
+    },
+    {
+      "id": "q45",
+      "text": "life insurance beneficiary name",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "29": 2 },
+      "answerable": true,
+      "expected_snippet": "life"
+    },
+    {
+      "id": "q46",
+      "text": "umbrella policy coverage limit",
+      "qrels": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0, "30": 2 },
+      "answerable": true,
+      "expected_snippet": "umbrella"
+    },
+    {
+      "id": "q47",
+      "text": "what is the meaning of life",
+      "qrels": {},
+      "answerable": false,
+      "expected_snippet": null
+    },
+    {
+      "id": "q48",
+      "text": "weather forecast for tomorrow",
+      "qrels": {},
+      "answerable": false,
+      "expected_snippet": null
+    },
+    {
+      "id": "q49",
+      "text": "stock market prediction next week",
+      "qrels": {},
+      "answerable": false,
+      "expected_snippet": null
+    },
+    {
+      "id": "q50",
+      "text": "celebrity gossip latest news",
+      "qrels": {},
+      "answerable": false,
+      "expected_snippet": null
+    }
+  ],
+  "documents": [
+    {
+      "id": 0,
+      "path": "fridge.txt",
+      "content": "Fridge warranty\nThe fridge warranty covers 24 months from 2025-01-15.\nIt expires on 2027-01-15.\nSerial number FR-9981.\nModel: CoolMaster 3000\nPurchase date: 2025-01-15\nWarranty covers parts and labour for manufacturing defects.\nContact: 1-800-COOLFRIDGE",
+      "page": 0
+    },
+    {
+      "id": 1,
+      "path": "dishwasher.txt",
+      "content": "Dishwasher manual\nThe dishwasher warranty covers parts and labour for 12 months.\nModel: CleanWash Pro\nSerial number DW-5542.\nPurchase date: 2025-06-01\nWarranty expires: 2026-06-01\nSpin speed: 1200 RPM\nCapacity: 14 place settings",
+      "page": 0
+    },
+    {
+      "id": 2,
+      "path": "tax.txt",
+      "content": "Tax return 2025\nTotal income 82000. Filing deadline 2026-04-15.\nTax year: 2025\nFiling status: Single\nDeductions: 14600\nTaxable income: 67400\nTax owed: 10234\nRefund: 2345\nSocial Security Number: XXX-XX-1234",
+      "page": 0
+    },
+    {
+      "id": 3,
+      "path": "washing_machine.txt",
+      "content": "Washing machine manual\nModel: WT-5000\nSerial number WM-7789.\nSpin speed: 1200 RPM\nCapacity: 5.0 cu ft\nWarranty: 24 months parts, 12 months labour\nPurchase date: 2025-03-15\nEnergy Star certified\nWater usage: 13 gallons per cycle",
+      "page": 0
+    },
+    {
+      "id": 4,
+      "path": "home_insurance.txt",
+      "content": "Home insurance policy\nPolicy number: POL-2025-045678\nCoverage: $500,000 dwelling, $250,000 personal property\nDeductible: $1,000\nPremium: $1,450 per year\nEffective: 2025-01-01 to 2026-01-01\nInsurer: SecureHome Insurance\nAgent: John Smith, 555-0123",
+      "page": 0
+    },
+    {
+      "id": 5,
+      "path": "car_insurance.txt",
+      "content": "Auto insurance policy\nPolicy number: POL-2025-098765\nCoverage: Liability $100k/$300k, Collision, Comprehensive\nDeductible: $500\nPremium: $145.50 per month\nRenewal date: 2026-06-15\nVehicle: 2023 Honda Civic, VIN: 1HGCM82633A123456\nInsurer: SafeDrive Insurance",
+      "page": 0
+    },
+    {
+      "id": 6,
+      "path": "prescription.txt",
+      "content": "Prescription label\nMedication: Amoxicillin 500mg\nDosage: 500mg twice daily for 10 days\nQuantity: 20 capsules\nPrescribed by: Dr. Sarah Johnson\nPharmacy: HealthPlus Pharmacy\nRX number: RX-2025-045678\nRefills: 0\nDate filled: 2026-01-20",
+      "page": 0
+    },
+    {
+      "id": 7,
+      "path": "dentist.txt",
+      "content": "Dental appointment confirmation\nPatient: John Doe\nAppointment: 2026-02-20 at 10:00 AM\nProvider: Dr. Michael Chen, DDS\nProcedure: Routine cleaning and exam\nLocation: Bright Smiles Dental, 123 Main St\nInsurance: Delta Dental PPO\nCopay: $0 for preventive",
+      "page": 0
+    },
+    {
+      "id": 8,
+      "path": "gym_membership.txt",
+      "content": "Gym membership agreement\nMember: John Doe\nMonthly fee: $49.99\nContract: 12 months, auto-renews\nCancellation policy: 30 days written notice\nMembership ID: GYM-2025-001234\nStart date: 2025-01-15\nAccess: All locations, 24/7\nFreeze option: $10/month for up to 3 months",
+      "page": 0
+    },
+    {
+      "id": 9,
+      "path": "internet_bill.txt",
+      "content": "Internet service bill\nProvider: FiberNet\nAccount: INT-445566\nService: 1 Gbps Fiber\nMonthly charge: $89.99\nBilling period: 2026-01-01 to 2026-01-31\nDue date: 2026-02-15\nAuto-pay: Enrolled\nRouter rental: $10.00 (included)",
+      "page": 0
+    },
+    {
+      "id": 10,
+      "path": "appliance_invoice.txt",
+      "content": "Invoice\nInvoice number: INV-2025-001234\nDate: 2025-03-15\nCustomer: John Doe\nItems:\n  - WT-5000 Washing Machine: $899.00\n  - Delivery & Install: $75.00\nSubtotal: $974.00\nTax: $77.92\nTotal: $1,051.92\nPayment: Visa ending in 4242\nSerial numbers: WM-7789",
+      "page": 0
+    },
+    {
+      "id": 11,
+      "path": "grocery_receipt.txt",
+      "content": "Grocery Store Receipt\nStore: FreshMart #123\nDate: 2026-01-20\nItems:\n  Milk 2%: $3.99\n  Bread whole wheat: $2.99\n  Eggs dozen: $4.50\n  Chicken breast: $12.99\n  Vegetables mixed: $6.99\n  Fruit apples: $5.99\n  Cereal: $4.99\n  Yogurt: $3.99\nSubtotal: $46.43\nTax: $3.71\nTotal: $156.78\nPayment: Debit card ending in 1234",
+      "page": 0
+    },
+    {
+      "id": 12,
+      "path": "property_tax.txt",
+      "content": "Property Tax Assessment\nParcel ID: PR-2025-001234\nOwner: John Doe\nAddress: 456 Oak Avenue\nAssessed value: $450,000\nLand value: $180,000\nImprovement value: $270,000\nTax rate: 1.25%\nAnnual tax: $5,625\nDue dates: 2026-04-10, 2026-12-10\nAssessment year: 2025",
+      "page": 0
+    },
+    {
+      "id": 13,
+      "path": "vehicle_registration.txt",
+      "content": "Vehicle Registration Renewal\nPlate: ABC1234\nVIN: 1HGCM82633A123456\nVehicle: 2023 Honda Civic\nOwner: John Doe\nRegistration expires: 2026-08-31\nRenewal fee: $86.00\nSmog check: Required (due 2026-07-31)\nAddress: 456 Oak Avenue\nCounty: Springfield County",
+      "page": 0
+    },
+    {
+      "id": 14,
+      "path": "passport.txt",
+      "content": "Passport Information\nPassport number: US123456789\nHolder: John Doe\nNationality: United States\nDate of birth: 1990-05-15\nPlace of birth: Springfield, USA\nDate of issue: 2020-03-15\nDate of expiry: 2030-03-15\nAuthority: US Department of State\nType: P (Regular)",
+      "page": 0
+    },
+    {
+      "id": 15,
+      "path": "birth_certificate.txt",
+      "content": "Birth Certificate\nCertificate number: BC-2025-009876\nName: John Doe\nDate of birth: 1990-05-15\nPlace of birth: Springfield General Hospital\nFather: Robert Doe\nMother: Mary Smith (maiden)\nSex: Male\nDate filed: 1990-05-17\nRegistrar: County Clerk Office\nState: Illinois",
+      "page": 0
+    },
+    {
+      "id": 16,
+      "path": "marriage_license.txt",
+      "content": "Marriage License\nLicense number: ML-2020-005678\nSpouse 1: John Doe\nSpouse 2: Jane Smith\nDate of marriage: 2020-06-20\nPlace: Springfield City Hall\nOfficiant: Judge Robert Brown\nWitness 1: Robert Doe\nWitness 2: Mary Smith\nCounty: Springfield County\nState: Illinois",
+      "page": 0
+    },
+    {
+      "id": 17,
+      "path": "mortgage.txt",
+      "content": "Mortgage Statement\nLoan number: MTG-2025-001234\nBorrower: John Doe\nProperty: 456 Oak Avenue\nOriginal amount: $400,000\nCurrent balance: $378,500\nInterest rate: 6.25% fixed\nMonthly payment: $2,350.00\nPrincipal & Interest: $2,050.00\nEscrow (tax/insurance): $300.00\nMaturity date: 2055-01-01\nServicer: HomeLoan Servicing",
+      "page": 0
+    },
+    {
+      "id": 18,
+      "path": "electric_bill.txt",
+      "content": "Electricity Bill\nAccount: EL-778899\nCustomer: John Doe\nService address: 456 Oak Avenue\nBilling period: 2026-01-01 to 2026-01-31\nUsage: 850 kWh\nRate: $0.14/kWh\nCurrent charges: $119.00\nPrevious balance: $0.00\nTotal due: $119.00\nDue date: 2026-02-28\nAuto-pay: Enrolled",
+      "page": 0
+    },
+    {
+      "id": 19,
+      "path": "water_bill.txt",
+      "content": "Water Bill\nAccount: WA-445566\nCustomer: John Doe\nService address: 456 Oak Avenue\nBilling period: 2026-01-01 to 2026-01-31\nMeter reading current: 12,450\nMeter reading previous: 12,100\nUsage: 350 cubic feet\nCharges: $45.67\nSewer charges: $32.10\nTotal due: $77.77\nDue date: 2026-02-25",
+      "page": 0
+    },
+    {
+      "id": 20,
+      "path": "gas_bill.txt",
+      "content": "Gas Bill\nAccount: GA-334455\nCustomer: John Doe\nService address: 456 Oak Avenue\nBilling period: 2026-01-01 to 2026-01-31\nMeter reading current: 12,450\nMeter reading previous: 12,200\nUsage: 250 therms\nRate: $1.25/therm\nCharges: $312.50\nTotal due: $312.50\nDue date: 2026-02-20",
+      "page": 0
+    },
+    {
+      "id": 21,
+      "path": "phone_bill.txt",
+      "content": "Phone Bill\nAccount: PH-112233\nCustomer: John Doe\nPlan: Unlimited Talk & Text + 50GB Data\nMonthly charge: $65.00\nInternational charges: $23.45\nDevice payment: $25.00\nTaxes & fees: $8.99\nTotal due: $122.44\nBilling period: 2026-01-01 to 2026-01-31\nDue date: 2026-02-15",
+      "page": 0
+    },
+    {
+      "id": 22,
+      "path": "credit_card.txt",
+      "content": "Credit Card Statement\nCard: Visa ending in 4242\nAccount: CC-998877\nStatement period: 2026-01-01 to 2026-01-31\nPrevious balance: $500.00\nPayments: -$500.00\nPurchases: $1,234.56\nInterest: $0.00\nFees: $0.00\nNew balance: $1,234.56\nMinimum payment: $35.00\nDue date: 2026-02-25\nCredit limit: $10,000\nAvailable credit: $8,765.44",
+      "page": 0
+    },
+    {
+      "id": 23,
+      "path": "bank_account.txt",
+      "content": "Bank Account Information\nBank: First National Bank\nAccount: Checking ***5678\nRouting number: 021000021\nAccount holder: John Doe\nCurrent balance: $15,432.10\nAvailable balance: $15,200.00\nDirect deposit: Enabled\nOnline banking: Enrolled\nDebit card: Visa ending in 1234\nBranch: Springfield Main",
+      "page": 0
+    },
+    {
+      "id": 24,
+      "path": "investment.txt",
+      "content": "Investment Account Statement\nAccount: INV-556677\nHolder: John Doe\nBroker: WealthBuild Investments\nPortfolio value: $125,000.00\nYTD return: 8.5%\nHoldings:\n  - S&P 500 ETF: $75,000\n  - Bond Fund: $30,000\n  - International: $20,000\nDividends YTD: $2,100\nFees YTD: $125\nLast trade: 2026-01-28",
+      "page": 0
+    },
+    {
+      "id": 25,
+      "path": "retirement.txt",
+      "content": "Retirement Account Information\nAccount: 401(k) - RET-2025-001234\nParticipant: John Doe\nEmployer: TechCorp Inc.\nCurrent balance: $85,000.00\nVested balance: $85,000.00\nContribution rate: 10%\nEmployer match: 5%\n2025 contribution limit: $23,000\n2025 catch-up (50+): $7,500\nInvestment: Target Date 2055 Fund\nLast contribution: 2026-01-31",
+      "page": 0
+    },
+    {
+      "id": 26,
+      "path": "health_insurance.txt",
+      "content": "Health Insurance Benefits\nPlan: PPO Gold\nMember: John Doe\nMember ID: HI-2025-001234\nGroup: GRP-TECHCORP\nCopay primary care: $20\nCopay specialist: $40\nCopay ER: $250\nDeductible: $1,500 individual\nOut-of-pocket max: $6,000\nCoinsurance: 20%\nNetwork: National PPO Network\nEffective: 2025-01-01",
+      "page": 0
+    },
+    {
+      "id": 27,
+      "path": "vision_insurance.txt",
+      "content": "Vision Insurance Benefits\nPlan: Vision Plus\nMember: John Doe\nMember ID: VI-2025-001234\nExam copay: $10\nFrame allowance: $150\nLens copay: $25\nContacts allowance: $150\nFrequency: Exam annually, frames every 24 months\nNetwork: VisionCare Network\nEffective: 2025-01-01 to 2025-12-31",
+      "page": 0
+    },
+    {
+      "id": 28,
+      "path": "dental_insurance.txt",
+      "content": "Dental Insurance Benefits\nPlan: Dental PPO\nMember: John Doe\nMember ID: DE-2025-001234\nPreventive: 100% (cleanings, exams, x-rays)\nBasic: 80% (fillings, extractions)\nMajor: 50% (crowns, bridges, dentures)\nOrthodontics: 50% up to $1,500 lifetime\nAnnual max: $1,500\nDeductible: $50 individual\nNetwork: Delta Dental PPO\nEffective: 2025-01-01",
+      "page": 0
+    },
+    {
+      "id": 29,
+      "path": "life_insurance.txt",
+      "content": "Life Insurance Policy\nPolicy number: LI-2025-001234\nInsured: John Doe\nBeneficiary: Jane Doe (spouse, 100%)\nContingent: Children equally\nPolicy type: Term 20 years\nCoverage amount: $1,000,000\nPremium: $45.00/month\nEffective: 2025-01-15\nExpires: 2045-01-15\nInsurer: LifeSecure Insurance\nRider: Accelerated death benefit",
+      "page": 0
+    },
+    {
+      "id": 30,
+      "path": "umbrella_insurance.txt",
+      "content": "Umbrella Insurance Policy\nPolicy number: UM-2025-001234\nInsured: John Doe\nCoverage limit: $2,000,000\nPremium: $350/year\nUnderlying requirements:\n  - Auto: $250k/$500k liability\n  - Home: $300k liability\nCovers: Personal liability, libel, slander, false arrest\nExcludes: Business liability, intentional acts\nEffective: 2025-01-01 to 2026-01-01\nInsurer: SecureHome Insurance",
+      "page": 0
+    }
+  ]
+}

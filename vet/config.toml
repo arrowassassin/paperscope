@@ -1,0 +1,25 @@
+# cargo-vet configuration for Paper
+# This file configures which audits to trust and import.
+
+[inherits]
+# Import audits from the Rust Secure Code Working Group
+rust-secure-code = { git = "https://github.com/rust-secure-code/cargo-vet-exports" }
+
+# Import audits from Mozilla
+mozilla = { git = "https://github.com/mozilla/cargo-vet-exports" }
+
+# Import audits from Google
+google = { git = "https://github.com/google/cargo-vet-exports" }
+
+[trusted]
+# These are the criteria we trust for each audit
+criteria = [
+    "safe-to-deploy",
+    "safe-to-run",
+]
+
+[import]
+# Import paths from the above sources
+rust-secure-code = { path = "vet/imports/rust-secure-code" }
+mozilla = { path = "vet/imports/mozilla" }
+google = { path = "vet/imports/google" }

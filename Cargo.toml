@@ -1,0 +1,151 @@
+[workspace]
+resolver = "2"
+members = ["."]
+
+[package]
+# Registry identity is `paperscope`; the product, library target and installed
+# binary all stay `paper`. `paper` is already taken on crates.io (v0.4.0, a
+# terminal editor), and every evocative one-word alternative was already a
+# competing product. See docs/implementation-status.md#naming.
+name = "paperscope"
+version = "0.1.0"
+edition = "2021"
+# Highest MSRV in the dependency tree (the icu_* crates).
+rust-version = "1.88"
+description = "Paper: local-first document search with exact page and line citations. CLI + MCP server in one binary."
+license = "MIT OR Apache-2.0"
+readme = "docs/readme.md"
+repository = "https://github.com/arrowassassin/paperscope"
+documentation = "https://docs.rs/paperscope"
+categories = ["command-line-utilities", "database", "text-processing"]
+keywords = ["rag", "search", "sqlite", "mcp", "local-first"]
+# Explicit allow-list: this repository also holds unrelated work, and its README
+# is not this project's. Never widen this without checking what ships.
+include = [
+    "src/**",
+    "tests/**",
+    "/Cargo.toml",
+    "/CHANGELOG.md",
+    "/docs/readme.md",
+    "/docs/implementation-status.md",
+    "/docs/LICENSE-MIT",
+    "/docs/LICENSE-APACHE",
+    "/NOTICE",
+]
+
+[lib]
+name = "paper"
+path = "src/lib.rs"
+
+[[bin]]
+name = "paper"
+path = "src/main.rs"
+
+[dependencies]
+# Storage: bundled SQLite (no system dependency) + statically linked sqlite-vec.
+rusqlite = { version = "0.32", features = ["bundled"] }
+sqlite-vec = "0.1.9"
+
+# Runtime / errors / serialization
+tokio = { version = "1.38", features = ["full"] }
+anyhow = "1.0"
+thiserror = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+regex = "1.10"
+chrono = "0.4"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# CLI + output
+clap = { version = "4.5", features = ["derive", "env"] }
+indicatif = "0.17"
+
+# Model download
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip", "stream"] }
+sha2 = "0.10"
+hex = "0.4"
+dirs = "5.0"
+
+# Hashing + walking
+blake3 = "1.5"
+walkdir = "2.5"
+notify = "8"
+toml = "0.8"
+ordered-float = "4.0"
+
+# Inference: Hugging Face Candle (pure Rust, no ONNX Runtime)
+candle-core = "0.8"
+candle-nn = "0.8"
+candle-transformers = "0.8"
+tokenizers = "0.20"
+safetensors = "0.5"
+hf-hub = "0.3"
+
+# Optional dictionary segmenters (feature-gated)
+icu_segmenter = { version = "2.4", optional = true }
+lindera = { version = "0.6", optional = true }
+jieba-rs = { version = "0.5", optional = true }
+
+# Optional shell-out accelerators (feature-gated)
+which = { version = "6.0", optional = true }
+
+# Optional OCR (feature-gated)
+tesseract = { version = "0.1", optional = true }
+
+# Extraction: pure-Rust parsers, all permissive licences (see deny.toml).
+lopdf = "0.47"
+calamine = "0.38"
+mailparse = "0.18"
+zip = { version = "9.7", default-features = false, features = ["deflate"] }
+tar = "0.4"
+quick-xml = "0.42"
+html2text = "0.17"
+unicode-normalization = "0.1"
+
+# MCP server
+rmcp = { version = "0.2", features = ["server", "transport-io", "transport-child-process"] }
+schemars = "0.8"
+
+cfg-if = "1.0"
+tempfile = "3.8"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.9"
+core-foundation-sys = "0.8"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true
+opt-level = 3
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
+
+[dev-dependencies]
+criterion = { version = "0.8", default-features = false, features = ["html_reports"] }
+arbitrary = { version = "1", features = ["derive"] }
+libfuzzer-sys = "0.4"
+
+[[bench]]
+name = "search"
+harness = false
+
+[[bench]]
+name = "eval"
+harness = false
+
+# Fuzz targets are in fuzz/Cargo.toml (run with: cargo fuzz run <target>)
+
+[features]
+default = []
+icu-segmenter = ["dep:icu_segmenter"]
+lindera = ["dep:lindera"]
+jieba-rs = ["dep:jieba-rs"]
+shell-accel = ["dep:which"]
+ocr = ["dep:tesseract"]
