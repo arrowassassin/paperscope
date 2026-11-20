@@ -3,14 +3,21 @@ resolver = "2"
 members = ["."]
 
 [package]
-name = "paper"
+# Registry identity is `paperscope`; the product, library target and installed
+# binary all stay `paper`. `paper` is already taken on crates.io (v0.4.0, a
+# terminal editor), and every evocative one-word alternative was already a
+# competing product. See docs/implementation-status.md#naming.
+name = "paperscope"
 version = "0.1.0"
 edition = "2021"
-description = "Local document finder with citations. CLI + MCP server in one binary."
+description = "Paper: local-first document search with exact page and line citations. CLI + MCP server in one binary."
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/yourname/paper"
+readme = "docs/readme.md"
 categories = ["command-line-utilities", "search", "database"]
 keywords = ["rag", "search", "sqlite", "mcp", "local-first"]
+# Explicit allow-list: this repository also holds unrelated work, and its README
+# is not this project's. Never widen this without checking what ships.
+include = ["src/**/*", "tests/**/*", "Cargo.toml", "docs/readme.md"]
 
 [lib]
 name = "paper"

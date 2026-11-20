@@ -4,6 +4,37 @@ Verified against the actual binary on 2026-11-19. This file describes what is
 built and tested; `paper-architecture.md` remains the original design spec and is
 **not** up to date with the model choices below.
 
+## Naming
+
+The registry identity is **`paperscope`**; the product, the library target and
+the installed binary are all **`paper`**. `cargo install paperscope` gives you a
+`paper` command.
+
+`paper` itself is taken on crates.io (`paper` v0.4.0, a terminal editor). Twelve
+evocative one-word alternatives were free on crates.io but already the name of a
+real product in this exact niche, which is why the chosen name is a compound:
+
+| Candidate | Already used by |
+| --- | --- |
+| `fossick` | getfossick.com — offline private semantic document search for Mac/Windows |
+| `shelfmark` | shelfmark.com (industrial AI), an iOS reading tracker, a self-hosted book search |
+| `leafmark` | Leafmark EPUB reader (Windows/Android/iOS) |
+| `deedbox` | getdeedbox.com — home records vault for deeds and warranties |
+| `excerpt` | "Excerpt" browser extension — local search over clipped text |
+| `citemark` | citemark.io / citemark.co.uk / getcitemark.com |
+| `citetrail` | a GitHub project doing local provenance-backed recall for agents over MCP |
+| `pressmark` | pressmark.dev — MCP document engine |
+| `paperwork` | Paperwork (OpenPaperwork), a long-running document manager |
+| `quotemark` | QuoteMark iOS quote scanner |
+| `bookplate` | bookplate.dev, bookplate.eu, and several apps |
+
+`paperscope` was verified absent from both crates.io and npm, with no competing
+product found. Trademark and domain clearance have **not** been done.
+
+Because this repository also holds unrelated work, `Cargo.toml` carries an
+explicit `include` allow-list. The root `README.md` is not this project's file;
+the crates.io page renders `docs/readme.md`.
+
 ## Stack (as built)
 
 | Area | Choice | Why |

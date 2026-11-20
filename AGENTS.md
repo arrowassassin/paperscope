@@ -3,6 +3,9 @@
 Local-first document search with exact citations. Single Rust binary: CLI + MCP
 stdio server. No telemetry, no accounts, no cloud unless explicitly requested.
 
+The crates.io package is `paperscope` (the name `paper` was taken); the library
+target and the installed binary are both `paper`.
+
 ## Build & test
 
 ```bash

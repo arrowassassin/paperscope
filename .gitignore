@@ -2,3 +2,5 @@
 **/*.rs.bk
 *.partial
 .DS_Store
+node_modules/
+**/target/
