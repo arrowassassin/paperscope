@@ -8,6 +8,7 @@ static REGISTER_VEC: Once = Once::new();
 ///
 /// The C extension is compiled statically into the binary (no runtime `.dylib`
 /// download, no `load_extension` call), which keeps `paper` a single binary.
+#[allow(clippy::missing_transmute_annotations)]
 pub fn register_sqlite_vec() {
     REGISTER_VEC.call_once(|| unsafe {
         // SAFETY: `sqlite3_vec_init` has the exact C signature SQLite expects for

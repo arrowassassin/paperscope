@@ -146,11 +146,10 @@ jobs:
           retention-days: 30
 
       - name: cargo vet check (supply-chain verification)
-        continue-on-error: true
         run: |
-          # Fetch imports
-          cargo vet import --all || true
-          cargo vet check || true
+          # Fetch audits from trusted sources, then verify every dependency is covered.
+          cargo vet import --all
+          cargo vet check
         shell: bash
 
       - name: cargo deny check licenses bans sources
@@ -168,7 +167,7 @@ jobs:
         shell: bash
 
       - name: cargo audit
-        run: cargo audit --no-fetch
+        run: cargo audit
         shell: bash
 
       - name: cargo cyclonedx (CycloneDX SBOM)

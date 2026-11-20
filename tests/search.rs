@@ -35,7 +35,7 @@ impl Fixture {
         .unwrap();
         let conn = Connection::open(&dir.path().join("chunks.db")).unwrap();
         let indexer = Indexer::new(conn, Some(common::hash_embedder())).unwrap();
-        indexer.index_roots(&[docs.clone()]).unwrap();
+        indexer.index_roots(std::slice::from_ref(&docs)).unwrap();
         Self {
             _dir: dir,
             docs,
@@ -115,7 +115,7 @@ fn root_filter_excludes_documents_outside_the_allow_list() {
     .unwrap();
     assert!(hits.is_empty());
 
-    let hits = tier0_search(fx.indexer.connection(), "warranty", &[fx.docs.clone()], 10).unwrap();
+    let hits = tier0_search(fx.indexer.connection(), "warranty", std::slice::from_ref(&fx.docs), 10).unwrap();
     assert!(!hits.is_empty());
 }
 

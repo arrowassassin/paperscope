@@ -1,4 +1,4 @@
-cargo-dist-version = "1"
+cargo-dist-version = "0.34.0"
 dist = true
 installers = ["cargo", "homebrew", "scoop", "npm"]
 artifacts = ["tarball", "zip", "deb", "rpm", "apk"]

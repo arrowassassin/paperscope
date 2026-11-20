@@ -168,7 +168,7 @@ fn merge_paragraphs(paragraphs: Vec<Paragraph>, max_words: usize) -> Vec<Block> 
     let mut words = 0usize;
 
     let mut current_line = 1i64;
-    let mut flush = |blocks: &mut Vec<Block>,
+    let flush = |blocks: &mut Vec<Block>,
                      bucket: &mut String,
                      first: usize,
                      last: usize,
@@ -283,10 +283,10 @@ impl Extractor for Pptx {
                 continue;
             };
             let mut data = String::new();
-            if file.by_ref().take((MAX_EXTRACTED_BYTES + 1) as u64).read_to_string(&mut data).is_ok() {
-                if data.len() <= MAX_EXTRACTED_BYTES {
-                    slides.push((num, data));
-                }
+            if file.by_ref().take((MAX_EXTRACTED_BYTES + 1) as u64).read_to_string(&mut data).is_ok()
+                && data.len() <= MAX_EXTRACTED_BYTES
+            {
+                slides.push((num, data));
             }
         }
         slides.sort_by_key(|(n, _)| *n);
@@ -302,10 +302,11 @@ impl Extractor for Pptx {
                     Ok(Event::Start(e)) => {
                         if e.name().as_ref() == "a:t" {
                             in_text = true;
-                        } else if e.name().as_ref() == "a:p" {
-                            if !text.ends_with('\n') && !text.is_empty() {
-                                text.push('\n');
-                            }
+                        } else if e.name().as_ref() == "a:p"
+                            && !text.is_empty()
+                            && !text.ends_with('\n')
+                        {
+                            text.push('\n');
                         }
                     }
                     Ok(Event::Text(e)) if in_text => {

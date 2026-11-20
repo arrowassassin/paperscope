@@ -61,7 +61,7 @@ pub async fn run(args: AggregateArgs) -> Result<i32> {
     // Filter by kind
     if let Some(filter) = &args.filter {
         if filter.starts_with("kind=") {
-            let kind = &filter[5..];
+            let kind = filter.strip_prefix("kind=").unwrap_or(filter);
             match kind {
                 "warranty" | "receipt" | "invoice" | "contract" => {
                     where_clauses.push("json_extract(metadata, '$.kind') = ?".to_string());
@@ -91,7 +91,7 @@ pub async fn run(args: AggregateArgs) -> Result<i32> {
     // Extension filter
     if !args.ext.is_empty() {
         let _placeholders = args.ext.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-        where_clauses.push(format!("path LIKE ?"));
+        where_clauses.push("path LIKE ?".to_string());
         for ext in &args.ext {
             params.push(Box::new(format!("%.{ext}")));
         }

@@ -485,7 +485,7 @@ fn index_with_defaults_atomic(
 fn atomic_replace(src: &Path, dst: &Path) -> Result<()> {
     // Try the fast path: same filesystem, atomic rename.
     match fs::rename(src, dst) {
-        Ok(()) => return Ok(()),
+        Ok(()) => {}
         Err(e) if e.kind() == std::io::ErrorKind::CrossesDevices => {
             // Fallback: copy + remove. Not atomic across devices, but the best
             // we can do. The destination is only visible after copy completes.
@@ -493,8 +493,8 @@ fn atomic_replace(src: &Path, dst: &Path) -> Result<()> {
                 format!("copying {} -> {} (cross-device)", src.display(), dst.display())
             })?;
             fs::remove_file(src).with_context(|| format!("removing temp file {}", src.display()))?;
-            Ok(())
         }
-        Err(e) => Err(e).with_context(|| format!("renaming {} -> {}", src.display(), dst.display())),
+        Err(e) => return Err(e).with_context(|| format!("renaming {} -> {}", src.display(), dst.display())),
     }
+    Ok(())
 }

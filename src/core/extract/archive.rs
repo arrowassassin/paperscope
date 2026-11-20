@@ -68,10 +68,10 @@ fn read_zip(bytes: &[u8]) -> Result<Vec<Member>> {
         }
         let name = file.name().map(|cow| cow.into_owned()).unwrap_or_default();
         let mut data = Vec::with_capacity(file.size().min(MAX_EXTRACTED_BYTES as u64) as usize);
-        if file.by_ref().take((MAX_EXTRACTED_BYTES + 1) as u64).read_to_end(&mut data).is_ok() {
-            if data.len() <= MAX_EXTRACTED_BYTES {
-                out.push((name, data));
-            }
+        if file.by_ref().take((MAX_EXTRACTED_BYTES + 1) as u64).read_to_end(&mut data).is_ok()
+            && data.len() <= MAX_EXTRACTED_BYTES
+        {
+            out.push((name, data));
         }
     }
     Ok(out)
@@ -94,10 +94,10 @@ fn read_tar(bytes: &[u8]) -> Result<Vec<Member>> {
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_default();
         let mut data = Vec::with_capacity(size.min(MAX_EXTRACTED_BYTES));
-        if entry.by_ref().take((MAX_EXTRACTED_BYTES + 1) as u64).read_to_end(&mut data).is_ok() {
-            if data.len() <= MAX_EXTRACTED_BYTES {
-                out.push((name, data));
-            }
+        if entry.by_ref().take((MAX_EXTRACTED_BYTES + 1) as u64).read_to_end(&mut data).is_ok()
+            && data.len() <= MAX_EXTRACTED_BYTES
+        {
+            out.push((name, data));
         }
     }
     Ok(out)
