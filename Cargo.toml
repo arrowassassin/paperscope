@@ -1,7 +1,6 @@
 [workspace]
 resolver = "2"
 members = ["."]
-exclude = ["fuzz"]
 
 [package]
 # Registry identity is `paperscope`; the product, library target and installed
