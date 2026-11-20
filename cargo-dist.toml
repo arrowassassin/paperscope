@@ -1,0 +1,14 @@
+cargo-dist-version = "1"
+dist = true
+installers = ["cargo", "homebrew", "scoop", "npm"]
+artifacts = ["tarball", "zip", "deb", "rpm", "apk"]
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "x86_64-unknown-linux-musl",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-pc-windows-msvc",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+]
+include = ["README.md", "LICENSE-MIT", "LICENSE-APACHE", "CHANGELOG.md", "docs/"]
+github-releases = "upload"

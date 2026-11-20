@@ -1,3 +1,0 @@
-[alias]
-sim = "run -p quire-sim --"
-xtask = "run -p xtask --"
