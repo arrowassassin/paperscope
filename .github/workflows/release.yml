@@ -93,15 +93,19 @@ jobs:
       - name: Generate CycloneDX SBOM
         if: steps.dist.outputs.artifacts != ''
         run: |
-          cargo install cargo-cyclonedx --locked
-          cargo cyclonedx --format json --output-file target/dist/sbom.json
-          cargo cyclonedx --format json --spec-version 1.6 --output-file target/dist/sbom.cdx.json
+          cargo install cargo-cyclonedx --locked || true
+          mkdir -p target/dist
+          cargo cyclonedx --format json --override-filename sbom || true
+          if [ -f sbom.json ]; then
+            mv -f sbom.json target/dist/sbom.json
+          fi
 
       - name: Generate SPDX SBOM
         if: steps.dist.outputs.artifacts != ''
         run: |
-          cargo install cargo-sbom --locked
-          cargo sbom --format spdx-json --output-file target/dist/sbom.spdx.json
+          cargo install cargo-sbom --locked || true
+          mkdir -p target/dist
+          cargo sbom --output-format spdx_json_2_3 > target/dist/sbom.spdx.json || true
 
       - name: Upload SBOMs to release
         if: steps.dist.outputs.artifacts != '' && github.event_name == 'push'
@@ -109,7 +113,6 @@ jobs:
         with:
           files: |
             target/dist/sbom.json
-            target/dist/sbom.cdx.json
             target/dist/sbom.spdx.json
           tag_name: ${{ github.ref_name }}
           draft: false

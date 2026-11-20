@@ -1,4 +1,4 @@
-use crate::core::extract::{ExtractedDocument, Block, single, MAX_EXTRACTED_BYTES, MAX_PDF_PAGES};
+use crate::core::extract::{single, Block, ExtractedDocument, MAX_EXTRACTED_BYTES};
 use anyhow::Result;
 use std::path::Path;
 
@@ -116,17 +116,20 @@ pub fn detect_ocr_engine() -> Option<Box<dyn OcrEngine>> {
     // Prefer native platform engines
     #[cfg(all(target_os = "macos"))]
     {
-        return Some(Box::new(VisionEngine::new()));
+        Some(Box::new(VisionEngine::new()))
     }
     #[cfg(all(target_os = "windows"))]
     {
-        return Some(Box::new(WindowsOcrEngine::new()));
+        Some(Box::new(WindowsOcrEngine::new()))
     }
-    // Fall back to Tesseract if available
-    if which::which("tesseract").is_ok() {
-        return Some(Box::new(TesseractEngine::new()));
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        // Fall back to Tesseract if available
+        if which::which("tesseract").is_ok() {
+            return Some(Box::new(TesseractEngine::new()));
+        }
+        None
     }
-    None
 }
 
 /// Process a PDF page with OCR if it has no text layer.
@@ -196,8 +199,9 @@ pub fn process_pdf_page_with_ocr(
 
     tracing::warn!("page {}: OCR applied using {} (no text layer)", page_num, engine.name());
 
+    let line_end = text.lines().count().max(1) as i64;
     Ok(Some(single(
-        pdf_path.to_string_lossy().to_string(),
+        &pdf_path.to_string_lossy(),
         "pdf",
         vec![Block {
             text,
@@ -205,7 +209,7 @@ pub fn process_pdf_page_with_ocr(
             anchor: Some(format!("page {} (OCR)", page_num)),
             section: Some("OCR".to_string()),
             line_start: 1,
-            line_end: text.lines().count().max(1) as i64,
+            line_end,
         }],
         vec![format!("page {}: OCR applied using {}", page_num, engine.name())],
     )))

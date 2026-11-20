@@ -15,7 +15,10 @@ fn read_entry<R: Read + Seek>(zip: &mut ZipArchive<R>, name: &str) -> Option<Str
         return None;
     }
     let mut out = String::new();
-    file.read_to_string(&mut out).ok()?;
+    file.by_ref().take((MAX_EXTRACTED_BYTES + 1) as u64).read_to_string(&mut out).ok()?;
+    if out.len() > MAX_EXTRACTED_BYTES {
+        return None;
+    }
     Some(out)
 }
 
@@ -164,11 +167,13 @@ fn merge_paragraphs(paragraphs: Vec<Paragraph>, max_words: usize) -> Vec<Block> 
     let mut first = 1usize;
     let mut words = 0usize;
 
-    let flush = |blocks: &mut Vec<Block>,
-                  bucket: &mut String,
-                  first: usize,
-                  last: usize,
-                  path: &[(u8, String)]| {
+    let mut current_line = 1i64;
+    let mut flush = |blocks: &mut Vec<Block>,
+                     bucket: &mut String,
+                     first: usize,
+                     last: usize,
+                     path: &[(u8, String)],
+                     current_line: &mut i64| {
         if bucket.trim().is_empty() {
             return;
         }
@@ -177,20 +182,25 @@ fn merge_paragraphs(paragraphs: Vec<Paragraph>, max_words: usize) -> Vec<Block> 
         } else {
             format!("para {first}-{last}")
         };
+        let text = std::mem::take(bucket);
+        let line_count = text.lines().count().max(1) as i64;
+        let start = *current_line;
+        let end = start + line_count - 1;
+        *current_line += line_count;
         blocks.push(Block {
-            text: std::mem::take(bucket),
+            text,
             page: 0,
             anchor: Some(anchor),
             section: section_of(path),
-            line_start: 0,
-            line_end: 0,
+            line_start: start,
+            line_end: end,
         });
     };
 
     for (idx, paragraph) in paragraphs.iter().enumerate() {
         let number = idx + 1;
         if let Some(level) = paragraph.level {
-            flush(&mut blocks, &mut bucket, first, number - 1, &path);
+            flush(&mut blocks, &mut bucket, first, number - 1, &path, &mut current_line);
             words = 0;
             path.retain(|(existing, _)| *existing < level);
             path.push((level, paragraph.text.trim().to_string()));
@@ -204,7 +214,7 @@ fn merge_paragraphs(paragraphs: Vec<Paragraph>, max_words: usize) -> Vec<Block> 
         bucket.push('\n');
         words += paragraph_words;
         if words >= max_words {
-            flush(&mut blocks, &mut bucket, first, number, &path);
+            flush(&mut blocks, &mut bucket, first, number, &path, &mut current_line);
             words = 0;
         }
     }
@@ -214,6 +224,7 @@ fn merge_paragraphs(paragraphs: Vec<Paragraph>, max_words: usize) -> Vec<Block> 
         first,
         paragraphs.len().max(1),
         &path,
+        &mut current_line,
     );
     blocks
 }
@@ -259,8 +270,11 @@ impl Extractor for Pptx {
     fn extract(&self, name: &str, bytes: &[u8]) -> Result<Option<Vec<ExtractedDocument>>> {
         let mut zip = open_zip(bytes)?;
         let mut slides: Vec<(u32, String)> = Vec::new();
-        for i in 0..zip.len() {
+        for i in 0..zip.len().min(1000) {
             let Ok(mut file) = zip.by_index(i) else { continue };
+            if file.size() as usize > MAX_EXTRACTED_BYTES {
+                continue;
+            }
             let fname = file.name().map(|cow| cow.into_owned()).unwrap_or_default();
             let Some(rest) = fname.strip_prefix("ppt/slides/slide") else {
                 continue;
@@ -269,8 +283,10 @@ impl Extractor for Pptx {
                 continue;
             };
             let mut data = String::new();
-            if file.read_to_string(&mut data).is_ok() {
-                slides.push((num, data));
+            if file.by_ref().take((MAX_EXTRACTED_BYTES + 1) as u64).read_to_string(&mut data).is_ok() {
+                if data.len() <= MAX_EXTRACTED_BYTES {
+                    slides.push((num, data));
+                }
             }
         }
         slides.sort_by_key(|(n, _)| *n);
@@ -311,13 +327,14 @@ impl Extractor for Pptx {
             if text.trim().is_empty() {
                 continue;
             }
+            let line_count = text.lines().count().max(1) as i64;
             blocks.push(Block {
                 text,
-                page: 0,
+                page: number as i64,
                 anchor: Some(format!("slide {number}")),
                 section: None,
-                line_start: 0,
-                line_end: 0,
+                line_start: 1,
+                line_end: line_count,
             });
         }
         Ok(Some(single(name, "pptx", blocks, Vec::new())))
@@ -390,13 +407,14 @@ impl Extractor for Epub {
             if text.trim().is_empty() {
                 continue;
             }
+            let line_count = text.lines().count().max(1) as i64;
             blocks.push(Block {
                 text,
-                page: 0,
+                page: (index + 1) as i64,
                 anchor: Some(format!("spine {}: {name}", index + 1)),
                 section: None,
-                line_start: 0,
-                line_end: 0,
+                line_start: 1,
+                line_end: line_count,
             });
         }
         Ok(Some(single(name, "epub", blocks, Vec::new())))

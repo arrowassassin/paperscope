@@ -14,10 +14,9 @@
 //!   bigram-sized units, so each character is emitted as a token.
 //! - **Everything else** is left to `unicode61`.
 //!
-//! Optional dictionary segmenters (ICU, Lindera, Jieba) can be enabled via
-//! features `icu-segmenter`, `lindera`, `jieba-rs` for higher-quality
-//! word-level segmentation. They are opt-in and default off to keep the
-//! binary small and dependency-free.
+//! Optional dictionary segmenter (Jieba) can be enabled via feature
+//! `jieba-rs` for higher-quality Chinese word-level segmentation. It is opt-in
+//! and default off to keep the binary small and dependency-free.
 //!
 //! No stemming and no language detection: both would be guesses, and a guess
 //! changes the bytes a citation points at.
@@ -61,83 +60,17 @@ impl Segmenter for BigramFirstCharSegmenter {
     }
 }
 
-/// ICU-based segmenter (feature `icu-segmenter`).
-#[cfg(feature = "icu-segmenter")]
-pub struct IcuSegmenter {
-    segmenter: icu_segmenter::SentenceSegmenter,
-}
-
-#[cfg(feature = "icu-segmenter")]
-impl IcuSegmenter {
-    pub fn new() -> Self {
-        use icu_locid::Locale;
-        use icu_segmenter::SentenceSegmenter;
-        let locale: Locale = "en".parse().unwrap();
-        let segmenter = SentenceSegmenter::new(&locale.into());
-        Self { segmenter }
-    }
-}
-
-#[cfg(feature = "icu-segmenter")]
-impl Segmenter for IcuSegmenter {
-    fn segment(&self, text: &str) -> Box<dyn Iterator<Item = String> + '_> {
-        // ICU segmenter works on byte offsets; we need to map back to &str slices
-        let mut tokens = Vec::new();
-        let mut last = 0;
-        for boundary in self.segmenter.segment_str(text) {
-            if boundary > last {
-                tokens.push(text[last..boundary].to_string());
-            }
-            last = boundary;
-        }
-        if last < text.len() {
-            tokens.push(text[last..].to_string());
-        }
-        Box::new(tokens.into_iter())
-    }
-
-    fn name(&self) -> &'static str {
-        "icu"
-    }
-}
-
-/// Lindera Japanese segmenter (feature `lindera`).
-#[cfg(feature = "lindera")]
-pub struct LinderaSegmenter {
-    tokenizer: lindera::Tokenizer,
-}
-
-#[cfg(feature = "lindera")]
-impl LinderaSegmenter {
-    pub fn new() -> Result<Self, lindera::LinderaError> {
-        use lindera::dictionary::load_dictionary;
-        use lindera::mode::Mode;
-        use lindera::Tokenizer;
-        let dict = load_dictionary(Mode::IPADIC)?;
-        let tokenizer = Tokenizer::new(dict);
-        Ok(Self { tokenizer })
-    }
-}
-
-#[cfg(feature = "lindera")]
-impl Segmenter for LinderaSegmenter {
-    fn segment(&self, text: &str) -> Box<dyn Iterator<Item = String> + '_> {
-        let mut tokens = Vec::new();
-        for token in self.tokenizer.tokenize(text) {
-            tokens.push(token.text.to_string());
-        }
-        Box::new(tokens.into_iter())
-    }
-
-    fn name(&self) -> &'static str {
-        "lindera"
-    }
-}
-
 /// Jieba Chinese segmenter (feature `jieba-rs`).
 #[cfg(feature = "jieba-rs")]
 pub struct JiebaSegmenter {
     jieba: jieba_rs::Jieba,
+}
+
+#[cfg(feature = "jieba-rs")]
+impl Default for JiebaSegmenter {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(feature = "jieba-rs")]
@@ -152,7 +85,7 @@ impl JiebaSegmenter {
 #[cfg(feature = "jieba-rs")]
 impl Segmenter for JiebaSegmenter {
     fn segment(&self, text: &str) -> Box<dyn Iterator<Item = String> + '_> {
-        let tokens: Vec<String> = self.jieba.cut(text, false).into_iter().collect();
+        let tokens: Vec<String> = self.jieba.cut(text, false).into_iter().map(String::from).collect();
         Box::new(tokens.into_iter())
     }
 
@@ -168,20 +101,11 @@ static SEGMENTER: std::sync::OnceLock<Box<dyn Segmenter>> = std::sync::OnceLock:
 /// If no feature is enabled, falls back to BigramFirstCharSegmenter.
 pub fn init_segmenter() -> &'static dyn Segmenter {
     SEGMENTER.get_or_init(|| {
-        #[cfg(feature = "icu-segmenter")]
-        {
-            return Box::new(IcuSegmenter::new()) as Box<dyn Segmenter>;
-        }
-        #[cfg(feature = "lindera")]
-        {
-            if let Ok(s) = LinderaSegmenter::new() {
-                return Box::new(s) as Box<dyn Segmenter>;
-            }
-        }
         #[cfg(feature = "jieba-rs")]
         {
             return Box::new(JiebaSegmenter::new()) as Box<dyn Segmenter>;
         }
+        #[allow(unreachable_code)]
         Box::new(BigramFirstCharSegmenter)
     })
 }

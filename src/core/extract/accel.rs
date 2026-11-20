@@ -92,7 +92,7 @@ pub fn extract_with_accelerator(
 
     let output = loop {
         match child.try_wait()? {
-            Some(status) => break child.wait_with_output()?,
+            Some(_status) => break child.wait_with_output()?,
             None if start.elapsed() >= timeout => {
                 let _ = child.kill();
                 let _ = child.wait();

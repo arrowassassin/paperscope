@@ -21,10 +21,12 @@
 //! and a reader can verify it in one step. Line ranges are added where the
 //! format has real lines.
 
-mod accel;
+#[cfg(feature = "shell-accel")]
+pub mod accel;
 mod archive;
 mod email;
-mod ocr;
+#[cfg(feature = "ocr")]
+pub mod ocr;
 mod ooxml;
 mod pdf;
 mod sheet;
@@ -235,7 +237,7 @@ pub fn extract_path(path: &Path) -> Result<Option<Vec<ExtractedDocument>>> {
 
 /// Extract bytes that are already in memory (archive members, tests).
 /// `ocr_enabled` controls whether OCR is attempted for scanned PDF pages.
-pub fn extract_named(name: &str, bytes: &[u8], ocr_enabled: bool) -> Result<Option<Vec<ExtractedDocument>>> {
+pub fn extract_named(name: &str, bytes: &[u8], _ocr_enabled: bool) -> Result<Option<Vec<ExtractedDocument>>> {
     // Try shell-out accelerators first (feature-gated)
     #[cfg(feature = "shell-accel")]
     {

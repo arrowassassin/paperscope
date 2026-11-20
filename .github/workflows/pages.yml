@@ -20,6 +20,7 @@ concurrency:
 
 jobs:
   build:
+    if: hashFiles('site/package.json') != ''
     runs-on: ubuntu-latest
     defaults:
       run:

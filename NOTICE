@@ -626,6 +626,10 @@ Dependencies under this license:
   Repository: https://github.com/dtolnay/itoa
   License: MIT OR Apache-2.0
 
+  jobserver v0.1.35
+  Repository: https://github.com/rust-lang/jobserver-rs
+  License: MIT OR Apache-2.0
+
   js-sys v0.3.107
   Repository: https://github.com/wasm-bindgen/wasm-bindgen/tree/master/crates/js-sys
   License: MIT OR Apache-2.0
@@ -645,6 +649,10 @@ Dependencies under this license:
   libc v0.2.191
   Repository: https://github.com/rust-lang/libc
   License: MIT OR Apache-2.0
+
+  libfuzzer-sys v0.4.13
+  Repository: https://github.com/rust-fuzz/libfuzzer
+  License: (MIT OR Apache-2.0) AND NCSA
 
   libm v0.2.16
   Repository: https://github.com/rust-lang/compiler-builtins
