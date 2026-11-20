@@ -3,6 +3,8 @@ use crate::core::index::Connection;
 use crate::core::models::ModelManager;
 use anyhow::Result;
 
+const NOTICE: &str = include_str!("../../NOTICE");
+
 pub async fn run() -> Result<i32> {
     let ws = Workspace::new();
     println!("paper doctor");
@@ -40,5 +42,7 @@ pub async fn run() -> Result<i32> {
         );
     }
     println!("  telemetry:  disabled (there is no telemetry code in this binary)");
+    println!();
+    println!("{}", NOTICE);
     Ok(EXIT_FOUND)
 }

@@ -1,6 +1,7 @@
+use super::filters::SearchFilters;
 use super::hit::{Confidence, Engine, Hit};
-use super::tier0::{tier0_search, HitSource, RawHit, MIN_QUERY_LEN};
-use super::tier1::tier1_search;
+use super::tier0::{tier0_search_filtered, HitSource, RawHit, MIN_QUERY_LEN};
+use super::tier1::tier1_search_filtered;
 use crate::core::config::SearchConfig;
 use crate::core::index::Connection;
 use crate::core::models::{Embedder, Reranker};
@@ -61,22 +62,44 @@ impl SearchPipeline {
     }
 
     pub fn search(&self, query: &str, roots: &[PathBuf]) -> Result<Vec<Hit>> {
+        self.search_with(query, roots, &SearchFilters::default())
+    }
+
+    /// Search with structured filters (`--after`, `--before`, `--ext`, path).
+    pub fn search_with(
+        &self,
+        query: &str,
+        roots: &[PathBuf],
+        filters: &SearchFilters,
+    ) -> Result<Vec<Hit>> {
         if query.chars().count() < MIN_QUERY_LEN {
             bail!("query must be at least {MIN_QUERY_LEN} characters");
         }
 
-        let kw_hits = tier0_search(&self.conn, query, roots, self.config.keyword_limit)?;
+        let kw_hits =
+            tier0_search_filtered(&self.conn, query, roots, filters, self.config.keyword_limit)?;
 
         // Strong keyword evidence: skip the embedding model entirely. This keeps
         // exact lookups (invoice numbers, names) fast and model-free.
+        //
+        // "Strong" means the top keyword hit carries every content word of the
+        // query, not merely "there are ten hits": ten partial `OR` matches of a
+        // vague question used to suppress semantic search exactly when it was
+        // most needed.
         let mut sem_hits: Vec<RawHit> = Vec::new();
-        if kw_hits.len() < self.config.keyword_sufficiency_threshold {
+        if !self.keyword_is_decisive(query, &kw_hits) {
             if let Some(embedder) = &self.embedder {
                 let query_vec = embedder.embed_query(query)?;
-                sem_hits = tier1_search(&self.conn, &query_vec, roots, self.config.semantic_limit)?
-                    .into_iter()
-                    .filter(|hit| hit.score >= self.config.semantic_min_score)
-                    .collect();
+                sem_hits = tier1_search_filtered(
+                    &self.conn,
+                    &query_vec,
+                    roots,
+                    filters,
+                    self.config.semantic_limit,
+                )?
+                .into_iter()
+                .filter(|hit| hit.score >= self.config.semantic_min_score)
+                .collect();
             }
         }
 
@@ -99,6 +122,22 @@ impl SearchPipeline {
             hit.why_matched = why_matched(hit, &kw_hits, &sem_hits);
         }
         Ok(hits)
+    }
+
+    /// True when keyword search alone has already answered the query.
+    ///
+    /// The bar is lexical coverage of the *whole* query by the best hit, plus
+    /// enough corroborating results that this is not a fluke. A query with ten
+    /// weak partial matches still goes to the embedding model.
+    fn keyword_is_decisive(&self, query: &str, hits: &[RawHit]) -> bool {
+        if hits.len() < self.config.keyword_sufficiency_threshold {
+            return false;
+        }
+        let Some(top) = hits.first() else {
+            return false;
+        };
+        // Normalised relevance: 1.0 is the best match in this result set.
+        top.score >= 0.9 && full_term_coverage(query, &top.snippet)
     }
 
     /// Confidence describes the *evidence*, not the rank position.
@@ -134,18 +173,21 @@ impl SearchPipeline {
     fn hydrate(&self, fused: &[(i64, f32)], relevance: &HashMap<i64, f32>) -> Result<Vec<Hit>> {
         let mut hits = Vec::with_capacity(fused.len());
         let mut stmt = self.conn.inner().prepare(
-            "SELECT id, path, page, line_start, line_end, content FROM chunks WHERE id = ?",
+            "SELECT id, path, source_path, page, line_start, line_end, anchor, content
+             FROM chunks WHERE id = ?",
         )?;
         for &(id, score) in fused {
             let row = stmt.query_row([id], |row| {
                 Ok(Hit {
                     source_id: row.get(0)?,
                     path: row.get(1)?,
-                    page: row.get(2)?,
-                    line_start: row.get(3)?,
-                    line_end: row.get(4)?,
+                    source_path: row.get(2)?,
+                    page: row.get(3)?,
+                    line_start: row.get(4)?,
+                    line_end: row.get(5)?,
+                    anchor: row.get(6)?,
                     snippet: String::new(),
-                    content: row.get::<_, String>(5)?,
+                    content: row.get::<_, String>(7)?,
                     score: relevance.get(&id).copied().unwrap_or(score),
                     why_matched: String::new(),
                     confidence: Confidence::Low,

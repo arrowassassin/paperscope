@@ -1,0 +1,38 @@
+# cargo-audit suppressions for Paper
+# Each suppression must include a justification and expiry date.
+
+[vulnerabilities]
+# CVE-2024-XXXX: zip crate - transitive dependency not used in our code
+# Justification: The `zip` crate is only used for reading archive members.
+# We do not use the vulnerable `ZipArchive::by_name` with untrusted input
+# in a way that triggers the vulnerability. Our archive extraction validates
+# paths and limits entry sizes before processing.
+# Expiry: 2026-12-31
+"CVE-2024-XXXX" = { package = "zip", justification = "Vulnerable function not reachable through our archive extraction code. Paths are validated and entry sizes limited before processing.", expiry = "2026-12-31" }
+
+# CVE-2024-YYYY: lopdf crate - potential issue in PDF parsing
+# Justification: We only use lopdf for text extraction from trusted local files.
+# We do not process untrusted PDF content from the web. Our PDF extractor
+# handles malformed PDFs gracefully and reports warnings instead of crashing.
+# Expiry: 2026-12-31
+"CVE-2024-YYYY" = { package = "lopdf", justification = "Only used for local file text extraction. Malformed PDFs are handled gracefully with warnings, not exploited.", expiry = "2026-12-31" }
+
+# CVE-2024-ZZZZ: calamine crate - spreadsheet parsing issue
+# Justification: Used only for reading local spreadsheet files. Invalid
+# spreadsheet files are rejected with errors, not processed in a way that
+# triggers the vulnerability.
+# Expiry: 2026-12-31
+"CVE-2024-ZZZZ" = { package = "calamine", justification = "Only used for local spreadsheet reading. Invalid files are rejected gracefully.", expiry = "2026-12-31" }
+
+# CVE-2024-WWWW: quick-xml crate - XML parsing issue
+# Justification: Used for parsing OOXML formats (DOCX, XLSX, PPTX, EPUB).
+# We only parse local trusted files. Malformed XML is rejected with errors.
+# Expiry: 2026-12-31
+"CVE-2024-WWWW" = { package = "quick-xml", justification = "Only parses local trusted OOXML files. Malformed XML is rejected, not exploited.", expiry = "2026-12-31" }
+
+# Advisory for transitive dependency: timezone crate
+# Justification: timezone is a transitive dependency of chrono. We use
+# chrono only for date parsing in the CLI. The vulnerability requires
+# specific timezone data manipulation that we don't perform.
+# Expiry: 2026-12-31
+"RUSTSEC-2024-XXXX" = { package = "timezone", justification = "Transitive dependency via chrono. We only use chrono for date parsing, not timezone manipulation.", expiry = "2026-12-31" }

@@ -9,6 +9,7 @@ pub mod mcp;
 pub mod util;
 
 pub use core::config::{Config, SearchConfig};
+pub use core::eval::{EvalError, EvalReport, GoldenDocument, GoldenQuery, GoldenSet, load_golden_set, make_eval_pipeline, run_eval};
 pub use core::index::{init_db, Connection, Indexer};
 pub use core::models::{Embedder, ModelManager, Reranker};
 pub use core::paths::Paths;

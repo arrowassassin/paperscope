@@ -4,7 +4,7 @@
 //! document plus the citation that proves it. Generative polish is an optional,
 //! separate step and is never required for a correct answer.
 
-use crate::core::search::Hit;
+use crate::core::search::{Confidence, Hit};
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
@@ -14,7 +14,10 @@ pub struct Citation {
     pub page: i64,
     pub line_start: i64,
     pub line_end: i64,
-    /// `path:line_start-line_end` (plus `p.<page>` when a page is known).
+    /// Format-specific anchor, when the source has one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub anchor: Option<String>,
+    /// `path [anchor]:line_start-line_end`, or `path:line_start-line_end`.
     pub reference: String,
 }
 
@@ -32,28 +35,39 @@ pub struct Answer {
 
 impl Citation {
     pub fn from_hit(hit: &Hit) -> Self {
-        let reference = if hit.page > 0 {
-            format!(
-                "{}:p.{}:{}-{}",
-                hit.path, hit.page, hit.line_start, hit.line_end
-            )
-        } else {
-            format!("{}:{}-{}", hit.path, hit.line_start, hit.line_end)
-        };
+        let mut reference = hit.path.clone();
+        if let Some(anchor) = &hit.anchor {
+            reference.push_str(&format!(" [{anchor}]"));
+        }
+        if hit.line_start > 0 {
+            reference.push_str(&format!(":{}-{}", hit.line_start, hit.line_end));
+        } else if hit.page > 0 {
+            reference.push_str(&format!(":p.{}", hit.page));
+        }
         Self {
             source_id: hit.source_id,
             path: hit.path.clone(),
             page: hit.page,
             line_start: hit.line_start,
             line_end: hit.line_end,
+            anchor: hit.anchor.clone(),
             reference,
         }
     }
 }
 
 impl Answer {
+    /// Build an answer from ranked hits.
+    ///
+    /// Hits whose evidence is [`Confidence::Low`] are treated as no answer at
+    /// all: a plausible-looking quote from a weak match is worse than saying
+    /// "not found", because it makes the user trust a wrong citation.
     pub fn from_hits(question: &str, hits: &[Hit]) -> Self {
-        match hits.first() {
+        let supported: Vec<&Hit> = hits
+            .iter()
+            .filter(|hit| !matches!(hit.confidence, Confidence::Low))
+            .collect();
+        match supported.first() {
             None => Self {
                 question: question.to_string(),
                 text: String::new(),
@@ -64,7 +78,7 @@ impl Answer {
             Some(top) => Self {
                 question: question.to_string(),
                 text: top.snippet.clone(),
-                citations: hits.iter().take(3).map(Citation::from_hit).collect(),
+                citations: supported.iter().take(3).map(|h| Citation::from_hit(h)).collect(),
                 not_found: false,
                 engine: "local".to_string(),
             },

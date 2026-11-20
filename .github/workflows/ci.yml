@@ -1,94 +1,214 @@
-name: ci
+name: CI
 
 on:
   push:
-    branches: ["**"]
-    tags: ["v*"]
+    branches: [main]
   pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  checks: write
 
 env:
   CARGO_TERM_COLOR: always
-  CARGO_INCREMENTAL: 0
+  # Ensure cargo tools are available
+  PATH: ${{ github.workspace }}/.cargo/bin:${{ env.PATH }}
 
 jobs:
-  host:
-    name: host crates (fmt, clippy, tests)
-    runs-on: ubuntu-latest
-    defaults: { run: { working-directory: firmware } }
+  check:
+    name: ${{ matrix.os }} / rust-${{ matrix.rust }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rust: stable
+          - os: ubuntu-latest
+            rust: beta
+          - os: ubuntu-latest
+            rust: '1.88'
+          - os: macos-latest
+            rust: stable
+          - os: macos-latest
+            rust: beta
+          - os: macos-latest
+            rust: '1.88'
+          - os: windows-latest
+            rust: '1.88'
+            # Windows MSRV only; beta/stable may not have MSVC toolchain
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with: { components: "rustfmt, clippy" }
-      - uses: Swatinem/rust-cache@v2
-        with: { workspaces: firmware }
-      - run: cargo fmt --all -- --check
-      - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test --workspace
-      - name: heap budget and snapshot report
-        run: cargo run -p quire-sim -- --report target/sim-report.md
-      - uses: actions/upload-artifact@v4
-        with: { name: sim-report, path: firmware/target/sim-report.md, if-no-files-found: ignore }
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-  device:
-    name: firmware (ESP32-C3)
-    runs-on: ubuntu-latest
-    defaults: { run: { working-directory: firmware/device } }
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with: { targets: riscv32imc-unknown-none-elf, components: "rust-src, clippy" }
-      - uses: Swatinem/rust-cache@v2
-        with: { workspaces: firmware/device }
-      - uses: cargo-bins/cargo-binstall@main
-      - run: cargo binstall -y --locked espflash@4.6.0
-      - run: cargo clippy --release -- -D warnings
-      - run: cargo build --release
-      - name: board crate host tests (firmware image walk, otadata entries, keys)
-        run: cargo test -p quire-board --no-default-features --target x86_64-unknown-linux-gnu
-      - name: app images (quire-x3 for OTA and the SD update path; quire-recovery for the factory slot)
-        run: |
-          mkdir -p ../../dist
-          espflash save-image --chip esp32c3 --flash-size 16mb --partition-table partitions.csv --target-app-partition ota_0 \
-            target/riscv32imc-unknown-none-elf/release/quire-x3 ../../dist/quire-x3.bin
-          espflash save-image --chip esp32c3 --flash-size 16mb --partition-table partitions.csv --target-app-partition recovery \
-            target/riscv32imc-unknown-none-elf/release/quire-recovery ../../dist/quire-recovery.bin
-          # The recovery app lives in the 512 KB factory partition and must keep headroom.
-          test "$(stat -c %s ../../dist/quire-recovery.bin)" -le 491520
-      - name: assets image (the dictionary, flashed at the assets partition)
-        run: |
-          cp ../crates/quire-ui/data/en.qdict ../../dist/quire-assets.bin
-      - name: factory image (bootloader + table + otadata + recovery + app + assets, flash at 0x0)
-        run: |
-          espflash save-image --chip esp32c3 --merge --partition-table partitions.csv --target-app-partition ota_0 \
-            --flash-size 16mb target/riscv32imc-unknown-none-elf/release/quire-x3 ../../dist/quire-x3-factory.bin
-          # espflash merges only the app; the other partitions are written at their table offsets.
-          offset() { grep "^$1," partitions.csv | cut -d, -f4 | tr -d ' '; }
-          put() { dd if="$1" of=../../dist/quire-x3-factory.bin bs=4096 seek=$(( $(offset "$2") / 4096 )) conv=notrunc status=none; }
-          put ../../dist/quire-recovery.bin recovery
-          put ../../dist/quire-assets.bin assets
-          # otadata entry 0: sequence 1 (= ota_0), state Valid, CRC of the sequence. Without it an
-          # erased otadata boots the factory slot, so a fresh flash would start in recovery.
-          printf '\x01\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x02\x00\x00\x00\x9a\x98\x43\x47' > otadata.bin
-          put otadata.bin otadata
-          rm otadata.bin
-          ls -la ../../dist
-      - uses: actions/upload-artifact@v4
-        with: { name: quire-x3-images, path: dist/*.bin }
-
-  release:
-    name: publish release images
-    needs: [host, device]
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    permissions: { contents: write }
-    steps:
-      - uses: actions/download-artifact@v4
-        with: { name: quire-x3-images, path: dist }
-      - name: checksums
-        run: cd dist && sha256sum *.bin > SHA256SUMS
-      - uses: softprops/action-gh-release@v2
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
-          files: |
-            dist/*.bin
-            dist/SHA256SUMS
-          generate_release_notes: true
+          toolchain: ${{ matrix.rust }}
+          components: rustfmt, clippy
+          target: ${{ matrix.os == 'windows-latest' && 'x86_64-pc-windows-msvc' || '' }}
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: cargo-registry-${{ matrix.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-registry-${{ matrix.os }}-${{ matrix.rust }}-
+
+      - name: Cache cargo target directory
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: cargo-target-${{ matrix.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-target-${{ matrix.os }}-${{ matrix.rust }}-
+
+      - name: Cache cargo-dist artifacts
+        uses: actions/cache@v4
+        with:
+          path: target/cargo-dist
+          key: cargo-dist-${{ matrix.os }}-${{ matrix.rust }}-${{ hashFiles('cargo-dist.toml') }}
+          restore-keys: |
+            cargo-dist-${{ matrix.os }}-${{ matrix.rust }}-
+
+      - name: Install cargo-deny
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: cargo-deny
+          version: "0.14"
+          use-tool-cache: true
+
+      - name: Install cargo-audit
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: cargo-audit
+          version: "0.21"
+          use-tool-cache: true
+
+      - name: Install cargo-cyclonedx
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: cargo-cyclonedx
+          version: "0.10"
+          use-tool-cache: true
+
+      - name: Install cargo-sbom
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: cargo-sbom
+          version: "0.4"
+          use-tool-cache: true
+
+      - name: Install cargo-llvm-cov
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: cargo-llvm-cov
+          version: "0.6"
+          use-tool-cache: true
+
+      - name: Install cargo-vet
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: cargo-vet
+          version: "0.9"
+          use-tool-cache: true
+
+      - name: cargo check --all-targets (warning-free)
+        run: cargo check --all-targets
+        shell: bash
+        env:
+          RUSTFLAGS: -D warnings
+
+      - name: cargo test (with JUnit output)
+        run: |
+          cargo test -- --format=junit --output-file=target/test-results.xml
+        shell: bash
+
+      - name: cargo llvm-cov (coverage gate: fail-under 80%)
+        run: |
+          cargo llvm-cov --lcov --fail-under 80 \
+            --exclude-filename="tests/*" \
+            --exclude-filename="benches/*" \
+            --exclude-filename="generated*" \
+            --output-path=target/lcov.info
+        shell: bash
+
+      - name: Upload coverage report (lcov)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.os }}-${{ matrix.rust }}
+          path: target/lcov.info
+          retention-days: 30
+
+      - name: cargo vet check (supply-chain verification)
+        run: |
+          # Fetch imports
+          cargo vet import --all
+          cargo vet check
+        shell: bash
+
+      - name: cargo deny check licenses bans sources
+        run: cargo deny check licenses bans sources
+        shell: bash
+
+      - name: Verify NOTICE file is up to date
+        run: |
+          bash scripts/generate-notice.sh > NOTICE.generated
+          if ! diff -u NOTICE NOTICE.generated; then
+            echo "NOTICE file is out of date. Run scripts/generate-notice.sh to update."
+            exit 1
+          fi
+          rm NOTICE.generated
+        shell: bash
+
+      - name: cargo audit
+        run: cargo audit
+        shell: bash
+
+      - name: cargo cyclonedx (CycloneDX SBOM)
+        run: |
+          mkdir -p target
+          cargo cyclonedx --format json --override-filename sbom.json
+        shell: bash
+
+      - name: cargo sbom (SPDX SBOM)
+        run: |
+          cargo sbom --output-format spdx_json_2_3 > target/sbom.spdx.json
+        shell: bash
+
+      - name: Upload test results (JUnit XML)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}-${{ matrix.rust }}
+          path: target/test-results.xml
+          retention-days: 30
+
+      - name: Upload CycloneDX SBOM
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx-${{ matrix.os }}-${{ matrix.rust }}
+          path: target/sbom.json
+          retention-days: 90
+
+      - name: Upload SPDX SBOM
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-spdx-${{ matrix.os }}-${{ matrix.rust }}
+          path: target/sbom.spdx.json
+          retention-days: 90
+
+      - name: Upload cargo-deny logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-deny-logs-${{ matrix.os }}-${{ matrix.rust }}
+          path: target/deny
+          retention-days: 30

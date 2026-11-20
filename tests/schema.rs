@@ -9,9 +9,9 @@ fn memory_db() -> Connection {
 fn insert_chunk(conn: &Connection, path: &str, content: &str) -> i64 {
     conn.inner()
         .execute(
-            "INSERT INTO chunks (path, page, line_start, line_end, content, content_hash, mtime, size, metadata)
-             VALUES (?, 1, 1, 3, ?, x'00', 1000, 100, '{}')",
-            rusqlite::params![path, content],
+            "INSERT INTO chunks (path, page, line_start, line_end, content, fts_text, content_hash, mtime, size, metadata)
+             VALUES (?, 1, 1, 3, ?, ?, x'00', 1000, 100, '{}')",
+            rusqlite::params![path, content, content],
         )
         .unwrap();
     conn.inner().last_insert_rowid()
@@ -66,8 +66,8 @@ fn fts_triggers_index_and_remove_content() {
 
     conn.inner()
         .execute(
-            "UPDATE chunks SET content = 'receipt total 42 dollars' WHERE id = ?",
-            [id],
+            "UPDATE chunks SET content = 'receipt total 42 dollars', fts_text = ? WHERE id = ?",
+            rusqlite::params!["receipt total 42 dollars", id],
         )
         .unwrap();
     assert_eq!(

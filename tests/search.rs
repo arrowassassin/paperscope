@@ -61,9 +61,11 @@ fn raw(id: i64) -> RawHit {
         page: 0,
         line_start: 0,
         line_end: 0,
+        anchor: None,
         snippet: String::new(),
         score: 1.0,
         source: HitSource::Keyword,
+        mtime: 0,
     }
 }
 

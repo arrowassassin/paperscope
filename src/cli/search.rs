@@ -13,8 +13,9 @@ pub async fn run(args: SearchArgs) -> Result<i32> {
     }
 
     let roots = ws.search_roots(&args.root);
+    let filters = args.filters()?;
     let pipeline = ws.pipeline()?;
-    let mut hits = pipeline.search(&args.query, &roots)?;
+    let mut hits = pipeline.search_with(&args.query, &roots, &filters)?;
     hits.truncate(args.limit);
 
     if args.json {
@@ -26,16 +27,18 @@ pub async fn run(args: SearchArgs) -> Result<i32> {
         }
     } else {
         for hit in &hits {
-            let location = if hit.page > 0 {
-                format!("{}:p.{}:{}-{}", hit.path, hit.page, hit.line_start, hit.line_end)
-            } else {
-                format!("{}:{}-{}", hit.path, hit.line_start, hit.line_end)
+            let location = match &hit.anchor {
+                Some(anchor) => format!("{} [{anchor}]", hit.path),
+                None => format!("{}:{}-{}", hit.path, hit.line_start, hit.line_end),
             };
             println!("{location}");
-            println!("  {}", hit.snippet.replace('\n', " "));
-            println!("  {:.3} · {}", hit.score, hit.why_matched);
+            println!("  {}", hit.snippet);
+            println!("  score {:.2}  {}", hit.score, hit.why_matched);
         }
     }
-
-    Ok(if hits.is_empty() { EXIT_NOT_FOUND } else { EXIT_FOUND })
+    Ok(if hits.is_empty() {
+        EXIT_NOT_FOUND
+    } else {
+        EXIT_FOUND
+    })
 }

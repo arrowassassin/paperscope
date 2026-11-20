@@ -1,3 +1,4 @@
+pub mod aggregate;
 pub mod answer;
 pub mod doctor;
 pub mod index;
@@ -8,7 +9,7 @@ use crate::core::config::Config;
 use crate::core::index::{init_db, Connection};
 use crate::core::models::{ModelManager, DEFAULT_EMBEDDING, MULTILINGUAL_EMBEDDING, OPTIONAL_RERANKER};
 use crate::core::paths::Paths;
-use crate::core::search::{SearchPipeline, SharedEmbedder};
+use crate::core::search::{SearchFilters, SearchPipeline, SharedEmbedder};
 use anyhow::Result;
 use clap::{Args, Subcommand};
 use std::path::PathBuf;
@@ -111,6 +112,29 @@ pub struct SearchArgs {
     /// Fail with exit code 3 if the embedding model is not installed.
     #[arg(long)]
     pub semantic: bool,
+    /// Only files modified on or after this date (`YYYY-MM-DD`).
+    #[arg(long)]
+    pub after: Option<String>,
+    /// Only files modified on or before this date (`YYYY-MM-DD`).
+    #[arg(long)]
+    pub before: Option<String>,
+    /// Only these extensions, comma-separated (`pdf,docx`).
+    #[arg(long, value_delimiter = ',')]
+    pub ext: Vec<String>,
+    /// Only paths containing this substring.
+    #[arg(long)]
+    pub path: Option<String>,
+}
+
+impl SearchArgs {
+    pub fn filters(&self) -> Result<SearchFilters> {
+        SearchFilters::from_parts(
+            self.after.as_deref(),
+            self.before.as_deref(),
+            &self.ext,
+            self.path.clone(),
+        )
+    }
 }
 
 #[derive(Args)]
@@ -122,6 +146,25 @@ pub struct AnswerArgs {
     pub polish: bool,
     #[arg(long)]
     pub json: bool,
+    #[arg(long)]
+    pub after: Option<String>,
+    #[arg(long)]
+    pub before: Option<String>,
+    #[arg(long, value_delimiter = ',')]
+    pub ext: Vec<String>,
+    #[arg(long)]
+    pub path: Option<String>,
+}
+
+impl AnswerArgs {
+    pub fn filters(&self) -> Result<SearchFilters> {
+        SearchFilters::from_parts(
+            self.after.as_deref(),
+            self.before.as_deref(),
+            &self.ext,
+            self.path.clone(),
+        )
+    }
 }
 
 #[derive(Args)]
@@ -135,6 +178,9 @@ pub struct IndexArgs {
     /// Also load the embedding model so semantic search covers new chunks.
     #[arg(long)]
     pub embeddings: bool,
+    /// Enable OCR for scanned PDF pages (requires `ocr` feature and tesseract/pdftoppm).
+    #[arg(long)]
+    pub ocr: bool,
 }
 
 #[derive(Args)]
@@ -164,6 +210,10 @@ pub async fn run_index(args: IndexArgs) -> Result<i32> {
 
 pub async fn run_models(args: ModelsArgs) -> Result<i32> {
     models::run(args).await
+}
+
+pub async fn run_aggregate(args: aggregate::AggregateArgs) -> Result<i32> {
+    aggregate::run(args).await
 }
 
 pub async fn run_doctor() -> Result<i32> {

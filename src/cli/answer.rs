@@ -8,7 +8,8 @@ pub async fn run(args: AnswerArgs) -> Result<i32> {
     }
     let ws = Workspace::new();
     let roots = ws.search_roots(&args.root);
-    let hits = ws.pipeline()?.search(&args.question, &roots)?;
+    let filters = args.filters()?;
+    let hits = ws.pipeline()?.search_with(&args.question, &roots, &filters)?;
     let answer = Answer::from_hits(&args.question, &hits);
 
     if args.json {

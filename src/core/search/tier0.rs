@@ -1,4 +1,6 @@
+use super::filters::SearchFilters;
 use crate::core::index::Connection;
+use crate::core::text::{fts_desegment, fts_segment};
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 
@@ -13,10 +15,14 @@ pub struct RawHit {
     pub page: i64,
     pub line_start: i64,
     pub line_end: i64,
+    /// Format-specific anchor (`page 3`, `Sheet1!A5:H5`, `slide 2`).
+    pub anchor: Option<String>,
     pub snippet: String,
     /// Normalised relevance in `0..=1`; higher is better.
     pub score: f32,
     pub source: HitSource,
+    /// File mtime in Unix milliseconds, used by date filters.
+    pub mtime: i64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -40,15 +46,19 @@ const STOPWORDS: &[&str] = &[
 /// natural-language questions work: an `AND` of every word in "when does the
 /// fridge warranty expire?" matches nothing. Every term is double-quoted (with
 /// internal quotes doubled) so user input can never inject FTS5 operators.
+///
+/// The query is segmented exactly like the indexed text, so a CJK or Thai query
+/// produces the same token boundaries the index contains.
 pub fn fts5_match_expr(query: &str) -> String {
-    let terms: Vec<String> = query
+    let segmented = fts_segment(query);
+    let terms: Vec<String> = segmented
         .split_whitespace()
         .filter(|term| !STOPWORDS.contains(&term.to_lowercase().as_str()))
         .map(|term| format!("\"{}\"", term.replace('"', "\"\"")))
         .collect();
     if terms.is_empty() {
         // A query made only of stopwords still has to mean something.
-        return query
+        return segmented
             .split_whitespace()
             .map(|term| format!("\"{}\"", term.replace('"', "\"\"")))
             .collect::<Vec<_>>()
@@ -84,6 +94,18 @@ pub fn tier0_search(
     roots: &[PathBuf],
     limit: usize,
 ) -> Result<Vec<RawHit>> {
+    tier0_search_filtered(conn, query, roots, &SearchFilters::default(), limit)
+}
+
+/// Tier 0 with structured filters pushed into SQL, so a filtered query does not
+/// retrieve a page of useless candidates and discard them afterwards.
+pub fn tier0_search_filtered(
+    conn: &Connection,
+    query: &str,
+    roots: &[PathBuf],
+    filters: &SearchFilters,
+    limit: usize,
+) -> Result<Vec<RawHit>> {
     if query.chars().count() < MIN_QUERY_LEN {
         return Ok(vec![]);
     }
@@ -92,25 +114,25 @@ pub fn tier0_search(
         return Ok(vec![]);
     }
 
-    let (filter, filter_params) = root_filter(roots);
+    let (roots_sql, root_params) = root_filter(roots);
+    let (filters_sql, filter_values) = filters.sql();
     let sql = format!(
         "SELECT chunks.id, chunks.path, chunks.page, chunks.line_start, chunks.line_end,
+                chunks.anchor, chunks.mtime,
                 snippet(chunks_fts, 0, '', '', '…', 24) AS snip,
                 bm25(chunks_fts) AS rank
          FROM chunks_fts
          JOIN chunks ON chunks.id = chunks_fts.rowid
-         WHERE chunks_fts MATCH ?{filter}
+         WHERE chunks_fts MATCH ?{roots_sql}{filters_sql}
          ORDER BY rank
          LIMIT ?"
     );
 
-    let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
-    params.push(Box::new(match_expr));
-    for p in filter_params {
-        params.push(Box::new(p));
-    }
-    params.push(Box::new(limit as i64));
-    let refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+    let mut params: Vec<rusqlite::types::Value> = vec![rusqlite::types::Value::Text(match_expr)];
+    params.extend(root_params.into_iter().map(rusqlite::types::Value::Text));
+    params.extend(filter_values);
+    params.push(rusqlite::types::Value::Integer(limit as i64));
+    let refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p as &dyn rusqlite::ToSql).collect();
 
     let mut stmt = conn.inner().prepare(&sql)?;
     let rows = stmt.query_map(refs.as_slice(), |row| {
@@ -120,15 +142,17 @@ pub fn tier0_search(
             row.get::<_, i64>(2)?,
             row.get::<_, i64>(3)?,
             row.get::<_, i64>(4)?,
-            row.get::<_, String>(5)?,
-            row.get::<_, f64>(6)?,
+            row.get::<_, Option<String>>(5)?,
+            row.get::<_, i64>(6)?,
+            row.get::<_, String>(7)?,
+            row.get::<_, f64>(8)?,
         ))
     })?;
 
     let mut hits = Vec::new();
     let mut best: f32 = 0.0;
     for row in rows {
-        let (id, path, page, ls, le, snippet, bm25) = row?;
+        let (id, path, page, ls, le, anchor, mtime, snippet, bm25) = row?;
         // SQLite's bm25() is <= 0; more negative means more relevant.
         let relevance = (-bm25 as f32).max(0.0);
         best = best.max(relevance);
@@ -138,9 +162,13 @@ pub fn tier0_search(
             page,
             line_start: ls,
             line_end: le,
-            snippet,
+            anchor,
+            // The snippet comes from the segmented index text; put it back into
+            // readable form before it is ever shown to a user.
+            snippet: fts_desegment(&snippet),
             score: relevance,
             source: HitSource::Keyword,
+            mtime,
         });
     }
     if best > 0.0 {

@@ -1,0 +1,24 @@
+Source: paper
+Section: utils
+Priority: optional
+Maintainer: Paper Maintainers <maintainers@paper.example>
+Build-Depends: debhelper-compat (= 13), cargo (>= 1.88), libsqlite3-dev
+Standards-Version: 4.6.2
+Homepage: https://github.com/arrowassassin/paperscope
+
+Package: paper
+Architecture: amd64
+Depends: ${shlibs:Depends}, ${misc:Depends}, libc6 (>= 2.31), libsqlite3-0
+Description: Local-first document search with exact page and line citations
+ Paper is a local-first document search CLI and MCP server that indexes your
+ documents and provides exact citations (file, page, line) for every search
+ result. It runs entirely offline with no telemetry, no accounts, and no cloud
+ dependencies unless explicitly opted in.
+ .
+ Features:
+  * Exact keyword and semantic search with citations
+  * Supports PDF, DOCX, XLSX, PPTX, EPUB, email, HTML, Markdown, and more
+  * Optional OCR for scanned documents
+  * Optional shell-out accelerators (pdftotext, pandoc, libreoffice)
+  * MCP server for AI agent integration
+  * Single static binary, no runtime dependencies

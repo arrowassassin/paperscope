@@ -168,9 +168,11 @@ fn reranker_scores_relevant_passage_higher() {
     let hit = |id: i64, snippet: &str| Hit {
         source_id: id,
         path: format!("/doc{id}.txt"),
+        source_path: format!("/doc{id}.txt"),
         page: 0,
         line_start: 1,
         line_end: 2,
+        anchor: None,
         snippet: snippet.to_string(),
         content: snippet.to_string(),
         score: 0.0,

@@ -1,3 +1,4 @@
+use super::filters::SearchFilters;
 use super::tier0::{HitSource, RawHit};
 use crate::core::index::Connection;
 use anyhow::Result;
@@ -29,8 +30,30 @@ pub fn tier1_search(
     roots: &[PathBuf],
     limit: usize,
 ) -> Result<Vec<RawHit>> {
+    tier1_search_filtered(conn, query_vec, roots, &SearchFilters::default(), limit)
+}
+
+/// Tier 1 with structured filters.
+///
+/// sqlite-vec's KNN clause may not accept arbitrary extra `WHERE` terms, so the
+/// filters are applied in memory. When filters are present the KNN fetch is
+/// widened, otherwise a filter could drop every neighbour before the limit is
+/// filled.
+pub fn tier1_search_filtered(
+    conn: &Connection,
+    query_vec: &[f32],
+    roots: &[PathBuf],
+    filters: &SearchFilters,
+    limit: usize,
+) -> Result<Vec<RawHit>> {
     let blob = serialize_f32_vec(query_vec);
+    let fetch = if filters.is_empty() {
+        limit
+    } else {
+        limit.saturating_mul(8).max(limit + 32)
+    };
     let sql = "SELECT chunks.id, chunks.path, chunks.page, chunks.line_start, chunks.line_end,
+                      chunks.anchor, chunks.mtime,
                       substr(chunks.content, 1, 240) AS snip, v.distance
                FROM chunks_vec AS v
                JOIN chunks ON chunks.id = v.rowid
@@ -38,15 +61,17 @@ pub fn tier1_search(
                ORDER BY v.distance";
 
     let mut stmt = conn.inner().prepare(sql)?;
-    let rows = stmt.query_map(rusqlite::params![blob, limit as i64], |row| {
+    let rows = stmt.query_map(rusqlite::params![blob, fetch as i64], |row| {
         Ok(RawHit {
             chunk_id: row.get(0)?,
             path: row.get(1)?,
             page: row.get(2)?,
             line_start: row.get(3)?,
             line_end: row.get(4)?,
-            snippet: row.get(5)?,
-            score: 1.0 - row.get::<_, f64>(6)? as f32,
+            anchor: row.get(5)?,
+            mtime: row.get(6)?,
+            snippet: row.get(7)?,
+            score: 1.0 - row.get::<_, f64>(8)? as f32,
             source: HitSource::Semantic,
         })
     })?;
@@ -54,12 +79,19 @@ pub fn tier1_search(
     let mut hits = Vec::new();
     for row in rows {
         let hit = row?;
-        if roots.is_empty()
-            || roots
+        if !roots.is_empty()
+            && !roots
                 .iter()
                 .any(|r| std::path::Path::new(&hit.path).starts_with(r))
         {
-            hits.push(hit);
+            continue;
+        }
+        if !filters.matches(&hit.path, hit.mtime) {
+            continue;
+        }
+        hits.push(hit);
+        if hits.len() >= limit {
+            break;
         }
     }
     Ok(hits)
