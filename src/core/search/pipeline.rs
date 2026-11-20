@@ -1,0 +1,176 @@
+use super::hit::{Confidence, Engine, Hit};
+use super::tier0::{tier0_search, HitSource, RawHit, MIN_QUERY_LEN};
+use super::tier1::tier1_search;
+use crate::core::config::SearchConfig;
+use crate::core::index::Connection;
+use crate::core::models::{Embedder, Reranker};
+use anyhow::{bail, Result};
+use std::collections::HashMap;
+use std::path::PathBuf;
+
+/// Deterministic, non-generative embedder used in tests and in `--no-model`
+/// keyword-only operation.
+pub trait QueryEmbedder {
+    fn embed(&self, text: &str) -> Result<Vec<f32>>;
+}
+
+impl QueryEmbedder for Embedder {
+    fn embed(&self, text: &str) -> Result<Vec<f32>> {
+        Embedder::embed(self, text)
+    }
+}
+
+/// Shared handle so the indexer and the search pipeline can reuse one model.
+pub type SharedEmbedder = std::sync::Arc<dyn QueryEmbedder + Send + Sync>;
+
+pub struct SearchPipeline {
+    conn: Connection,
+    embedder: Option<SharedEmbedder>,
+    reranker: Option<Reranker>,
+    config: SearchConfig,
+}
+
+impl SearchPipeline {
+    pub fn new(
+        conn: Connection,
+        embedder: Option<SharedEmbedder>,
+        reranker: Option<Reranker>,
+        config: SearchConfig,
+    ) -> Self {
+        Self {
+            conn,
+            embedder,
+            reranker,
+            config,
+        }
+    }
+
+    pub fn connection(&self) -> &Connection {
+        &self.conn
+    }
+
+    pub fn search(&self, query: &str, roots: &[PathBuf]) -> Result<Vec<Hit>> {
+        if query.chars().count() < MIN_QUERY_LEN {
+            bail!("query must be at least {MIN_QUERY_LEN} characters");
+        }
+
+        let kw_hits = tier0_search(&self.conn, query, roots, self.config.keyword_limit)?;
+
+        // Strong keyword evidence: skip the embedding model entirely. This keeps
+        // exact lookups (invoice numbers, names) fast and model-free.
+        let mut sem_hits: Vec<RawHit> = Vec::new();
+        if kw_hits.len() < self.config.keyword_sufficiency_threshold {
+            if let Some(embedder) = &self.embedder {
+                let query_vec = embedder.embed(query)?;
+                sem_hits = tier1_search(&self.conn, &query_vec, roots, self.config.semantic_limit)?
+                    .into_iter()
+                    .filter(|hit| hit.score >= self.config.semantic_min_score)
+                    .collect();
+            }
+        }
+
+        let fused = rrf_fuse(&kw_hits, &sem_hits, self.config.rrf_k, self.config.fused_limit);
+        let mut hits = self.hydrate(&fused)?;
+
+        if let Some(reranker) = &self.reranker {
+            hits = reranker.rerank(query, hits)?;
+        }
+
+        for hit in &mut hits {
+            hit.confidence = confidence_for(hit.score);
+            hit.engine = Engine::Local;
+            hit.why_matched = why_matched(hit, &kw_hits, &sem_hits);
+        }
+        Ok(hits)
+    }
+
+    /// Turn `(chunk_id, rrf_score)` pairs into full citations.
+    fn hydrate(&self, fused: &[(i64, f32)]) -> Result<Vec<Hit>> {
+        let mut hits = Vec::with_capacity(fused.len());
+        let mut stmt = self.conn.inner().prepare(
+            "SELECT id, path, page, line_start, line_end, content FROM chunks WHERE id = ?",
+        )?;
+        for &(id, score) in fused {
+            let row = stmt.query_row([id], |row| {
+                Ok(Hit {
+                    source_id: row.get(0)?,
+                    path: row.get(1)?,
+                    page: row.get(2)?,
+                    line_start: row.get(3)?,
+                    line_end: row.get(4)?,
+                    snippet: row.get::<_, String>(5)?,
+                    score,
+                    why_matched: String::new(),
+                    confidence: Confidence::Low,
+                    engine: Engine::Local,
+                })
+            });
+            match row {
+                Ok(mut hit) => {
+                    hit.snippet = make_snippet(&hit.snippet);
+                    hits.push(hit);
+                }
+                // A chunk can disappear between the scan and hydration.
+                Err(rusqlite::Error::QueryReturnedNoRows) => continue,
+                Err(e) => return Err(e.into()),
+            }
+        }
+        Ok(hits)
+    }
+}
+
+/// Reciprocal Rank Fusion. Results present in *both* lists accumulate two
+/// contributions and therefore outrank single-source results.
+pub fn rrf_fuse(
+    keyword: &[RawHit],
+    semantic: &[RawHit],
+    k: i32,
+    limit: usize,
+) -> Vec<(i64, f32)> {
+    let k = k.max(1) as f32;
+    let mut scores: HashMap<i64, f32> = HashMap::new();
+    for list in [keyword, semantic] {
+        for (rank, hit) in list.iter().enumerate() {
+            *scores.entry(hit.chunk_id).or_insert(0.0) += 1.0 / (k + rank as f32 + 1.0);
+        }
+    }
+    let mut fused: Vec<(i64, f32)> = scores.into_iter().collect();
+    fused.sort_by(|a, b| {
+        b.1.partial_cmp(&a.1)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.0.cmp(&b.0))
+    });
+    fused.truncate(limit);
+    fused
+}
+
+fn confidence_for(score: f32) -> Confidence {
+    if score > 0.8 {
+        Confidence::High
+    } else if score > 0.5 {
+        Confidence::Medium
+    } else {
+        Confidence::Low
+    }
+}
+
+fn make_snippet(content: &str) -> String {
+    let collapsed = content.split_whitespace().collect::<Vec<_>>().join(" ");
+    collapsed.chars().take(240).collect()
+}
+
+fn why_matched(hit: &Hit, keyword: &[RawHit], semantic: &[RawHit]) -> String {
+    let kw = keyword.iter().any(|h| h.chunk_id == hit.source_id);
+    let sem = semantic.iter().any(|h| h.chunk_id == hit.source_id);
+    match (kw, sem) {
+        (true, true) => "matched by keyword and semantic search".to_string(),
+        (true, false) => "matched by keyword search".to_string(),
+        (false, true) => "matched by semantic search".to_string(),
+        (false, false) => "matched".to_string(),
+    }
+}
+
+/// Used by `Hit::source` serialisation; kept here so `HitSource` stays imported.
+pub fn source_of(hit: &RawHit) -> HitSource {
+    hit.source
+}

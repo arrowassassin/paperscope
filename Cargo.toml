@@ -1,0 +1,80 @@
+[workspace]
+resolver = "2"
+members = ["."]
+
+[package]
+name = "paper"
+version = "0.1.0"
+edition = "2021"
+description = "Local document finder with citations. CLI + MCP server in one binary."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourname/paper"
+categories = ["command-line-utilities", "search", "database"]
+keywords = ["rag", "search", "sqlite", "mcp", "local-first"]
+
+[lib]
+name = "paper"
+path = "src/lib.rs"
+
+[[bin]]
+name = "paper"
+path = "src/main.rs"
+
+[dependencies]
+# Storage: bundled SQLite (no system dependency) + statically linked sqlite-vec.
+rusqlite = { version = "0.32", features = ["bundled"] }
+sqlite-vec = "0.1.9"
+
+# Runtime / errors / serialization
+tokio = { version = "1.38", features = ["full"] }
+anyhow = "1.0"
+thiserror = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# CLI + output
+clap = { version = "4.5", features = ["derive", "env"] }
+indicatif = "0.17"
+
+# Model download
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip", "stream"] }
+sha2 = "0.10"
+hex = "0.4"
+dirs = "5.0"
+
+# Hashing + walking
+blake3 = "1.5"
+walkdir = "2.5"
+notify = "6.1"
+toml = "0.8"
+
+# Inference: Hugging Face Candle (pure Rust, no ONNX Runtime)
+candle-core = "0.8"
+candle-nn = "0.8"
+candle-transformers = "0.8"
+tokenizers = "0.20"
+safetensors = "0.5"
+hf-hub = "0.3"
+
+# MCP server
+rmcp = { version = "0.2", features = ["server", "transport-io", "transport-child-process"] }
+schemars = "0.8"
+
+cfg-if = "1.0"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.9"
+core-foundation-sys = "0.8"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true
+opt-level = 3
+
+[dev-dependencies]
+tempfile = "3.8"

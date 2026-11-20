@@ -1,0 +1,66 @@
+use super::tier0::{HitSource, RawHit};
+use crate::core::index::Connection;
+use anyhow::Result;
+use std::path::PathBuf;
+
+/// Serialise an embedding the way sqlite-vec expects: packed little-endian f32.
+pub fn serialize_f32_vec(v: &[f32]) -> Vec<u8> {
+    let mut buf = Vec::with_capacity(v.len() * 4);
+    for &x in v {
+        buf.extend_from_slice(&x.to_le_bytes());
+    }
+    buf
+}
+
+pub fn deserialize_f32_vec(bytes: &[u8]) -> Vec<f32> {
+    bytes
+        .chunks_exact(4)
+        .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+        .collect()
+}
+
+/// Tier 1: exact nearest-neighbour search over `chunks_vec`.
+///
+/// `MATCH ... AND k = ?` is sqlite-vec's KNN syntax; `distance` is the cosine
+/// distance, so similarity is `1 - distance`.
+pub fn tier1_search(
+    conn: &Connection,
+    query_vec: &[f32],
+    roots: &[PathBuf],
+    limit: usize,
+) -> Result<Vec<RawHit>> {
+    let blob = serialize_f32_vec(query_vec);
+    let sql = "SELECT chunks.id, chunks.path, chunks.page, chunks.line_start, chunks.line_end,
+                      substr(chunks.content, 1, 240) AS snip, v.distance
+               FROM chunks_vec AS v
+               JOIN chunks ON chunks.id = v.rowid
+               WHERE v.embedding MATCH ? AND k = ?
+               ORDER BY v.distance";
+
+    let mut stmt = conn.inner().prepare(sql)?;
+    let rows = stmt.query_map(rusqlite::params![blob, limit as i64], |row| {
+        Ok(RawHit {
+            chunk_id: row.get(0)?,
+            path: row.get(1)?,
+            page: row.get(2)?,
+            line_start: row.get(3)?,
+            line_end: row.get(4)?,
+            snippet: row.get(5)?,
+            score: 1.0 - row.get::<_, f64>(6)? as f32,
+            source: HitSource::Semantic,
+        })
+    })?;
+
+    let mut hits = Vec::new();
+    for row in rows {
+        let hit = row?;
+        if roots.is_empty()
+            || roots
+                .iter()
+                .any(|r| std::path::Path::new(&hit.path).starts_with(r))
+        {
+            hits.push(hit);
+        }
+    }
+    Ok(hits)
+}
