@@ -28,11 +28,14 @@ impl McpClient {
             stdout,
             next_id: 0,
         };
-        client.request("initialize", json!({
-            "protocolVersion": "2024-11-05",
-            "capabilities": {},
-            "clientInfo": {"name": "paper-test", "version": "0.0.0"}
-        }));
+        client.request(
+            "initialize",
+            json!({
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "paper-test", "version": "0.0.0"}
+            }),
+        );
         client.notify("notifications/initialized", json!({}));
         client
     }
@@ -45,7 +48,11 @@ impl McpClient {
 
     fn request(&mut self, method: &str, params: Value) -> Value {
         let value = self.send(method, params);
-        assert!(value.get("error").is_none(), "{method} failed: {}", value["error"]);
+        assert!(
+            value.get("error").is_none(),
+            "{method} failed: {}",
+            value["error"]
+        );
         value["result"].clone()
     }
 
@@ -70,11 +77,11 @@ impl McpClient {
     }
 
     fn call_tool(&mut self, name: &str, arguments: Value) -> Value {
-        let result = self.request(
-            "tools/call",
-            json!({"name": name, "arguments": arguments}),
-        );
-        let text = result["content"][0]["text"].as_str().unwrap_or("").to_string();
+        let result = self.request("tools/call", json!({"name": name, "arguments": arguments}));
+        let text = result["content"][0]["text"]
+            .as_str()
+            .unwrap_or("")
+            .to_string();
         serde_json::from_str(&text).unwrap_or_else(|_| json!({ "raw": text }))
     }
 }
@@ -95,7 +102,11 @@ fn fixture() -> (tempfile::TempDir, PathBuf) {
         "Fridge warranty\nThe fridge warranty covers 24 months.\nIt expires on 2027-01-15.\n",
     )
     .unwrap();
-    std::fs::write(docs.join("tax.txt"), "Tax return 2025\nDeadline 2026-04-15.\n").unwrap();
+    std::fs::write(
+        docs.join("tax.txt"),
+        "Tax return 2025\nDeadline 2026-04-15.\n",
+    )
+    .unwrap();
     let out = Command::new(env!("CARGO_BIN_EXE_paper"))
         .args(["index", "--root", docs.to_str().unwrap()])
         .env("PAPER_HOME", home.path())
@@ -138,10 +149,7 @@ fn mcp_search_read_and_answer_round_trip() {
     assert!(!hits.is_empty());
     let source_id = hits[0]["source_id"].as_i64().unwrap();
 
-    let source = client.call_tool(
-        "read_source",
-        json!({"source_id": source_id, "context": 0}),
-    );
+    let source = client.call_tool("read_source", json!({"source_id": source_id, "context": 0}));
     let content = source["chunks"][0]["content"].as_str().unwrap();
     assert!(content.contains("2027-01-15"), "{content}");
 

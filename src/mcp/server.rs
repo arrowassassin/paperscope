@@ -26,8 +26,7 @@ struct Inner {
 
 impl Inner {
     fn connect(&self) -> Result<Connection, McpError> {
-        Connection::open(&self.db_path)
-            .map_err(|e| McpError::internal_error(e.to_string(), None))
+        Connection::open(&self.db_path).map_err(|e| McpError::internal_error(e.to_string(), None))
     }
 
     fn pipeline(&self) -> Result<SearchPipeline, McpError> {
@@ -114,7 +113,9 @@ impl PaperMcp {
     #[tool(description = "Search local documents and return exact file/line citations")]
     async fn search_documents(
         &self,
-        rmcp::handler::server::tool::Parameters(req): rmcp::handler::server::tool::Parameters<SearchRequest>,
+        rmcp::handler::server::tool::Parameters(req): rmcp::handler::server::tool::Parameters<
+            SearchRequest,
+        >,
     ) -> Result<CallToolResult, McpError> {
         let mut hits = self
             .inner
@@ -129,7 +130,9 @@ impl PaperMcp {
     #[tool(description = "Read the full text behind a citation, by source_id")]
     async fn read_source(
         &self,
-        rmcp::handler::server::tool::Parameters(req): rmcp::handler::server::tool::Parameters<ReadSourceRequest>,
+        rmcp::handler::server::tool::Parameters(req): rmcp::handler::server::tool::Parameters<
+            ReadSourceRequest,
+        >,
     ) -> Result<CallToolResult, McpError> {
         let context = req.context.unwrap_or(0) as i64;
         let sql = "SELECT id, path, page, line_start, line_end, content FROM chunks
@@ -140,19 +143,16 @@ impl PaperMcp {
             .prepare(sql)
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
         let rows = stmt
-            .query_map(
-                [req.source_id - context, req.source_id + context],
-                |row| {
-                    Ok(serde_json::json!({
-                        "source_id": row.get::<_, i64>(0)?,
-                        "path": row.get::<_, String>(1)?,
-                        "page": row.get::<_, i64>(2)?,
-                        "line_start": row.get::<_, i64>(3)?,
-                        "line_end": row.get::<_, i64>(4)?,
-                        "content": row.get::<_, String>(5)?,
-                    }))
-                },
-            )
+            .query_map([req.source_id - context, req.source_id + context], |row| {
+                Ok(serde_json::json!({
+                    "source_id": row.get::<_, i64>(0)?,
+                    "path": row.get::<_, String>(1)?,
+                    "page": row.get::<_, i64>(2)?,
+                    "line_start": row.get::<_, i64>(3)?,
+                    "line_end": row.get::<_, i64>(4)?,
+                    "content": row.get::<_, String>(5)?,
+                }))
+            })
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let mut found = false;
@@ -185,7 +185,9 @@ impl PaperMcp {
     #[tool(description = "List indexed documents with chunk counts")]
     async fn list_sources(
         &self,
-        rmcp::handler::server::tool::Parameters(req): rmcp::handler::server::tool::Parameters<ListSourcesRequest>,
+        rmcp::handler::server::tool::Parameters(req): rmcp::handler::server::tool::Parameters<
+            ListSourcesRequest,
+        >,
     ) -> Result<CallToolResult, McpError> {
         let conn = self.inner.connect()?;
         let mut stmt = conn
@@ -228,7 +230,9 @@ impl PaperMcp {
     #[tool(description = "Answer from local documents with citations (extractive, no generation)")]
     async fn answer_documents(
         &self,
-        rmcp::handler::server::tool::Parameters(req): rmcp::handler::server::tool::Parameters<AnswerRequest>,
+        rmcp::handler::server::tool::Parameters(req): rmcp::handler::server::tool::Parameters<
+            AnswerRequest,
+        >,
     ) -> Result<CallToolResult, McpError> {
         let mut hits = self
             .inner

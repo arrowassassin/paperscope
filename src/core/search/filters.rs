@@ -73,7 +73,10 @@ impl SearchFilters {
             }
         }
         if let Some(needle) = &self.path_contains {
-            if !path.to_ascii_lowercase().contains(&needle.to_ascii_lowercase()) {
+            if !path
+                .to_ascii_lowercase()
+                .contains(&needle.to_ascii_lowercase())
+            {
                 return false;
             }
         }
@@ -117,13 +120,20 @@ impl SearchFilters {
 /// millisecond of that day, making an upper bound inclusive.
 fn parse_date(input: &str, end_of_day: bool) -> anyhow::Result<i64> {
     let mut parts = input.split('-');
-    let (Some(y), Some(m), Some(d), None) = (parts.next(), parts.next(), parts.next(), parts.next())
+    let (Some(y), Some(m), Some(d), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
     else {
         anyhow::bail!("expected a date as YYYY-MM-DD, got {input:?}");
     };
-    let year: i64 = y.parse().map_err(|_| anyhow::anyhow!("bad year in {input:?}"))?;
-    let month: i64 = m.parse().map_err(|_| anyhow::anyhow!("bad month in {input:?}"))?;
-    let day: i64 = d.parse().map_err(|_| anyhow::anyhow!("bad day in {input:?}"))?;
+    let year: i64 = y
+        .parse()
+        .map_err(|_| anyhow::anyhow!("bad year in {input:?}"))?;
+    let month: i64 = m
+        .parse()
+        .map_err(|_| anyhow::anyhow!("bad month in {input:?}"))?;
+    let day: i64 = d
+        .parse()
+        .map_err(|_| anyhow::anyhow!("bad day in {input:?}"))?;
     if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
         anyhow::bail!("date out of range: {input:?}");
     }

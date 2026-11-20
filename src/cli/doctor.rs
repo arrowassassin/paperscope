@@ -19,7 +19,9 @@ pub async fn run() -> Result<i32> {
             let files = conn
                 .query_i64("SELECT COUNT(DISTINCT path) FROM chunks")
                 .unwrap_or(0);
-            let vectors = conn.query_i64("SELECT COUNT(*) FROM chunks_vec").unwrap_or(0);
+            let vectors = conn
+                .query_i64("SELECT COUNT(*) FROM chunks_vec")
+                .unwrap_or(0);
             let version: String = conn
                 .inner()
                 .query_row("SELECT vec_version()", [], |r| r.get(0))
@@ -37,7 +39,11 @@ pub async fn run() -> Result<i32> {
         println!(
             "  model:      {:<22} {} ({} MB)",
             model.id,
-            if model.installed { "installed" } else { "not installed" },
+            if model.installed {
+                "installed"
+            } else {
+                "not installed"
+            },
             model.size_mb
         );
     }

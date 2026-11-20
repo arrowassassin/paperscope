@@ -103,7 +103,9 @@ fn real_model_downloads_verifies_and_embeds() {
     let embedder = manager.load_embedder(DEFAULT_EMBEDDING).unwrap();
     assert_eq!(embedder.dims(), EMBEDDING_DIMS);
 
-    let query = embedder.embed_query("how long is the fridge warranty").unwrap();
+    let query = embedder
+        .embed_query("how long is the fridge warranty")
+        .unwrap();
     assert_eq!(query.len(), EMBEDDING_DIMS);
     let norm = query.iter().map(|x| x * x).sum::<f32>().sqrt();
     assert!((norm - 1.0).abs() < 1e-3, "embedding must be unit length");
@@ -182,9 +184,14 @@ fn reranker_scores_relevant_passage_higher() {
     };
     let hits = vec![
         hit(1, "Income tax filings are due in April 2026."),
-        hit(2, "The fridge warranty covers 24 months and expires on 2027-01-15."),
+        hit(
+            2,
+            "The fridge warranty covers 24 months and expires on 2027-01-15.",
+        ),
     ];
-    let ranked = reranker.rerank("when does the fridge warranty expire?", hits).unwrap();
+    let ranked = reranker
+        .rerank("when does the fridge warranty expire?", hits)
+        .unwrap();
     assert_eq!(ranked[0].source_id, 2, "{ranked:?}");
     assert!(ranked[0].score > ranked[1].score);
     assert!(ranked[0].score > 0.5, "relevant passage should score high");

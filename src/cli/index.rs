@@ -12,7 +12,9 @@ pub async fn run(args: IndexArgs) -> Result<i32> {
     let conn = ws.open_index()?;
     let embedder = ws.embedder();
     if args.embeddings && embedder.is_none() {
-        eprintln!("embedding model is not installed; run `paper models install {DEFAULT_EMBEDDING}`");
+        eprintln!(
+            "embedding model is not installed; run `paper models install {DEFAULT_EMBEDDING}`"
+        );
         return Ok(EXIT_MODEL_MISSING);
     }
     if embedder.is_none() {
@@ -84,10 +86,7 @@ fn watch(indexer: &Indexer, args: &IndexArgs) -> Result<()> {
             .watch(target, mode)
             .with_context(|| format!("watching {}", target.display()))?;
     }
-    eprintln!(
-        "watching {} target(s); press Ctrl-C to stop",
-        targets.len()
-    );
+    eprintln!("watching {} target(s); press Ctrl-C to stop", targets.len());
 
     loop {
         let Ok(Ok(event)) = rx.recv() else {

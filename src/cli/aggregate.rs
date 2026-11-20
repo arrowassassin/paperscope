@@ -43,7 +43,10 @@ pub async fn run(args: AggregateArgs) -> Result<i32> {
     let conn = ws.open_index()?;
 
     let roots = ws.roots(&args.root);
-    let root_paths: Vec<String> = roots.iter().map(|p| p.to_string_lossy().to_string()).collect();
+    let root_paths: Vec<String> = roots
+        .iter()
+        .map(|p| p.to_string_lossy().to_string())
+        .collect();
 
     // Build WHERE clause for source_path filtering
     let mut where_clauses = Vec::new();
@@ -158,9 +161,11 @@ pub async fn run(args: AggregateArgs) -> Result<i32> {
 
     let result: Option<String> = conn
         .inner()
-        .query_row(&query, rusqlite::params_from_iter(param_refs.iter()), |row| {
-            row.get(0)
-        })
+        .query_row(
+            &query,
+            rusqlite::params_from_iter(param_refs.iter()),
+            |row| row.get(0),
+        )
         .optional()?;
 
     match result {

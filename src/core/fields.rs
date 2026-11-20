@@ -10,17 +10,29 @@ fn iso_regex() -> &'static Regex {
 
 fn dmy_regex() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"\b(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})\b").unwrap())
+    RE.get_or_init(|| {
+        Regex::new(
+            r"\b(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})\b",
+        )
+        .unwrap()
+    })
 }
 
 fn symbol_regex() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"([$€£₹¥])\s*(\d{1,3}(?:[,\s]\d{3})*(?:[.,]\d+)?|\d+(?:[.,]\d+)?)").unwrap())
+    RE.get_or_init(|| {
+        Regex::new(r"([$€£₹¥])\s*(\d{1,3}(?:[,\s]\d{3})*(?:[.,]\d+)?|\d+(?:[.,]\d+)?)").unwrap()
+    })
 }
 
 fn code_regex() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"(\d{1,3}(?:[,\s]\d{3})*(?:[.,]\d+)?|\d+(?:[.,]\d+)?)\s+(USD|EUR|GBP|INR|JPY)\b").unwrap())
+    RE.get_or_init(|| {
+        Regex::new(
+            r"(\d{1,3}(?:[,\s]\d{3})*(?:[.,]\d+)?|\d+(?:[.,]\d+)?)\s+(USD|EUR|GBP|INR|JPY)\b",
+        )
+        .unwrap()
+    })
 }
 
 /// Extract ISO 8601 dates (YYYY-MM-DD) and DD Mon YYYY dates from text.
@@ -278,7 +290,12 @@ mod tests {
         let text = "Warranty expires 2027-01-15. Total: $1,234.56";
         let result = analyse(text);
         let json: serde_json::Value = serde_json::from_str(&result).unwrap();
-        let dates: Vec<String> = json["dates"].as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect();
+        let dates: Vec<String> = json["dates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap().to_string())
+            .collect();
         assert_eq!(dates, vec!["2027-01-15"]);
         let amounts = json["amounts"].as_array().unwrap();
         assert!((amounts[0]["amount"].as_f64().unwrap() - 1234.56).abs() < 0.01);
@@ -291,8 +308,14 @@ mod tests {
         let text = "No structured data here.";
         let result = analyse(text);
         let json: serde_json::Value = serde_json::from_str(&result).unwrap();
-        assert!(json["dates"].as_array().map(|a| a.is_empty()).unwrap_or(true));
-        assert!(json["amounts"].as_array().map(|a| a.is_empty()).unwrap_or(true));
+        assert!(json["dates"]
+            .as_array()
+            .map(|a| a.is_empty())
+            .unwrap_or(true));
+        assert!(json["amounts"]
+            .as_array()
+            .map(|a| a.is_empty())
+            .unwrap_or(true));
         assert!(json["kind"].as_str().unwrap_or("").is_empty());
     }
 }

@@ -2,7 +2,11 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "paper", version, about = "Local document finder with citations")]
+#[command(
+    name = "paper",
+    version,
+    about = "Local document finder with citations"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,

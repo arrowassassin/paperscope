@@ -26,7 +26,10 @@ impl Embedder {
         let model_type = raw.get("model_type").and_then(|v| v.as_str()).unwrap_or("");
         if model_type != "bert" {
             // Fail loudly rather than returning plausible-looking garbage vectors.
-            bail!("unsupported encoder architecture {model_type:?} for model {}", spec.id);
+            bail!(
+                "unsupported encoder architecture {model_type:?} for model {}",
+                spec.id
+            );
         }
         let config: BertConfig = serde_json::from_value(raw).context("parsing BERT config")?;
         if config.hidden_size != spec.dims {
@@ -98,7 +101,8 @@ impl Embedder {
 
         let input_ids = Tensor::new(encoding.get_ids(), &self.device)?.unsqueeze(0)?;
         let token_type_ids = Tensor::new(encoding.get_type_ids(), &self.device)?.unsqueeze(0)?;
-        let attention_mask = Tensor::new(encoding.get_attention_mask(), &self.device)?.unsqueeze(0)?;
+        let attention_mask =
+            Tensor::new(encoding.get_attention_mask(), &self.device)?.unsqueeze(0)?;
 
         let hidden = self
             .model

@@ -7,7 +7,7 @@
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use paper::core::eval::{
-    load_golden_set, make_eval_pipeline, run_eval, build_golden_index, EvalError, EvalReport,
+    build_golden_index, load_golden_set, make_eval_pipeline, run_eval, EvalError, EvalReport,
 };
 use paper::core::search::SharedEmbedder;
 use std::collections::hash_map::DefaultHasher;
@@ -26,8 +26,8 @@ fn bench_eval(c: &mut Criterion) {
     let golden_set = load_golden_set(&golden_path).expect("Failed to load golden set");
 
     // Build the index once
-    let (conn, doc_to_chunks) = build_golden_index(&golden_set, make_eval_embedder())
-        .expect("Failed to build eval index");
+    let (conn, doc_to_chunks) =
+        build_golden_index(&golden_set, make_eval_embedder()).expect("Failed to build eval index");
     let pipeline = make_eval_pipeline(conn);
 
     c.bench_function("eval/full_golden_set", |b| {
@@ -94,7 +94,10 @@ fn print_report_summary(report: &EvalReport) {
     println!("Macro MRR:           {:.4}", report.macro_mrr);
     println!("Macro nDCG@10:       {:.4}", report.macro_ndcg_at_10);
     println!("Macro Citation Acc:  {:.4}", report.macro_citation_accuracy);
-    println!("Macro Abstention:    {:.4}", report.macro_abstention_correctness);
+    println!(
+        "Macro Abstention:    {:.4}",
+        report.macro_abstention_correctness
+    );
     println!();
 
     // Per-query details for failed queries

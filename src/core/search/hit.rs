@@ -28,7 +28,13 @@ pub struct Hit {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum Confidence { High, Medium, Low }
+pub enum Confidence {
+    High,
+    Medium,
+    Low,
+}
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum Engine { Local }
+pub enum Engine {
+    Local,
+}

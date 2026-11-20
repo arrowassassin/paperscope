@@ -23,6 +23,13 @@ impl TesseractEngine {
 }
 
 #[cfg(feature = "ocr")]
+impl Default for TesseractEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(feature = "ocr")]
 impl OcrEngine for TesseractEngine {
     fn recognize(&self, image_bytes: &[u8]) -> Result<String> {
         // Write image to temp file
@@ -35,7 +42,7 @@ impl OcrEngine for TesseractEngine {
         // Run tesseract
         let output = std::process::Command::new("tesseract")
             .arg(&image_path)
-            .arg(&output_path.with_extension(""))
+            .arg(output_path.with_extension(""))
             .arg("-l")
             .arg("eng")
             .output()?;
@@ -44,7 +51,10 @@ impl OcrEngine for TesseractEngine {
         let _ = std::fs::remove_file(&image_path);
 
         if !output.status.success() {
-            anyhow::bail!("tesseract failed: {}", String::from_utf8_lossy(&output.stderr));
+            anyhow::bail!(
+                "tesseract failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
 
         // Read output
@@ -67,6 +77,13 @@ pub struct VisionEngine;
 impl VisionEngine {
     pub fn new() -> Self {
         Self
+    }
+}
+
+#[cfg(all(feature = "ocr", target_os = "macos"))]
+impl Default for VisionEngine {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -97,6 +114,13 @@ impl WindowsOcrEngine {
 }
 
 #[cfg(all(feature = "ocr", target_os = "windows"))]
+impl Default for WindowsOcrEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(all(feature = "ocr", target_os = "windows"))]
 impl OcrEngine for WindowsOcrEngine {
     fn recognize(&self, image_bytes: &[u8]) -> Result<String> {
         // Use Windows OCR API
@@ -114,11 +138,11 @@ impl OcrEngine for WindowsOcrEngine {
 #[cfg(feature = "ocr")]
 pub fn detect_ocr_engine() -> Option<Box<dyn OcrEngine>> {
     // Prefer native platform engines
-    #[cfg(all(target_os = "macos"))]
+    #[cfg(target_os = "macos")]
     {
         Some(Box::new(VisionEngine::new()))
     }
-    #[cfg(all(target_os = "windows"))]
+    #[cfg(target_os = "windows")]
     {
         Some(Box::new(WindowsOcrEngine::new()))
     }
@@ -142,7 +166,10 @@ pub fn process_pdf_page_with_ocr(
 ) -> Result<Option<Vec<ExtractedDocument>>> {
     let engine = detect_ocr_engine();
     let Some(engine) = engine else {
-        tracing::warn!("page {}: no OCR engine available (install tesseract or enable platform OCR)", page_num);
+        tracing::warn!(
+            "page {}: no OCR engine available (install tesseract or enable platform OCR)",
+            page_num
+        );
         return Ok(None);
     };
 
@@ -159,12 +186,16 @@ pub fn process_pdf_page_with_ocr(
         .arg(page_num.to_string())
         .arg("-singlefile")
         .arg("-")
-        .arg(&image_path.with_extension(""))
+        .arg(image_path.with_extension(""))
         .stdin(std::fs::File::open(pdf_path)?)
         .output()?;
 
     if !output.status.success() {
-        tracing::warn!("page {}: failed to render for OCR: {}", page_num, String::from_utf8_lossy(&output.stderr));
+        tracing::warn!(
+            "page {}: failed to render for OCR: {}",
+            page_num,
+            String::from_utf8_lossy(&output.stderr)
+        );
         return Ok(None);
     }
 
@@ -197,7 +228,11 @@ pub fn process_pdf_page_with_ocr(
         text
     };
 
-    tracing::warn!("page {}: OCR applied using {} (no text layer)", page_num, engine.name());
+    tracing::warn!(
+        "page {}: OCR applied using {} (no text layer)",
+        page_num,
+        engine.name()
+    );
 
     let line_end = text.lines().count().max(1) as i64;
     Ok(Some(single(
@@ -211,7 +246,11 @@ pub fn process_pdf_page_with_ocr(
             line_start: 1,
             line_end,
         }],
-        vec![format!("page {}: OCR applied using {}", page_num, engine.name())],
+        vec![format!(
+            "page {}: OCR applied using {}",
+            page_num,
+            engine.name()
+        )],
     )))
 }
 

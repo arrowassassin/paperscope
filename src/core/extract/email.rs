@@ -26,9 +26,15 @@ impl Extractor for Email {
         };
         let lower = text.to_ascii_lowercase();
         text.starts_with("From ")
-            || ["return-path:", "received:", "message-id:", "from:", "mime-version:"]
-                .iter()
-                .any(|header| lower.contains(header))
+            || [
+                "return-path:",
+                "received:",
+                "message-id:",
+                "from:",
+                "mime-version:",
+            ]
+            .iter()
+            .any(|header| lower.contains(header))
     }
 
     fn extract(&self, name: &str, bytes: &[u8]) -> Result<Option<Vec<ExtractedDocument>>> {

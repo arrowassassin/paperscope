@@ -64,7 +64,15 @@ fn bench_keyword(c: &mut Criterion) {
         b.iter(|| tier0_search(conn, black_box("FR-0042"), &[], 10).unwrap())
     });
     c.bench_function("tier0/natural language", |b| {
-        b.iter(|| tier0_search(conn, black_box("when does the fridge warranty expire"), &[], 10).unwrap())
+        b.iter(|| {
+            tier0_search(
+                conn,
+                black_box("when does the fridge warranty expire"),
+                &[],
+                10,
+            )
+            .unwrap()
+        })
     });
 }
 

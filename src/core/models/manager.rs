@@ -87,7 +87,10 @@ impl ModelManager {
             path.exists() && verify_sha256(&path, f.sha256).unwrap_or(false)
         });
         if installed {
-            self.installed_cache.lock().unwrap().insert(model_id.to_string());
+            self.installed_cache
+                .lock()
+                .unwrap()
+                .insert(model_id.to_string());
         }
         installed
     }
@@ -127,7 +130,10 @@ impl ModelManager {
                 );
             }
         }
-        self.installed_cache.lock().unwrap().insert(model_id.to_string());
+        self.installed_cache
+            .lock()
+            .unwrap()
+            .insert(model_id.to_string());
         Ok(dir)
     }
 

@@ -6,7 +6,10 @@ pub async fn run(args: ModelsArgs) -> Result<i32> {
     let manager = ModelManager::new();
     match args.command {
         ModelsCommand::List => {
-            println!("{:<24} {:>7}  {:<9} {:<16} DESCRIPTION", "MODEL", "SIZE", "INSTALLED", "LANGUAGES");
+            println!(
+                "{:<24} {:>7}  {:<9} {:<16} DESCRIPTION",
+                "MODEL", "SIZE", "INSTALLED", "LANGUAGES"
+            );
             for m in manager.list() {
                 println!(
                     "{:<24} {:>5}MB  {:<9} {:<16} {}{}",

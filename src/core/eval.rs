@@ -4,12 +4,12 @@
 //! downloads models. Metrics: recall@k, MRR, nDCG@10, citation accuracy,
 //! abstention correctness.
 
+use crate::core::config::SearchConfig;
 use crate::core::index::Connection;
 use crate::core::search::{Hit, QueryEmbedder, SearchPipeline, SharedEmbedder};
-use crate::core::config::SearchConfig;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
@@ -143,7 +143,7 @@ pub fn build_golden_index(
     // Build mapping from golden set document index to chunk IDs
     // by querying the database for source_path
     let mut doc_to_chunks: HashMap<usize, Vec<i64>> = HashMap::new();
-    
+
     // Build a map from filename to golden set document index
     let path_to_doc_idx: HashMap<String, usize> = golden_set
         .documents
@@ -153,15 +153,13 @@ pub fn build_golden_index(
         .collect();
 
     {
-        let mut stmt = conn.inner().prepare(
-            "SELECT id, source_path FROM chunks"
-        )?;
+        let mut stmt = conn.inner().prepare("SELECT id, source_path FROM chunks")?;
         let rows = stmt.query_map([], |row| {
             let id: i64 = row.get(0)?;
             let source_path: String = row.get(1)?;
             Ok((id, source_path))
         })?;
-        
+
         for row in rows {
             let (chunk_id, source_path) = row?;
             // Extract filename from source_path (which is the full path)
@@ -200,8 +198,13 @@ pub fn run_eval(
     let macro_recall_at_5 = per_query.iter().map(|q| q.recall_at_5).sum::<f32>() / total;
     let macro_mrr = per_query.iter().map(|q| q.mrr).sum::<f32>() / total;
     let macro_ndcg_at_10 = per_query.iter().map(|q| q.ndcg_at_10).sum::<f32>() / total;
-    let macro_citation_accuracy = per_query.iter().map(|q| q.citation_accuracy).sum::<f32>() / total;
-    let macro_abstention_correctness = per_query.iter().map(|q| q.abstention_correct as u8 as f32).sum::<f32>() / total;
+    let macro_citation_accuracy =
+        per_query.iter().map(|q| q.citation_accuracy).sum::<f32>() / total;
+    let macro_abstention_correctness = per_query
+        .iter()
+        .map(|q| q.abstention_correct as u8 as f32)
+        .sum::<f32>()
+        / total;
 
     Ok(EvalReport {
         per_query,
@@ -387,7 +390,10 @@ fn compute_citation_accuracy(
                     if query_terms.is_empty() {
                         false
                     } else {
-                        let matches = query_terms.iter().filter(|t| cited_lower.contains(*t)).count();
+                        let matches = query_terms
+                            .iter()
+                            .filter(|t| cited_lower.contains(*t))
+                            .count();
                         matches as f32 / query_terms.len() as f32 > 0.3
                     }
                 };
@@ -405,9 +411,9 @@ fn compute_citation_accuracy(
 /// For unanswerable queries, this is correct behavior.
 /// For answerable queries, this is a false negative.
 fn compute_abstention_correctness(hits: &[Hit], answerable: bool) -> bool {
-    let has_high_or_medium = hits.iter().any(|h| {
-        !matches!(h.confidence, crate::core::search::Confidence::Low)
-    });
+    let has_high_or_medium = hits
+        .iter()
+        .any(|h| !matches!(h.confidence, crate::core::search::Confidence::Low));
 
     if answerable {
         // Should find an answer (at least Medium confidence)
@@ -422,15 +428,23 @@ impl GoldenSet {
     /// Validate the golden set for consistency.
     fn validate(&self) -> Result<(), EvalError> {
         if self.queries.is_empty() {
-            return Err(EvalError::InvalidGoldenSet("No queries in golden set".into()));
+            return Err(EvalError::InvalidGoldenSet(
+                "No queries in golden set".into(),
+            ));
         }
         if self.documents.is_empty() {
-            return Err(EvalError::InvalidGoldenSet("No documents in golden set".into()));
+            return Err(EvalError::InvalidGoldenSet(
+                "No documents in golden set".into(),
+            ));
         }
 
         // Check that all qrels reference existing document IDs
-        let doc_ids: std::collections::HashSet<i64> =
-            self.documents.iter().enumerate().map(|(i, _)| i as i64).collect();
+        let doc_ids: std::collections::HashSet<i64> = self
+            .documents
+            .iter()
+            .enumerate()
+            .map(|(i, _)| i as i64)
+            .collect();
 
         for query in &self.queries {
             for &chunk_id in query.qrels.keys() {
@@ -461,10 +475,7 @@ impl EvalReport {
         let mut reasons = Vec::new();
 
         if self.macro_recall_at_10 < 0.75 {
-            reasons.push(format!(
-                "recall@10 {:.3} < 0.75",
-                self.macro_recall_at_10
-            ));
+            reasons.push(format!("recall@10 {:.3} < 0.75", self.macro_recall_at_10));
         }
         if self.macro_citation_accuracy < 0.95 {
             reasons.push(format!(

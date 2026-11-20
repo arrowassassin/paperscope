@@ -1,4 +1,4 @@
-use super::{single, Block, ExtractedDocument, Extractor, Capabilities};
+use super::{single, Block, Capabilities, ExtractedDocument, Extractor};
 use anyhow::Result;
 use calamine::{open_workbook_auto_from_rs, Data, Reader};
 use std::io::Cursor;

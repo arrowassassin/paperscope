@@ -103,7 +103,12 @@ impl SearchPipeline {
             }
         }
 
-        let fused = rrf_fuse(&kw_hits, &sem_hits, self.config.rrf_k, self.config.fused_limit);
+        let fused = rrf_fuse(
+            &kw_hits,
+            &sem_hits,
+            self.config.rrf_k,
+            self.config.fused_limit,
+        );
         let relevance = relevance_map(&kw_hits, &sem_hits);
         let mut hits = self.hydrate(&fused, &relevance)?;
 
@@ -210,12 +215,7 @@ impl SearchPipeline {
 
 /// Reciprocal Rank Fusion. Results present in *both* lists accumulate two
 /// contributions and therefore outrank single-source results.
-pub fn rrf_fuse(
-    keyword: &[RawHit],
-    semantic: &[RawHit],
-    k: i32,
-    limit: usize,
-) -> Vec<(i64, f32)> {
+pub fn rrf_fuse(keyword: &[RawHit], semantic: &[RawHit], k: i32, limit: usize) -> Vec<(i64, f32)> {
     let k = k.max(1) as f32;
     let mut scores: HashMap<i64, f32> = HashMap::new();
     for list in [keyword, semantic] {
@@ -253,7 +253,10 @@ fn full_term_coverage(query: &str, text: &str) -> bool {
     let text = text.to_lowercase();
     let mut terms = query
         .split_whitespace()
-        .map(|t| t.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase())
+        .map(|t| {
+            t.trim_matches(|c: char| !c.is_alphanumeric())
+                .to_lowercase()
+        })
         .filter(|t| t.len() >= 3);
     let Some(first) = terms.next() else {
         return false;

@@ -170,10 +170,10 @@ fn html_blocks(source: &str) -> Vec<Block> {
     let mut heading: Option<usize> = None;
 
     let flush = |blocks: &mut Vec<Block>,
-                     buffer: &mut String,
-                     start_line: usize,
-                     end_line: usize,
-                     path: &[(usize, String)]| {
+                 buffer: &mut String,
+                 start_line: usize,
+                 end_line: usize,
+                 path: &[(usize, String)]| {
         let text = buffer.trim();
         if text.is_empty() {
             buffer.clear();

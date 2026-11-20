@@ -7,7 +7,9 @@ pub mod search;
 
 use crate::core::config::Config;
 use crate::core::index::{init_db, Connection};
-use crate::core::models::{ModelManager, DEFAULT_EMBEDDING, MULTILINGUAL_EMBEDDING, OPTIONAL_RERANKER};
+use crate::core::models::{
+    ModelManager, DEFAULT_EMBEDDING, MULTILINGUAL_EMBEDDING, OPTIONAL_RERANKER,
+};
 use crate::core::paths::Paths;
 use crate::core::search::{SearchFilters, SearchPipeline, SharedEmbedder};
 use anyhow::Result;

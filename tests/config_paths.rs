@@ -36,7 +36,10 @@ fn default_paths_live_under_paper() {
 fn config_round_trips_through_toml() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("config.toml");
-    let mut config = paper::Config { rrf_k: 42, ..Default::default() };
+    let mut config = paper::Config {
+        rrf_k: 42,
+        ..Default::default()
+    };
     config.roots.push("/tmp/docs".into());
     std::fs::write(&path, toml::to_string_pretty(&config).unwrap()).unwrap();
 

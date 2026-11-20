@@ -6,19 +6,28 @@ on:
       - 'v*'
   workflow_dispatch:
 
+# Least privilege for a release workflow.
 permissions:
   contents: write
   id-token: write
   attestations: write
 
+# Only one release at a time for the same tag.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
 
 jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
+    outputs:
+      artifacts: ${{ steps.build.outputs.artifacts }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -40,7 +49,12 @@ jobs:
         uses: taiki-e/install-action@cargo-dist
         with:
           tool: cargo-dist
-          version: latest
+          version: '0.34.0'
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
@@ -59,7 +73,7 @@ jobs:
       - name: Install system dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install gpg rpm dpkg fakeroot
+          brew install gpg rpm dpkg fakeroot || true
 
       - name: Setup GPG for Linux signing
         if: runner.os == 'Linux' && env.GPG_PRIVATE_KEY != ''
@@ -68,9 +82,8 @@ jobs:
           echo "use-agent" >> ~/.gnupg/gpg.conf
           echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
 
-      - name: Build and sign with cargo-dist
-        id: dist
-        uses: cargo-dist/action@v0.34.0
+      - name: Build with cargo-dist
+        id: build
         env:
           # macOS signing
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -86,29 +99,36 @@ jobs:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           # Cargo registry token for publishing
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          cargo dist build --artifacts=all --output-format=json > dist-manifest.json
+          # shellcheck disable=SC2086
+          printf 'artifacts=%s\n' "$(jq -r '.artifacts | @json' dist-manifest.json)" >> $GITHUB_OUTPUT
+
+      - name: Upload artifacts to GitHub Release
+        if: steps.build.outputs.artifacts != '' && github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
         with:
-          # cargo-dist will read config from cargo-dist.toml
-          args: --artifacts=all
+          files: |
+            target/dist/**/*
+          tag_name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
 
       - name: Generate CycloneDX SBOM
-        if: steps.dist.outputs.artifacts != ''
         run: |
-          cargo install cargo-cyclonedx --locked || true
+          cargo install cargo-cyclonedx --locked
           mkdir -p target/dist
-          cargo cyclonedx --format json --override-filename sbom || true
-          if [ -f sbom.json ]; then
-            mv -f sbom.json target/dist/sbom.json
-          fi
+          cargo cyclonedx --format json --override-filename sbom
+          find . -maxdepth 2 -name 'sbom.json' -exec mv -f {} target/dist/sbom.json \;
 
       - name: Generate SPDX SBOM
-        if: steps.dist.outputs.artifacts != ''
         run: |
-          cargo install cargo-sbom --locked || true
+          cargo install cargo-sbom --locked
           mkdir -p target/dist
-          cargo sbom --output-format spdx_json_2_3 > target/dist/sbom.spdx.json || true
+          cargo sbom --output-format spdx_json_2_3 > target/dist/sbom.spdx.json
 
       - name: Upload SBOMs to release
-        if: steps.dist.outputs.artifacts != '' && github.event_name == 'push'
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
           files: |
@@ -117,17 +137,6 @@ jobs:
           tag_name: ${{ github.ref_name }}
           draft: false
           prerelease: false
-
-  slsa-provenance:
-    name: SLSA Provenance
-    needs: release
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@main
-    permissions:
-      contents: read
-      id-token: write
-      attestations: write
-    with:
-      base64-subjects: "${{ needs.release.outputs.artifacts }}"
 
   publish-installers:
     name: Publish Installers
@@ -145,7 +154,7 @@ jobs:
         uses: taiki-e/install-action@cargo-dist
         with:
           tool: cargo-dist
-          version: latest
+          version: '0.34.0'
 
       - name: Publish Homebrew formula
         if: env.HOMEBREW_TAP_GITHUB_TOKEN != ''

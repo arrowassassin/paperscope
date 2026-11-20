@@ -132,7 +132,8 @@ pub fn tier0_search_filtered(
     params.extend(root_params.into_iter().map(rusqlite::types::Value::Text));
     params.extend(filter_values);
     params.push(rusqlite::types::Value::Integer(limit as i64));
-    let refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p as &dyn rusqlite::ToSql).collect();
+    let refs: Vec<&dyn rusqlite::ToSql> =
+        params.iter().map(|p| p as &dyn rusqlite::ToSql).collect();
 
     let mut stmt = conn.inner().prepare(&sql)?;
     let rows = stmt.query_map(refs.as_slice(), |row| {

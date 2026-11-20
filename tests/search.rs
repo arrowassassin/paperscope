@@ -1,8 +1,8 @@
 mod common;
 
+use paper::core::config::SearchConfig;
 use paper::core::index::{Connection, Indexer};
 use paper::core::search::tier0::{fts5_match_expr, tier0_search};
-use paper::core::config::SearchConfig;
 use paper::core::search::{rrf_fuse, HitSource, RawHit, SearchPipeline};
 use std::fs;
 use std::path::PathBuf;
@@ -115,7 +115,13 @@ fn root_filter_excludes_documents_outside_the_allow_list() {
     .unwrap();
     assert!(hits.is_empty());
 
-    let hits = tier0_search(fx.indexer.connection(), "warranty", std::slice::from_ref(&fx.docs), 10).unwrap();
+    let hits = tier0_search(
+        fx.indexer.connection(),
+        "warranty",
+        std::slice::from_ref(&fx.docs),
+        10,
+    )
+    .unwrap();
     assert!(!hits.is_empty());
 }
 
@@ -161,7 +167,10 @@ fn pipeline_returns_citations_with_file_and_lines() {
         .take((hit.line_end - hit.line_start + 1) as usize)
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(cited.contains("warranty"), "citation did not resolve: {cited}");
+    assert!(
+        cited.contains("warranty"),
+        "citation did not resolve: {cited}"
+    );
 }
 
 #[test]
@@ -179,7 +188,10 @@ fn pipeline_works_without_any_model_installed() {
     assert!(!hits.is_empty());
     // OR semantics: documents matching more terms must outrank partial matches.
     assert!(hits[0].path.ends_with("dishwasher.txt"), "{hits:?}");
-    let dishwasher = hits.iter().position(|h| h.path.ends_with("dishwasher.txt")).unwrap();
+    let dishwasher = hits
+        .iter()
+        .position(|h| h.path.ends_with("dishwasher.txt"))
+        .unwrap();
     let fridge = hits.iter().position(|h| h.path.ends_with("fridge.txt"));
     if let Some(fridge) = fridge {
         assert!(dishwasher < fridge);
@@ -201,7 +213,8 @@ fn strong_keyword_evidence_skips_the_embedding_model() {
         keyword_sufficiency_threshold: 1,
         ..SearchConfig::default()
     };
-    let pipeline = SearchPipeline::new(conn, Some(std::sync::Arc::new(PanicEmbedder)), None, config);
+    let pipeline =
+        SearchPipeline::new(conn, Some(std::sync::Arc::new(PanicEmbedder)), None, config);
     let hits = pipeline.search("fridge warranty", &[]).unwrap();
     assert!(!hits.is_empty());
 }
@@ -211,7 +224,10 @@ fn exact_identifier_match_is_high_confidence() {
     let fx = Fixture::new();
     let hits = fx.pipeline().search("FR-9981", &[]).unwrap();
     assert_eq!(hits.len(), 1);
-    assert!(matches!(hits[0].confidence, paper::core::search::Confidence::High));
+    assert!(matches!(
+        hits[0].confidence,
+        paper::core::search::Confidence::High
+    ));
 }
 
 #[test]
@@ -230,7 +246,10 @@ fn partial_keyword_match_is_not_reported_as_certain() {
     }
     let fridge = hits.iter().find(|h| h.path.ends_with("fridge.txt"));
     if let Some(fridge) = fridge {
-        assert!(matches!(fridge.confidence, paper::core::search::Confidence::High));
+        assert!(matches!(
+            fridge.confidence,
+            paper::core::search::Confidence::High
+        ));
     }
 }
 

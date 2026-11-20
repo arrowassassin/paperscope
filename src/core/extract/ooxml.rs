@@ -1,4 +1,4 @@
-use super::{single, Block, ExtractedDocument, Extractor, Capabilities, MAX_EXTRACTED_BYTES};
+use super::{single, Block, Capabilities, ExtractedDocument, Extractor, MAX_EXTRACTED_BYTES};
 use anyhow::Result;
 use quick_xml::events::Event;
 use quick_xml::Reader;
@@ -15,7 +15,10 @@ fn read_entry<R: Read + Seek>(zip: &mut ZipArchive<R>, name: &str) -> Option<Str
         return None;
     }
     let mut out = String::new();
-    file.by_ref().take((MAX_EXTRACTED_BYTES + 1) as u64).read_to_string(&mut out).ok()?;
+    file.by_ref()
+        .take((MAX_EXTRACTED_BYTES + 1) as u64)
+        .read_to_string(&mut out)
+        .ok()?;
     if out.len() > MAX_EXTRACTED_BYTES {
         return None;
     }
@@ -169,11 +172,11 @@ fn merge_paragraphs(paragraphs: Vec<Paragraph>, max_words: usize) -> Vec<Block> 
 
     let mut current_line = 1i64;
     let flush = |blocks: &mut Vec<Block>,
-                     bucket: &mut String,
-                     first: usize,
-                     last: usize,
-                     path: &[(u8, String)],
-                     current_line: &mut i64| {
+                 bucket: &mut String,
+                 first: usize,
+                 last: usize,
+                 path: &[(u8, String)],
+                 current_line: &mut i64| {
         if bucket.trim().is_empty() {
             return;
         }
@@ -200,7 +203,14 @@ fn merge_paragraphs(paragraphs: Vec<Paragraph>, max_words: usize) -> Vec<Block> 
     for (idx, paragraph) in paragraphs.iter().enumerate() {
         let number = idx + 1;
         if let Some(level) = paragraph.level {
-            flush(&mut blocks, &mut bucket, first, number - 1, &path, &mut current_line);
+            flush(
+                &mut blocks,
+                &mut bucket,
+                first,
+                number - 1,
+                &path,
+                &mut current_line,
+            );
             words = 0;
             path.retain(|(existing, _)| *existing < level);
             path.push((level, paragraph.text.trim().to_string()));
@@ -214,7 +224,14 @@ fn merge_paragraphs(paragraphs: Vec<Paragraph>, max_words: usize) -> Vec<Block> 
         bucket.push('\n');
         words += paragraph_words;
         if words >= max_words {
-            flush(&mut blocks, &mut bucket, first, number, &path, &mut current_line);
+            flush(
+                &mut blocks,
+                &mut bucket,
+                first,
+                number,
+                &path,
+                &mut current_line,
+            );
             words = 0;
         }
     }
@@ -259,7 +276,7 @@ impl Extractor for Pptx {
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             max_file_bytes: 256 * 1024 * 1024, // 256 MB for PPTX
-            max_pages: 1_000, // max slides
+            max_pages: 1_000,                  // max slides
             max_entries: 1_000,
             streaming: false,
             thread_safe: true,
@@ -271,7 +288,9 @@ impl Extractor for Pptx {
         let mut zip = open_zip(bytes)?;
         let mut slides: Vec<(u32, String)> = Vec::new();
         for i in 0..zip.len().min(1000) {
-            let Ok(mut file) = zip.by_index(i) else { continue };
+            let Ok(mut file) = zip.by_index(i) else {
+                continue;
+            };
             if file.size() as usize > MAX_EXTRACTED_BYTES {
                 continue;
             }
@@ -279,11 +298,18 @@ impl Extractor for Pptx {
             let Some(rest) = fname.strip_prefix("ppt/slides/slide") else {
                 continue;
             };
-            let Some(num) = rest.strip_suffix(".xml").and_then(|n| n.parse::<u32>().ok()) else {
+            let Some(num) = rest
+                .strip_suffix(".xml")
+                .and_then(|n| n.parse::<u32>().ok())
+            else {
                 continue;
             };
             let mut data = String::new();
-            if file.by_ref().take((MAX_EXTRACTED_BYTES + 1) as u64).read_to_string(&mut data).is_ok()
+            if file
+                .by_ref()
+                .take((MAX_EXTRACTED_BYTES + 1) as u64)
+                .read_to_string(&mut data)
+                .is_ok()
                 && data.len() <= MAX_EXTRACTED_BYTES
             {
                 slides.push((num, data));
@@ -360,7 +386,7 @@ impl Extractor for Epub {
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             max_file_bytes: 128 * 1024 * 1024, // 128 MB for EPUB
-            max_pages: 5_000, // spine items
+            max_pages: 5_000,                  // spine items
             max_entries: 5_000,
             streaming: false,
             thread_safe: true,
@@ -393,7 +419,8 @@ impl Extractor for Epub {
             for i in 0..zip.len() {
                 let Ok(f) = zip.by_index(i) else { continue };
                 let fname = f.name().map(|cow| cow.into_owned()).unwrap_or_default();
-                if fname.ends_with(".xhtml") || fname.ends_with(".html") || fname.ends_with(".htm") {
+                if fname.ends_with(".xhtml") || fname.ends_with(".html") || fname.ends_with(".htm")
+                {
                     order.push(fname);
                 }
             }
@@ -447,9 +474,7 @@ fn parse_opf(xml: &str, manifest: &mut Vec<(String, String)>, spine: &mut Vec<St
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) | Ok(Event::Empty(e)) => {
                 if e.name().as_ref() == "item" {
-                    if let (Some(id), Some(href)) =
-                        (attr_value(&e, "id"), attr_value(&e, "href"))
-                    {
+                    if let (Some(id), Some(href)) = (attr_value(&e, "id"), attr_value(&e, "href")) {
                         manifest.push((id, href));
                     }
                 } else if e.name().as_ref() == "itemref" {

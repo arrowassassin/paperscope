@@ -141,7 +141,10 @@ impl Indexer {
         // Find every extractor that claims this extension and use the largest cap.
         let mut max_allowed: u64 = 0;
         for extractor in extract::extractors() {
-            if extractor.extensions().contains(&extract::extension_of(&path_string).as_str()) {
+            if extractor
+                .extensions()
+                .contains(&extract::extension_of(&path_string).as_str())
+            {
                 max_allowed = max_allowed.max(extractor.capabilities().max_file_bytes);
             }
         }
@@ -225,7 +228,9 @@ impl Indexer {
                 // The section path is indexed but not quoted: it helps retrieval
                 // ("warranty / coverage") without altering the cited bytes.
                 let fts_text = match &chunk.section {
-                    Some(section) => format!("{}\n{}", fts_segment(section), fts_segment(&chunk.content)),
+                    Some(section) => {
+                        format!("{}\n{}", fts_segment(section), fts_segment(&chunk.content))
+                    }
                     None => fts_segment(&chunk.content),
                 };
                 let metadata = fields::analyse(&chunk.content);
@@ -495,11 +500,19 @@ fn atomic_replace(src: &Path, dst: &Path) -> Result<()> {
             // Fallback: copy + remove. Not atomic across devices, but the best
             // we can do. The destination is only visible after copy completes.
             fs::copy(src, dst).with_context(|| {
-                format!("copying {} -> {} (cross-device)", src.display(), dst.display())
+                format!(
+                    "copying {} -> {} (cross-device)",
+                    src.display(),
+                    dst.display()
+                )
             })?;
-            fs::remove_file(src).with_context(|| format!("removing temp file {}", src.display()))?;
+            fs::remove_file(src)
+                .with_context(|| format!("removing temp file {}", src.display()))?;
         }
-        Err(e) => return Err(e).with_context(|| format!("renaming {} -> {}", src.display(), dst.display())),
+        Err(e) => {
+            return Err(e)
+                .with_context(|| format!("renaming {} -> {}", src.display(), dst.display()))
+        }
     }
     Ok(())
 }

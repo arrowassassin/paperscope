@@ -236,7 +236,10 @@ pub fn extract_path(path: &Path) -> Result<Option<Vec<ExtractedDocument>>> {
     let metadata = std::fs::symlink_metadata(path)?;
     let mut max_allowed: u64 = 0;
     for extractor in extractors() {
-        if extractor.extensions().contains(&extension_of(&name).as_str()) {
+        if extractor
+            .extensions()
+            .contains(&extension_of(&name).as_str())
+        {
             max_allowed = max_allowed.max(extractor.capabilities().max_file_bytes);
         }
     }
@@ -249,16 +252,19 @@ pub fn extract_path(path: &Path) -> Result<Option<Vec<ExtractedDocument>>> {
 
 /// Extract bytes that are already in memory (archive members, tests).
 /// `ocr_enabled` controls whether OCR is attempted for scanned PDF pages.
-pub fn extract_named(name: &str, bytes: &[u8], _ocr_enabled: bool) -> Result<Option<Vec<ExtractedDocument>>> {
+pub fn extract_named(
+    name: &str,
+    bytes: &[u8],
+    _ocr_enabled: bool,
+) -> Result<Option<Vec<ExtractedDocument>>> {
     // Try shell-out accelerators first (feature-gated)
     #[cfg(feature = "shell-accel")]
     {
         if let Some(path) = std::path::Path::new(name).extension() {
             if let Some(ext) = path.to_str() {
-                if let Ok(Some(docs)) = crate::core::extract::accel::try_accelerators(
-                    std::path::Path::new(name),
-                    ext,
-                ) {
+                if let Ok(Some(docs)) =
+                    crate::core::extract::accel::try_accelerators(std::path::Path::new(name), ext)
+                {
                     if !docs.is_empty() {
                         return Ok(Some(docs));
                     }

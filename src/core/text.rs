@@ -85,7 +85,12 @@ impl JiebaSegmenter {
 #[cfg(feature = "jieba-rs")]
 impl Segmenter for JiebaSegmenter {
     fn segment(&self, text: &str) -> Box<dyn Iterator<Item = String> + '_> {
-        let tokens: Vec<String> = self.jieba.cut(text, false).into_iter().map(String::from).collect();
+        let tokens: Vec<String> = self
+            .jieba
+            .cut(text, false)
+            .into_iter()
+            .map(String::from)
+            .collect();
         Box::new(tokens.into_iter())
     }
 

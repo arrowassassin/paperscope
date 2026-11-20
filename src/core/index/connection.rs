@@ -56,7 +56,7 @@ impl Connection {
     /// Open a database file that will be created if it doesn't exist. Runs
     /// `PRAGMA quick_check` on the new/empty file (always "ok") and applies
     /// creation-time pragmas like `page_size`.
-    /// 
+    ///
     /// This is a convenience alias for `open`; both now handle fresh files.
     pub fn open_or_create(path: &Path) -> Result<Self> {
         Self::open(path)
@@ -107,7 +107,12 @@ impl Connection {
         Ok(self.conn.query_row(sql, [], |row| row.get(0))?)
     }
 
-    pub fn query_row<T, P: rusqlite::Params>(&self, sql: &str, params: P, f: impl FnOnce(&rusqlite::Row<'_>) -> rusqlite::Result<T>) -> Result<T> {
+    pub fn query_row<T, P: rusqlite::Params>(
+        &self,
+        sql: &str,
+        params: P,
+        f: impl FnOnce(&rusqlite::Row<'_>) -> rusqlite::Result<T>,
+    ) -> Result<T> {
         Ok(self.conn.query_row(sql, params, f)?)
     }
 }

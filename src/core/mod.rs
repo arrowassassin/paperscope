@@ -11,5 +11,8 @@ pub mod search;
 pub mod text;
 
 pub use config::{Config, SearchConfig};
-pub use eval::{EvalError, EvalReport, GoldenDocument, GoldenQuery, GoldenSet, load_golden_set, make_eval_pipeline, run_eval};
+pub use eval::{
+    load_golden_set, make_eval_pipeline, run_eval, EvalError, EvalReport, GoldenDocument,
+    GoldenQuery, GoldenSet,
+};
 pub use paths::Paths;

@@ -13,7 +13,8 @@ fn indexer() -> (tempfile::TempDir, Indexer) {
 
 #[test]
 fn chunking_preserves_line_numbers_for_citations() {
-    let text = "first line about warranty\nsecond line about receipts\nthird line about serial numbers\n";
+    let text =
+        "first line about warranty\nsecond line about receipts\nthird line about serial numbers\n";
     let chunks = chunk_text(text, 4, 1);
     assert!(!chunks.is_empty());
     for chunk in &chunks {
@@ -50,7 +51,10 @@ fn chunking_long_document_produces_multiple_overlapping_chunks() {
     let chunks = chunk_text(&text, 40, 10);
     assert!(chunks.len() > 1);
     for pair in chunks.windows(2) {
-        assert!(pair[1].line_start <= pair[0].line_end, "chunks must overlap");
+        assert!(
+            pair[1].line_start <= pair[0].line_end,
+            "chunks must overlap"
+        );
     }
 }
 
@@ -58,7 +62,11 @@ fn chunking_long_document_produces_multiple_overlapping_chunks() {
 fn indexing_a_text_file_stores_citable_chunks() {
     let (dir, indexer) = indexer();
     let file = dir.path().join("warranty.txt");
-    fs::write(&file, "The fridge warranty covers 24 months.\nIt expires on 2027-01-15.\n").unwrap();
+    fs::write(
+        &file,
+        "The fridge warranty covers 24 months.\nIt expires on 2027-01-15.\n",
+    )
+    .unwrap();
 
     let stats = indexer.index_file(&file).unwrap();
     assert_eq!(stats.indexed, 1);
@@ -135,10 +143,18 @@ fn indexing_a_directory_skips_non_text_and_hidden_files() {
     let (dir, indexer) = indexer();
     let docs = dir.path().join("docs");
     fs::create_dir(&docs).unwrap();
-    fs::write(docs.join("note.md"), "# Appliances\nboiler serviced annually").unwrap();
+    fs::write(
+        docs.join("note.md"),
+        "# Appliances\nboiler serviced annually",
+    )
+    .unwrap();
     fs::write(docs.join("image.png"), [0u8, 1, 2, 3]).unwrap();
     fs::create_dir(docs.join(".git")).unwrap();
-    fs::write(docs.join(".git").join("config.txt"), "should not be indexed").unwrap();
+    fs::write(
+        docs.join(".git").join("config.txt"),
+        "should not be indexed",
+    )
+    .unwrap();
 
     let stats = indexer.index_roots(&[docs]).unwrap();
     assert_eq!(stats.indexed, 1);
@@ -164,7 +180,10 @@ fn prunes_chunks_for_deleted_files() {
     fs::remove_file(&file).unwrap();
     assert_eq!(indexer.prune_missing().unwrap(), 1);
     assert_eq!(
-        indexer.connection().query_i64("SELECT COUNT(*) FROM chunks").unwrap(),
+        indexer
+            .connection()
+            .query_i64("SELECT COUNT(*) FROM chunks")
+            .unwrap(),
         0
     );
 }

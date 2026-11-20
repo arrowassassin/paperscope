@@ -25,11 +25,12 @@ impl Fixture {
             "Fridge warranty\nThe fridge warranty covers 24 months from 2025-01-15.\nIt expires on 2027-01-15.\n",
         )
         .unwrap();
-        std::fs::write(docs.join("tax.txt"), "Tax return 2025\nDeadline 2026-04-15.\n").unwrap();
-        let out = paper(
-            home.path(),
-            &["index", "--root", docs.to_str().unwrap()],
-        );
+        std::fs::write(
+            docs.join("tax.txt"),
+            "Tax return 2025\nDeadline 2026-04-15.\n",
+        )
+        .unwrap();
+        let out = paper(home.path(), &["index", "--root", docs.to_str().unwrap()]);
         assert!(out.status.success(), "index failed: {:?}", out);
         Self { home, docs }
     }
@@ -114,7 +115,11 @@ fn models_list_does_not_download_anything() {
     assert!(stdout.contains("multilingual-e5-small"));
     assert!(stdout.contains("bge-reranker-base"));
     // No weights were fetched as a side effect of listing.
-    assert!(!home.path().join("models").join("bge-small-en-v1.5").exists());
+    assert!(!home
+        .path()
+        .join("models")
+        .join("bge-small-en-v1.5")
+        .exists());
 }
 
 #[test]

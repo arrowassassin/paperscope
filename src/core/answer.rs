@@ -78,7 +78,11 @@ impl Answer {
             Some(top) => Self {
                 question: question.to_string(),
                 text: top.snippet.clone(),
-                citations: supported.iter().take(3).map(|h| Citation::from_hit(h)).collect(),
+                citations: supported
+                    .iter()
+                    .take(3)
+                    .map(|h| Citation::from_hit(h))
+                    .collect(),
                 not_found: false,
                 engine: "local".to_string(),
             },

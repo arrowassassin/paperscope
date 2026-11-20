@@ -1,4 +1,4 @@
-use super::{single, Block, ExtractedDocument, Extractor, Capabilities, MAX_PDF_PAGES};
+use super::{single, Block, Capabilities, ExtractedDocument, Extractor, MAX_PDF_PAGES};
 use anyhow::Result;
 
 pub struct Pdf;

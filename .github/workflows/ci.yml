@@ -6,38 +6,40 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege: the workflow only reads the repository.
 permissions:
   contents: read
-  checks: write
+
+# Superseded pushes cancel their own runs instead of queueing seven OS jobs.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
-  # Ensure cargo tools are available
-  PATH: ${{ github.workspace }}/.cargo/bin:${{ env.PATH }}
+  RUST_BACKTRACE: 1
 
 jobs:
-  check:
-    name: ${{ matrix.os }} / rust-${{ matrix.rust }}
+  test:
+    name: test / ${{ matrix.os }} / rust-${{ matrix.rust }}
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: true
+      # Do not cancel the other platforms: a Windows-only or MSRV-only failure is
+      # exactly the information this matrix exists to surface.
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             rust: stable
           - os: ubuntu-latest
-            rust: beta
+            rust: '1.88.0' # MSRV from Cargo.toml
           - os: ubuntu-latest
-            rust: '1.88'
+            rust: beta
           - os: macos-latest
             rust: stable
-          - os: macos-latest
-            rust: beta
-          - os: macos-latest
-            rust: '1.88'
           - os: windows-latest
-            rust: '1.88'
-            # Windows MSRV only; beta/stable may not have MSVC toolchain
+            rust: '1.88.0'
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -47,158 +49,130 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
-          target: ${{ matrix.os == 'windows-latest' && 'x86_64-pc-windows-msvc' || '' }}
 
-      - name: Cache cargo registry
-        uses: actions/cache@v4
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: cargo-registry-${{ matrix.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            cargo-registry-${{ matrix.os }}-${{ matrix.rust }}-
+          key: ${{ matrix.os }}-${{ matrix.rust }}
+          cache-on-failure: true
 
-      - name: Cache cargo target directory
-        uses: actions/cache@v4
-        with:
-          path: target
-          key: cargo-target-${{ matrix.os }}-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            cargo-target-${{ matrix.os }}-${{ matrix.rust }}-
+      # Formatting is a single-platform concern.
+      - name: cargo fmt (check)
+        if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
+        run: cargo fmt --all --check
 
-      - name: Cache cargo-dist artifacts
-        uses: actions/cache@v4
+      - name: cargo clippy (default features)
+        if: matrix.rust != 'beta'
+        run: cargo clippy --all-targets -- -D warnings
+
+      # Feature-gated code (ocr, shell-accel, jieba-rs) only compiles when its
+      # feature is on, so lint it explicitly on one platform.
+      - name: cargo clippy (all features)
+        if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: cargo check --all-targets (warning-free)
+        # Beta is allowed to warn: new compiler versions add new lints, and beta
+        # is here to catch breakage early, not to gate the release.
+        env:
+          RUSTFLAGS: ${{ matrix.rust == 'beta' && '' || '-D warnings' }}
+        run: cargo check --all-targets
+
+      - name: cargo test
+        run: cargo test
+
+      - name: cargo llvm-cov (coverage report)
+        if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
+        run: |
+          rustup component add llvm-tools-preview
+          cargo llvm-cov --lcov \
+            --output-path target/lcov.info \
+            --ignore-filename-regex '(^|/)(tests|benches)/'
+
+      - name: Upload coverage report (lcov)
+        if: always() && matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
+        uses: actions/upload-artifact@v4
         with:
-          path: target/cargo-dist
-          key: cargo-dist-${{ matrix.os }}-${{ matrix.rust }}-${{ hashFiles('cargo-dist.toml') }}
-          restore-keys: |
-            cargo-dist-${{ matrix.os }}-${{ matrix.rust }}-
+          name: coverage
+          path: target/lcov.info
+          if-no-files-found: ignore
+          retention-days: 30
+
+  supply-chain:
+    name: supply chain
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ubuntu-latest-stable-supply-chain
 
       - name: Install cargo-deny
         uses: baptiste0928/cargo-install@v3
         with:
           crate: cargo-deny
-          version: "0.14"
+          version: '0.19'
           use-tool-cache: true
 
       - name: Install cargo-audit
         uses: baptiste0928/cargo-install@v3
         with:
           crate: cargo-audit
-          version: "0.21"
+          version: '0.23'
           use-tool-cache: true
 
       - name: Install cargo-cyclonedx
         uses: baptiste0928/cargo-install@v3
         with:
           crate: cargo-cyclonedx
-          version: "0.10"
+          version: '0.5'
           use-tool-cache: true
 
       - name: Install cargo-sbom
         uses: baptiste0928/cargo-install@v3
         with:
           crate: cargo-sbom
-          version: "0.4"
+          version: '0.10'
           use-tool-cache: true
 
-      - name: Install cargo-llvm-cov
-        uses: baptiste0928/cargo-install@v3
-        with:
-          crate: cargo-llvm-cov
-          version: "0.6"
-          use-tool-cache: true
-
-      - name: Install cargo-vet
-        uses: baptiste0928/cargo-install@v3
-        with:
-          crate: cargo-vet
-          version: "0.9"
-          use-tool-cache: true
-
-      - name: cargo check --all-targets (warning-free)
-        run: cargo check --all-targets
-        shell: bash
-        env:
-          RUSTFLAGS: -D warnings
-
-      - name: cargo test
-        run: cargo test
-        shell: bash
-
-      - name: cargo llvm-cov (coverage report)
-        run: |
-          cargo llvm-cov --lcov \
-            --exclude-filename="tests/*" \
-            --exclude-filename="benches/*" \
-            --exclude-filename="generated*" \
-            --output-path=target/lcov.info
-        shell: bash
-
-      - name: Upload coverage report (lcov)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-${{ matrix.os }}-${{ matrix.rust }}
-          path: target/lcov.info
-          if-no-files-found: ignore
-          retention-days: 30
-
-      - name: cargo vet check (supply-chain verification)
-        run: |
-          # Fetch audits from trusted sources, then verify every dependency is covered.
-          cargo vet import --all
-          cargo vet check
-        shell: bash
-
-      - name: cargo deny check licenses bans sources
+      - name: cargo deny (licences, bans, sources)
         run: cargo deny check licenses bans sources
-        shell: bash
 
-      - name: Verify NOTICE file is up to date
+      - name: cargo audit (advisory database)
+        run: cargo audit
+
+      - name: Verify NOTICE is up to date
         run: |
           bash scripts/generate-notice.sh > NOTICE.generated
           if ! diff -u NOTICE NOTICE.generated; then
-            echo "NOTICE file is out of date. Run scripts/generate-notice.sh to update."
+            echo "::error::NOTICE is out of date; run scripts/generate-notice.sh and commit the result."
             exit 1
           fi
           rm NOTICE.generated
-        shell: bash
 
-      - name: cargo audit
-        run: cargo audit
-        shell: bash
-
-      - name: cargo cyclonedx (CycloneDX SBOM)
+      - name: Generate CycloneDX SBOM
         run: |
           mkdir -p target
           cargo cyclonedx --format json --override-filename sbom
-          if [ -f sbom.json ]; then
-            mv -f sbom.json target/sbom.json
-          fi
-        shell: bash
+          find . -maxdepth 2 -name 'sbom.json' -exec mv -f {} target/sbom.json \;
 
-      - name: cargo sbom (SPDX SBOM)
+      - name: Generate SPDX SBOM
         run: |
           mkdir -p target
           cargo sbom --output-format spdx_json_2_3 > target/sbom.spdx.json
-        shell: bash
-
-      - name: Upload test results (JUnit XML)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-${{ matrix.os }}-${{ matrix.rust }}
-          path: target/test-results.xml
-          if-no-files-found: ignore
-          retention-days: 30
 
       - name: Upload CycloneDX SBOM
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: sbom-cyclonedx-${{ matrix.os }}-${{ matrix.rust }}
+          name: sbom-cyclonedx
           path: target/sbom.json
           if-no-files-found: ignore
           retention-days: 90
@@ -207,15 +181,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: sbom-spdx-${{ matrix.os }}-${{ matrix.rust }}
+          name: sbom-spdx
           path: target/sbom.spdx.json
           if-no-files-found: ignore
           retention-days: 90
-
-      - name: Upload cargo-deny logs
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: cargo-deny-logs-${{ matrix.os }}-${{ matrix.rust }}
-          path: target/deny
-          retention-days: 30

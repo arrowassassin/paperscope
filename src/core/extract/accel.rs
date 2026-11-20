@@ -5,7 +5,7 @@ use std::time::Duration;
 #[cfg(feature = "shell-accel")]
 use which;
 
-use crate::core::extract::{ExtractedDocument, MAX_EXTRACTED_BYTES, single};
+use crate::core::extract::{single, ExtractedDocument, MAX_EXTRACTED_BYTES};
 
 /// Shell-out accelerator for faster extraction using system binaries.
 ///
@@ -44,7 +44,14 @@ pub fn accelerators() -> Vec<Accelerator> {
         Accelerator {
             name: "libreoffice",
             binary: "libreoffice",
-            args: &["--headless", "--convert-to", "txt:Text", "--outdir", "/dev/stdout", "-"],
+            args: &[
+                "--headless",
+                "--convert-to",
+                "txt:Text",
+                "--outdir",
+                "/dev/stdout",
+                "-",
+            ],
             extensions: &["docx", "xlsx", "pptx", "odt", "ods", "odp"],
             priority: 30,
         },
@@ -142,10 +149,7 @@ pub fn extract_with_accelerator(
 
 /// Try all accelerators for a given file extension.
 /// Returns the first successful result, or `Ok(None)` if none work.
-pub fn try_accelerators(
-    path: &Path,
-    ext: &str,
-) -> anyhow::Result<Option<Vec<ExtractedDocument>>> {
+pub fn try_accelerators(path: &Path, ext: &str) -> anyhow::Result<Option<Vec<ExtractedDocument>>> {
     let mut accelerators = accelerators();
     accelerators.retain(|a| a.extensions.contains(&ext));
     accelerators.sort_by_key(|a| a.priority);
@@ -153,7 +157,11 @@ pub fn try_accelerators(
     for accelerator in accelerators {
         if let Ok(Some(docs)) = extract_with_accelerator(&accelerator, path) {
             if !docs.is_empty() {
-                tracing::info!("extracted {} using accelerator: {}", path.display(), accelerator.name);
+                tracing::info!(
+                    "extracted {} using accelerator: {}",
+                    path.display(),
+                    accelerator.name
+                );
                 return Ok(Some(docs));
             }
         }
