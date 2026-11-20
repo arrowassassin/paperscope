@@ -80,7 +80,16 @@ configured roots. Retrieved text is data, never instructions.
 An answer is a verbatim quote plus its citation — never generated prose — so it
 cannot state a fact that is not on disk.
 
+## Status
+
+`0.1.0` indexes UTF-8 text formats (plain text, Markdown, source code). PDF,
+DOCX, spreadsheet and email extraction is the next milestone; until then `page`
+is always 0 and citations are `path:line-line`. The as-built description, model
+details, measured performance and the full list of known gaps are in
+[implementation-status.md](https://github.com/arrowassassin/enzo/blob/main/docs/implementation-status.md).
+
 ## Licence
 
-MIT OR Apache-2.0. Documentation of the as-built system, including known gaps,
-is in `docs/implementation-status.md`.
+MIT OR Apache-2.0. Licence texts are in
+[LICENSE-MIT](https://github.com/arrowassassin/enzo/blob/main/docs/LICENSE-MIT)
+and [LICENSE-APACHE](https://github.com/arrowassassin/enzo/blob/main/docs/LICENSE-APACHE).

@@ -33,7 +33,25 @@ product found. Trademark and domain clearance have **not** been done.
 
 Because this repository also holds unrelated work, `Cargo.toml` carries an
 explicit `include` allow-list. The root `README.md` is not this project's file;
-the crates.io page renders `docs/readme.md`.
+the crates.io page renders `docs/readme.md`. The allow-list paths are rooted
+(`/Cargo.toml`, `/docs/...`) deliberately: an unanchored `CHANGELOG.md` pattern
+matched `site/node_modules/**/CHANGELOG.md` and pulled three unrelated files into
+the tarball.
+
+## Packaging and release (verified)
+
+- `cargo publish --dry-run` succeeds: **50 files, 70.8 KiB compressed**, and the
+  packaged tarball compiles in `target/package/paperscope-0.1.0`.
+- `rust-version = "1.88"` — the highest MSRV in the tree (`icu_*` 2.4.0, pulled
+  in through `url`/`idna`).
+- `cargo deny check licenses bans sources` passes. `deny.toml` allow-lists
+  permissive licences and denies wildcard requirements, unknown registries and
+  unknown git sources. `MPL-2.0` is permitted only because it enters through
+  `option-ext` ← `dirs` unmodified; there is no GPL/AGPL/LGPL in the tree.
+- Licence texts ship as `docs/LICENSE-MIT` and `docs/LICENSE-APACHE`; the root
+  `LICENSE-*` files belong to the unrelated project and are **not** packaged.
+- `repository` and `documentation` metadata are set, so `cargo package` emits no
+  metadata warning.
 
 ## Stack (as built)
 
@@ -147,6 +165,14 @@ corruption.
 
 - **PDF/DOCX extraction.** Only UTF-8 text formats are indexed; `page` is always
   0 because there are no pages yet. This is the biggest gap against the spec.
+- **Non-English keyword search.** FTS5 uses `tokenize='porter unicode61'`, which
+  is English-centric: the Porter stemmer is wrong for inflected and
+  non-concatenative languages, and `unicode61` treats a contiguous CJK/Thai run
+  as one token (a probe on bundled SQLite returned **zero** hits for `保証`
+  inside `保証期間は24ヶ月です`). Semantic search with
+  `intfloat/multilingual-e5-small` works cross-lingually, but keyword-only
+  search does not. Fix: app-side segmentation (`icu_segmenter`, `lindera`,
+  `jieba-rs`) or `trigram` as a lossy fallback; see the release-stack report.
 - **Watch mode** (`paper index --watch` prints a notice and exits).
 - **Generative polish** (`--polish` prints a notice and returns the extract).
 - **Windows Search / Spotlight as live Tier 0.** `spotlight_paths` exists but is

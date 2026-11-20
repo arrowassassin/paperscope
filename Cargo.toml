@@ -10,14 +10,27 @@ members = ["."]
 name = "paperscope"
 version = "0.1.0"
 edition = "2021"
+# Highest MSRV in the dependency tree (the icu_* crates).
+rust-version = "1.88"
 description = "Paper: local-first document search with exact page and line citations. CLI + MCP server in one binary."
 license = "MIT OR Apache-2.0"
 readme = "docs/readme.md"
-categories = ["command-line-utilities", "search", "database"]
+repository = "https://github.com/arrowassassin/enzo"
+documentation = "https://docs.rs/paperscope"
+categories = ["command-line-utilities", "database", "text-processing"]
 keywords = ["rag", "search", "sqlite", "mcp", "local-first"]
 # Explicit allow-list: this repository also holds unrelated work, and its README
 # is not this project's. Never widen this without checking what ships.
-include = ["src/**/*", "tests/**/*", "Cargo.toml", "docs/readme.md"]
+include = [
+    "src/**",
+    "tests/**",
+    "/Cargo.toml",
+    "/CHANGELOG.md",
+    "/docs/readme.md",
+    "/docs/implementation-status.md",
+    "/docs/LICENSE-MIT",
+    "/docs/LICENSE-APACHE",
+]
 
 [lib]
 name = "paper"

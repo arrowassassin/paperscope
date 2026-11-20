@@ -12,7 +12,13 @@ target and the installed binary are both `paper`.
 cargo check          # must be warning-free
 cargo test           # 55 tests, offline, no model downloads
 cargo build --release
+cargo deny check licenses bans sources   # no copyleft in the shipped tree
+cargo publish --dry-run                  # packaging must succeed warning-free
 ```
+
+`Cargo.toml` has an `include` allow-list because this repository holds unrelated
+work. Its paths are rooted (`/Cargo.toml`, `/docs/...`): unanchored patterns
+match inside `site/node_modules` and leak files into the crate.
 
 Model integration tests download real weights and are therefore `#[ignore]`d:
 
