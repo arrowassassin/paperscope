@@ -90,8 +90,20 @@ Dependencies under this license:
   Repository: https://github.com/bluss/arrayvec
   License: MIT OR Apache-2.0
 
+  assert-json-diff v2.0.2
+  Repository: https://github.com/davidpdrsn/assert-json-diff.git
+  License: MIT
+
   async-compression v0.4.52
   Repository: https://github.com/Nullus157/async-compression
+  License: MIT OR Apache-2.0
+
+  async-object-pool v0.1.5
+  Repository: https://github.com/alexliesenfeld/async-object-pool
+  License: MIT
+
+  async-trait v0.1.92
+  Repository: https://github.com/dtolnay/async-trait
   License: MIT OR Apache-2.0
 
   atoi_simd v0.18.1
@@ -102,6 +114,10 @@ Dependencies under this license:
   Repository: https://github.com/marshallpierce/rust-base64
   License: MIT/Apache-2.0
 
+  base64 v0.21.7
+  Repository: https://github.com/marshallpierce/rust-base64
+  License: MIT OR Apache-2.0
+
   base64 v0.22.1
   Repository: https://github.com/marshallpierce/rust-base64
   License: MIT OR Apache-2.0
@@ -109,6 +125,18 @@ Dependencies under this license:
   base64 v0.23.1
   Repository: https://github.com/marshallpierce/rust-base64
   License: MIT OR Apache-2.0
+
+  basic-cookies v0.1.5
+  Repository: https://github.com/drjokepu/basic-cookies
+  License: MIT
+
+  bit-set v0.5.3
+  Repository: https://github.com/contain-rs/bit-set
+  License: MIT/Apache-2.0
+
+  bit-vec v0.6.3
+  Repository: https://github.com/contain-rs/bit-vec
+  License: MIT/Apache-2.0
 
   bitflags v2.13.2
   Repository: https://github.com/bitflags/bitflags
@@ -250,6 +278,10 @@ Dependencies under this license:
   Repository: https://github.com/srijs/rust-crc32fast
   License: MIT OR Apache-2.0
 
+  cron v0.11.0
+  Repository: https://github.com/zslayton/cron
+  License: MIT OR Apache-2.0
+
   crossbeam-deque v0.8.8
   Repository: https://github.com/crossbeam-rs/crossbeam
   License: MIT OR Apache-2.0
@@ -273,6 +305,14 @@ Dependencies under this license:
   crypto-common v0.2.2
   Repository: https://github.com/RustCrypto/traits
   License: MIT OR Apache-2.0
+
+  curl v0.4.51
+  Repository: https://github.com/sagebind/curl-rust
+  License: MIT
+
+  curl-sys v0.4.91+curl-8.22.0
+  Repository: https://github.com/sagebind/curl-rust
+  License: MIT
 
   daachorse v3.0.3
   Repository: https://github.com/daac-tools/daachorse
@@ -342,8 +382,16 @@ Dependencies under this license:
   Repository: https://github.com/soc/dirs-rs
   License: MIT OR Apache-2.0
 
+  dirs-next v2.0.0
+  Repository: https://github.com/xdg-rs/dirs
+  License: MIT OR Apache-2.0
+
   dirs-sys v0.4.1
   Repository: https://github.com/dirs-dev/dirs-sys-rs
+  License: MIT OR Apache-2.0
+
+  dirs-sys-next v0.1.2
+  Repository: https://github.com/xdg-rs/dirs/tree/master/dirs-sys
   License: MIT OR Apache-2.0
 
   displaydoc v0.2.7
@@ -368,6 +416,10 @@ Dependencies under this license:
 
   either v1.19.0
   Repository: https://github.com/rayon-rs/either
+  License: MIT OR Apache-2.0
+
+  ena v0.14.4
+  Repository: https://github.com/rust-lang/ena
   License: MIT OR Apache-2.0
 
   enum-as-inner v0.6.1
@@ -405,6 +457,10 @@ Dependencies under this license:
   find-msvc-tools v0.1.15
   Repository: https://github.com/rust-lang/cc-rs
   License: MIT OR Apache-2.0
+
+  fixedbitset v0.4.2
+  Repository: https://github.com/petgraph/fixedbitset
+  License: MIT/Apache-2.0
 
   flate2 v1.1.11
   Repository: https://github.com/rust-lang/flate2-rs
@@ -498,6 +554,10 @@ Dependencies under this license:
   Repository: https://github.com/rust-random/getrandom
   License: MIT OR Apache-2.0
 
+  gloo-timers v0.3.0
+  Repository: https://github.com/rustwasm/gloo/tree/master/crates/timers
+  License: MIT OR Apache-2.0
+
   half v2.7.1
   Repository: https://github.com/VoidStarKat/half-rs
   License: MIT OR Apache-2.0
@@ -534,9 +594,17 @@ Dependencies under this license:
   Repository: https://github.com/servo/html5ever
   License: MIT OR Apache-2.0
 
+  http v0.2.12
+  Repository: https://github.com/hyperium/http
+  License: MIT OR Apache-2.0
+
   http v1.5.0
   Repository: https://github.com/hyperium/http
   License: MIT OR Apache-2.0
+
+  http-body v0.4.6
+  Repository: https://github.com/hyperium/http-body
+  License: MIT
 
   http-body v1.1.0
   Repository: https://github.com/hyperium/http-body
@@ -550,9 +618,21 @@ Dependencies under this license:
   Repository: https://github.com/seanmonstar/httparse
   License: MIT OR Apache-2.0
 
+  httpdate v1.0.3
+  Repository: https://github.com/pyfisch/httpdate
+  License: MIT OR Apache-2.0
+
+  httpmock v0.6.8
+  Repository: https://github.com/alexliesenfeld/httpmock
+  License: MIT
+
   hybrid-array v0.4.15
   Repository: https://github.com/RustCrypto/hybrid-array
   License: MIT OR Apache-2.0
+
+  hyper v0.14.32
+  Repository: https://github.com/hyperium/hyper
+  License: MIT
 
   hyper v1.12.0
   Repository: https://github.com/hyperium/hyper
@@ -598,6 +678,14 @@ Dependencies under this license:
   Repository: https://github.com/polyfill-rs/is_terminal_polyfill
   License: MIT OR Apache-2.0
 
+  isahc v1.8.3
+  Repository: https://github.com/sagebind/isahc
+  License: MIT
+
+  itertools v0.11.0
+  Repository: https://github.com/rust-itertools/itertools
+  License: MIT OR Apache-2.0
+
   itertools v0.13.0
   Repository: https://github.com/rust-itertools/itertools
   License: MIT OR Apache-2.0
@@ -626,9 +714,17 @@ Dependencies under this license:
   Repository: https://gitlab.com/rust-kqueue/rust-kqueue-sys
   License: MIT
 
+  kv-log-macro v1.0.7
+  Repository: https://github.com/yoshuawuyts/kv-log-macro
+  License: MIT OR Apache-2.0
+
   lazy_static v1.5.1
   Repository: https://github.com/rust-lang-nursery/lazy-static.rs
   License: MIT OR Apache-2.0
+
+  levenshtein v1.0.5
+  Repository: https://github.com/wooorm/levenshtein-rs
+  License: MIT
 
   libc v0.2.191
   Repository: https://github.com/rust-lang/libc
@@ -642,6 +738,10 @@ Dependencies under this license:
   Repository: https://github.com/rust-lang/compiler-builtins
   License: MIT
 
+  libnghttp2-sys v0.1.13+1.68.1
+  Repository: https://github.com/alexcrichton/nghttp2-rs
+  License: MIT/Apache-2.0
+
   libredox v0.1.25
   Repository: https://gitlab.redox-os.org/redox-os/libredox.git
   License: MIT
@@ -649,6 +749,10 @@ Dependencies under this license:
   libsqlite3-sys v0.40.0
   Repository: https://github.com/rusqlite/rusqlite
   License: MIT
+
+  libz-sys v1.1.33
+  Repository: https://github.com/rust-lang/libz-sys
+  License: MIT OR Apache-2.0
 
   lock_api v0.4.14
   Repository: https://github.com/Amanieu/parking_lot
@@ -680,6 +784,10 @@ Dependencies under this license:
 
   memmap2 v0.9.12
   Repository: https://github.com/RazrFalcon/memmap2-rs
+  License: MIT OR Apache-2.0
+
+  mime v0.3.18
+  Repository: https://github.com/hyperium/mime
   License: MIT OR Apache-2.0
 
   minimal-lexical v0.2.1
@@ -762,6 +870,14 @@ Dependencies under this license:
   Repository: https://hg.sr.ht/~icefox/oorandom
   License: MIT
 
+  openssl-probe v0.1.6
+  Repository: https://github.com/alexcrichton/openssl-probe
+  License: MIT/Apache-2.0
+
+  openssl-sys v0.9.118
+  Repository: https://github.com/rust-openssl/rust-openssl
+  License: MIT
+
   ordered-float v4.6.0
   Repository: https://github.com/reem/rust-ordered-float
   License: MIT
@@ -790,6 +906,10 @@ Dependencies under this license:
   Repository: https://github.com/servo/rust-url/
   License: MIT OR Apache-2.0
 
+  petgraph v0.6.5
+  Repository: https://github.com/petgraph/petgraph
+  License: MIT OR Apache-2.0
+
   phf v0.14.0
   Repository: https://github.com/rust-phf/rust-phf
   License: MIT
@@ -802,9 +922,25 @@ Dependencies under this license:
   Repository: https://github.com/rust-phf/rust-phf
   License: MIT
 
+  phf_shared v0.11.3
+  Repository: https://github.com/rust-phf/rust-phf
+  License: MIT
+
   phf_shared v0.14.0
   Repository: https://github.com/rust-phf/rust-phf
   License: MIT
+
+  pico-args v0.5.0
+  Repository: https://github.com/RazrFalcon/pico-args
+  License: MIT
+
+  pin-utils v0.1.1
+  Repository: https://github.com/rust-lang/pin-utils
+  License: MIT OR Apache-2.0
+
+  piper v0.2.5
+  Repository: https://github.com/smol-rs/piper
+  License: MIT OR Apache-2.0
 
   pkg-config v0.3.34
   Repository: https://github.com/rust-lang/pkg-config-rs
@@ -954,6 +1090,10 @@ Dependencies under this license:
   Repository: https://github.com/dtolnay/rustversion
   License: MIT OR Apache-2.0
 
+  schannel v0.1.30
+  Repository: https://github.com/steffengy/schannel-rs
+  License: MIT
+
   schemars v1.2.3
   Repository: https://github.com/GREsau/schemars
   License: MIT
@@ -993,6 +1133,9 @@ Dependencies under this license:
   serde_plain v1.0.2
   Repository: https://github.com/mitsuhiko/serde-plain
   License: MIT/Apache-2.0
+
+  serde_regex v1.2.0
+  License: MIT OR Apache-2.0
 
   serde_spanned v0.6.9
   Repository: https://github.com/toml-rs/toml
@@ -1038,8 +1181,16 @@ Dependencies under this license:
   Repository: https://github.com/tokio-rs/slab
   License: MIT
 
+  sluice v0.6.0
+  Repository: https://github.com/sagebind/sluice
+  License: MIT
+
   smallvec v1.16.6
   Repository: https://github.com/smallvec/smallvec
+  License: MIT OR Apache-2.0
+
+  socket2 v0.5.10
+  Repository: https://github.com/rust-lang/socket2
   License: MIT OR Apache-2.0
 
   socket2 v0.6.5
@@ -1063,6 +1214,10 @@ Dependencies under this license:
   License: MIT OR Apache-2.0
 
   string_cache v0.11.0
+  Repository: https://github.com/servo/string-cache
+  License: MIT OR Apache-2.0
+
+  string_cache v0.8.9
   Repository: https://github.com/servo/string-cache
   License: MIT OR Apache-2.0
 
@@ -1094,6 +1249,10 @@ Dependencies under this license:
   Repository: https://github.com/johalun/sysctl-rs
   License: MIT
 
+  sysinfo v0.33.1
+  Repository: https://github.com/GuillaumeGomez/sysinfo
+  License: MIT
+
   tar v0.4.46
   Repository: https://github.com/composefs/tar-rs
   License: MIT OR Apache-2.0
@@ -1105,6 +1264,10 @@ Dependencies under this license:
   tendril v0.5.1
   Repository: https://github.com/servo/html5ever
   License: MIT OR Apache-2.0
+
+  term v0.7.0
+  Repository: https://github.com/Stebalien/term
+  License: MIT/Apache-2.0
 
   thiserror v1.0.69
   Repository: https://github.com/dtolnay/thiserror
@@ -1186,6 +1349,10 @@ Dependencies under this license:
   Repository: https://github.com/tokio-rs/tracing
   License: MIT
 
+  tracing-futures v0.2.5
+  Repository: https://github.com/tokio-rs/tracing
+  License: MIT
+
   tracing-log v0.2.0
   Repository: https://github.com/tokio-rs/tracing
   License: MIT
@@ -1232,6 +1399,10 @@ Dependencies under this license:
 
   unicode-width v0.2.3
   Repository: https://github.com/unicode-rs/unicode-width
+  License: MIT OR Apache-2.0
+
+  unicode-xid v0.2.6
+  Repository: https://github.com/unicode-rs/unicode-xid
   License: MIT OR Apache-2.0
 
   unicode_categories v0.1.1
@@ -1314,11 +1485,27 @@ Dependencies under this license:
   Repository: https://github.com/retep998/winapi-rs
   License: MIT/Apache-2.0
 
+  windows v0.57.0
+  Repository: https://github.com/microsoft/windows-rs
+  License: MIT OR Apache-2.0
+
+  windows-core v0.57.0
+  Repository: https://github.com/microsoft/windows-rs
+  License: MIT OR Apache-2.0
+
   windows-core v0.62.2
   Repository: https://github.com/microsoft/windows-rs
   License: MIT OR Apache-2.0
 
+  windows-implement v0.57.0
+  Repository: https://github.com/microsoft/windows-rs
+  License: MIT OR Apache-2.0
+
   windows-implement v0.60.2
+  Repository: https://github.com/microsoft/windows-rs
+  License: MIT OR Apache-2.0
+
+  windows-interface v0.57.0
   Repository: https://github.com/microsoft/windows-rs
   License: MIT OR Apache-2.0
 
@@ -1327,6 +1514,10 @@ Dependencies under this license:
   License: MIT OR Apache-2.0
 
   windows-link v0.2.1
+  Repository: https://github.com/microsoft/windows-rs
+  License: MIT OR Apache-2.0
+
+  windows-result v0.1.2
   Repository: https://github.com/microsoft/windows-rs
   License: MIT OR Apache-2.0
 
@@ -1634,6 +1825,50 @@ limitations under the License.
 Dependencies under this license:
 ----------------------------------------
 
+  ascii-canvas v3.0.0
+  Repository: https://github.com/nikomatsakis/ascii-canvas
+  License: Apache-2.0/MIT
+
+  async-channel v1.9.0
+  Repository: https://github.com/smol-rs/async-channel
+  License: Apache-2.0 OR MIT
+
+  async-channel v2.5.0
+  Repository: https://github.com/smol-rs/async-channel
+  License: Apache-2.0 OR MIT
+
+  async-executor v1.14.1
+  Repository: https://github.com/smol-rs/async-executor
+  License: Apache-2.0 OR MIT
+
+  async-global-executor v2.4.1
+  Repository: https://github.com/Keruspe/async-global-executor
+  License: Apache-2.0 OR MIT
+
+  async-io v2.6.0
+  Repository: https://github.com/smol-rs/async-io
+  License: Apache-2.0 OR MIT
+
+  async-lock v3.5.0
+  Repository: https://github.com/smol-rs/async-lock
+  License: Apache-2.0 OR MIT
+
+  async-process v2.5.0
+  Repository: https://github.com/smol-rs/async-process
+  License: Apache-2.0 OR MIT
+
+  async-signal v0.2.14
+  Repository: https://github.com/smol-rs/async-signal
+  License: Apache-2.0 OR MIT
+
+  async-std v1.13.2
+  Repository: https://github.com/async-rs/async-std
+  License: Apache-2.0 OR MIT
+
+  async-task v4.7.1
+  Repository: https://github.com/smol-rs/async-task
+  License: Apache-2.0 OR MIT
+
   atomic-waker v1.1.2
   Repository: https://github.com/smol-rs/atomic-waker
   License: Apache-2.0 OR MIT
@@ -1648,6 +1883,10 @@ Dependencies under this license:
 
   bit-vec v0.8.0
   Repository: https://github.com/contain-rs/bit-vec
+  License: Apache-2.0 OR MIT
+
+  blocking v1.7.0
+  Repository: https://github.com/smol-rs/blocking
   License: Apache-2.0 OR MIT
 
   charset v0.1.5
@@ -1668,6 +1907,10 @@ Dependencies under this license:
 
   codepage v0.1.3
   Repository: https://github.com/hsivonen/codepage
+  License: Apache-2.0 OR MIT
+
+  concurrent-queue v2.5.0
+  Repository: https://github.com/smol-rs/concurrent-queue
   License: Apache-2.0 OR MIT
 
   const-oid v0.10.3
@@ -1698,6 +1941,18 @@ Dependencies under this license:
   Repository: https://github.com/Narsil/esaxx-rs
   License: Apache-2.0
 
+  event-listener v2.5.3
+  Repository: https://github.com/smol-rs/event-listener
+  License: Apache-2.0 OR MIT
+
+  event-listener v5.4.2
+  Repository: https://github.com/smol-rs/event-listener
+  License: Apache-2.0 OR MIT
+
+  event-listener-strategy v0.5.4
+  Repository: https://github.com/smol-rs/event-listener-strategy
+  License: Apache-2.0 OR MIT
+
   fastrand v2.5.0
   Repository: https://github.com/smol-rs/fastrand
   License: Apache-2.0 OR MIT
@@ -1705,6 +1960,10 @@ Dependencies under this license:
   fnv v1.0.7
   Repository: https://github.com/servo/rust-fnv
   License: Apache-2.0 / MIT
+
+  futures-lite v2.6.1
+  Repository: https://github.com/smol-rs/futures-lite
+  License: Apache-2.0 OR MIT
 
   hyper-rustls v0.27.10
   Repository: https://github.com/rustls/hyper-rustls
@@ -1716,6 +1975,14 @@ Dependencies under this license:
 
   indexmap v2.14.2
   Repository: https://github.com/indexmap-rs/indexmap
+  License: Apache-2.0 OR MIT
+
+  lalrpop v0.20.2
+  Repository: https://github.com/lalrpop/lalrpop
+  License: Apache-2.0 OR MIT
+
+  lalrpop-util v0.20.2
+  Repository: https://github.com/lalrpop/lalrpop
   License: Apache-2.0 OR MIT
 
   linux-raw-sys v0.12.1
@@ -1734,8 +2001,28 @@ Dependencies under this license:
   Repository: https://github.com/hsivonen/multiversion_no_op
   License: Apache-2.0 OR MIT
 
+  ntapi v0.4.3
+  Repository: https://github.com/MSxDOS/ntapi
+  License: Apache-2.0 OR MIT
+
+  parking v2.2.1
+  Repository: https://github.com/smol-rs/parking
+  License: Apache-2.0 OR MIT
+
+  pin-project v1.2.0
+  Repository: https://github.com/taiki-e/pin-project
+  License: Apache-2.0 OR MIT
+
+  pin-project-internal v1.2.0
+  Repository: https://github.com/taiki-e/pin-project
+  License: Apache-2.0 OR MIT
+
   pin-project-lite v0.2.17
   Repository: https://github.com/taiki-e/pin-project-lite
+  License: Apache-2.0 OR MIT
+
+  polling v3.11.0
+  Repository: https://github.com/smol-rs/polling
   License: Apache-2.0 OR MIT
 
   portable-atomic v1.15.0
@@ -1778,6 +2065,10 @@ Dependencies under this license:
   Repository: https://github.com/huggingface/safetensors
   License: Apache-2.0
 
+  similar v2.7.0
+  Repository: https://github.com/mitsuhiko/similar
+  License: Apache-2.0
+
   spm_precompiled v0.1.4
   Repository: https://github.com/huggingface/spm_precompiled
   License: Apache-2.0
@@ -1812,6 +2103,14 @@ Dependencies under this license:
 
   uuid v1.29.3
   Repository: https://github.com/uuid-rs/uuid
+  License: Apache-2.0 OR MIT
+
+  value-bag v1.14.1
+  Repository: https://github.com/sval-rs/value-bag
+  License: Apache-2.0 OR MIT
+
+  waker-fn v1.2.0
+  Repository: https://github.com/smol-rs/waker-fn
   License: Apache-2.0 OR MIT
 
   wasi v0.11.1+wasi-snapshot-preview1
@@ -2088,6 +2387,9 @@ Dependencies under this license:
 
   notify v8.2.2
   Repository: https://github.com/notify-rs/notify.git
+  License: CC0-1.0
+
+  tiny-keccak v2.0.2
   License: CC0-1.0
 
 ========================================================================
