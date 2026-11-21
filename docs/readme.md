@@ -87,7 +87,7 @@ Optional dictionary segmenters behind features: `jieba-rs` (Chinese) is implemen
 | `ocr` | off | Tesseract OCR for scanned pages. |
 
 ```bash
-cargo install paperscope --no-default-features   # keyword-only: 10.9 MB vs 13.7 MB
+cargo install paperscope --no-default-features   # keyword-only: 11.8 MB vs 15.1 MB
 ```
 
 A keyword-only build has no inference code in the binary at all; `paper search`

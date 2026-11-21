@@ -40,7 +40,7 @@ the tarball.
 
 ## Packaging and release (verified)
 
-- `cargo publish --dry-run` succeeds: **72 files, ~154 KiB compressed**, and the
+- `cargo publish --dry-run` succeeds: **72 files, ~155 KiB compressed**, and the
   packaged tarball compiles in `target/package/paperscope-0.1.0`.
 - `rust-version = "1.91"` — the highest MSRV in the tree (`notify-types` 2.3.1;
   `zip` 9.8 and `aes` 0.9 require 1.89, the `icu_*` crates require 1.88).
@@ -79,7 +79,7 @@ the tarball.
 | Area | Choice | Why |
 | --- | --- | --- |
 | Language | Rust, single crate, `src/lib.rs` + `src/main.rs` | one binary, integration tests import the lib |
-| Storage | `rusqlite` 0.43 (`bundled`) | no system SQLite dependency |
+| Storage | `rusqlite` 0.43 (`bundled`, SQLite 3.54.1) | no system SQLite dependency |
 | Vectors | `sqlite-vec` 0.1.9, **statically linked** via `sqlite3_auto_extension` | `0.1.10-alpha.4` fails to build (missing `sqlite-vec-diskann.c`); static linking keeps the single-binary promise, no runtime `.dylib` |
 | Inference | Hugging Face **Candle** 0.11 (`candle-transformers`), `tokenizers` 0.23 | pure Rust, no ONNX Runtime, no Python |
 | MCP | `rmcp` 3.11 (`server`, `transport-io`) | official Rust MCP SDK, stdio only |
@@ -88,7 +88,7 @@ the tarball.
 
 | Feature | Default | Effect |
 | --- | --- | --- |
-| `embeddings` | on | Candle + tokenizers: semantic search and reranking. Off = keyword-only binary with no inference code (10.9 MB vs 13.7 MB). |
+| `embeddings` | on | Candle + tokenizers: semantic search and reranking. Off = keyword-only binary with no inference code (11.8 MB vs 15.1 MB). |
 | `jieba-rs` | off | Chinese word segmentation instead of the dictionary-free bigrams. |
 | `shell-accel` | off | Prefer `pdftotext`/`pandoc` when present; pure Rust otherwise. |
 | `ocr` | off | Tesseract OCR for scanned pages. |
@@ -256,7 +256,7 @@ citation validation, offline refusal, fallback).
 
 ## Measured performance (release build, M-series Mac, 3 small documents)
 
-- Binary size: **13.7 MB** with the default `embeddings` feature, **10.9 MB**
+- Binary size: **15.1 MB** with the default `embeddings` feature, **11.8 MB**
   without it (`--no-default-features`, keyword-only, no inference code).
 - Keyword search: **~0.5 s** including process start.
 - Semantic search including a cold model load: **~0.47 s**.
