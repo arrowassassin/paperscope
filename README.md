@@ -62,7 +62,7 @@ Any MCP client (Claude Desktop, Claude Code, Codex CLI, OpenCode) can search
 your documents through `paper serve --mcp`. Setup instructions for each client
 are in [docs/CLAUDE_PLUGIN.md](docs/CLAUDE_PLUGIN.md). Website:
 [kintsugi Tools](https://kintsugi.tools) (portfolio homepage) + the
-[Paper landing page](https://paperscope.kintsugi.tools/paperscope.html).
+[Paper landing page](https://kintsugi.tools/paperscope.html).
 
 | Variable | Effect |
 | --- | --- |

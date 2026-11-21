@@ -8,7 +8,7 @@ if ! command -v paper >/dev/null 2>&1; then
 Error: the paper command is not on PATH.
 
 Install Paperscope first:
-  curl --proto '=https' --tlsv1.2 -LsSf https://paperscope.kintsugi.tools/install.sh | sh
+  curl --proto '=https' --tlsv1.2 -LsSf https://kintsugi.tools/install.sh | sh
   cargo install paperscope
 
 A Homebrew formula is also attached to the latest GitHub release:
