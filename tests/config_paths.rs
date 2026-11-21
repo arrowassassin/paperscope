@@ -36,16 +36,17 @@ fn default_paths_live_under_paper() {
 fn config_round_trips_through_toml() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("config.toml");
+    let root = dir.path().join("docs");
     let mut config = paper::Config {
         rrf_k: 42,
         ..Default::default()
     };
-    config.roots.push("/tmp/docs".into());
+    config.roots.push(root.clone());
     std::fs::write(&path, toml::to_string_pretty(&config).unwrap()).unwrap();
 
     let loaded = Config::load_from(&path).unwrap();
     assert_eq!(loaded.rrf_k, 42);
-    assert_eq!(loaded.roots, vec![std::path::PathBuf::from("/tmp/docs")]);
+    assert_eq!(loaded.roots, vec![root]);
     // Unspecified fields fall back to defaults rather than failing to parse.
     assert_eq!(loaded.search().keyword_limit, 20);
 }

@@ -56,12 +56,14 @@ struct BatteryStatus {
     charging: bool,
 }
 
-/// Read battery status from the OS, if a battery exists.
-fn battery_status() -> Option<BatteryStatus> {
+/// Read battery status from the OS. On Linux this returns every `BAT*`
+/// entry (multi-battery laptops), not just the first one (IM).
+fn battery_statuses() -> Option<Vec<BatteryStatus>> {
     #[cfg(target_os = "linux")]
     {
         let base = std::path::Path::new("/sys/class/power_supply");
         let entries = std::fs::read_dir(base).ok()?;
+        let mut batteries = Vec::new();
         for entry in entries.flatten() {
             let path = entry.path();
             let is_battery = path
@@ -71,16 +73,17 @@ fn battery_status() -> Option<BatteryStatus> {
             if !is_battery {
                 continue;
             }
-            let percent: u8 = std::fs::read_to_string(path.join("capacity"))
-                .ok()?
-                .trim()
-                .parse()
-                .ok()?;
+            let Ok(contents) = std::fs::read_to_string(path.join("capacity")) else {
+                continue;
+            };
+            let Ok(percent) = contents.trim().parse() else {
+                continue;
+            };
             let status = std::fs::read_to_string(path.join("status")).unwrap_or_default();
             let charging = status.trim() == "Charging" || status.trim() == "Full";
-            return Some(BatteryStatus { percent, charging });
+            batteries.push(BatteryStatus { percent, charging });
         }
-        None
+        (!batteries.is_empty()).then_some(batteries)
     }
 
     #[cfg(target_os = "macos")]
@@ -93,6 +96,7 @@ fn battery_status() -> Option<BatteryStatus> {
             .output()
             .ok()?;
         let text = String::from_utf8_lossy(&output.stdout);
+        let mut batteries = Vec::new();
         for line in text.lines() {
             let Some(percent_part) = line.split('%').next() else {
                 continue;
@@ -108,15 +112,21 @@ fn battery_status() -> Option<BatteryStatus> {
             };
             let charging = line.contains("charging") && !line.contains("discharging")
                 || line.contains("charged");
-            return Some(BatteryStatus { percent, charging });
+            batteries.push(BatteryStatus { percent, charging });
         }
-        None
+        (!batteries.is_empty()).then_some(batteries)
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     {
         None
     }
+}
+
+/// Whether any battery is below `threshold` and discharging. Multi-battery
+/// safe: pauses if *any* battery is low and not charging (IM).
+fn any_battery_low(batteries: &[BatteryStatus], threshold: u8) -> bool {
+    batteries.iter().any(|b| b.percent < threshold && !b.charging)
 }
 
 /// Resource guard for monitoring system resources.
@@ -166,9 +176,10 @@ impl ResourceGuard {
             }
         };
 
-        // Battery
-        if let Some(battery) = battery_status() {
-            if battery.percent < self.config.battery_threshold && !battery.charging {
+        // Battery: pause if any battery is below threshold and discharging
+        // (multi-battery safe, IM).
+        if let Some(batteries) = battery_statuses() {
+            if any_battery_low(&batteries, self.config.battery_threshold) {
                 *self.paused.write().await = Some(PauseReason::LowBattery);
                 return Some(PauseReason::LowBattery);
             }
@@ -231,8 +242,8 @@ impl ResourceGuard {
 
                 let mut reason = None;
 
-                if let Some(battery) = battery_status() {
-                    if battery.percent < config.battery_threshold && !battery.charging {
+                if let Some(batteries) = battery_statuses() {
+                    if any_battery_low(&batteries, config.battery_threshold) {
                         reason = Some(PauseReason::LowBattery);
                     }
                 }

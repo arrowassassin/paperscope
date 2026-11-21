@@ -36,6 +36,15 @@ pub fn tier1_search(
     tier1_search_filtered(conn, query_vec, roots, &SearchFilters::default(), limit)
 }
 
+/// When filters or roots restrict the result set we cannot push them into the
+/// sqlite-vec KNN query, so we fetch a superset and filter in memory. This is
+/// the multiplier applied to `limit` when widening the fetch.
+const TIER1_FILTERED_FETCH_FACTOR: usize = 64;
+
+/// Floor on the widened KNN fetch so even tiny `limit` values retrieve enough
+/// neighbours for in-memory filtering to have a chance of succeeding.
+const TIER1_FILTERED_FETCH_MIN: usize = 4096;
+
 /// Tier 1 with structured filters.
 ///
 /// sqlite-vec's KNN clause may not accept arbitrary extra `WHERE` terms, so the
@@ -62,7 +71,10 @@ pub fn tier1_search_filtered(
         // Large superset: fetch enough neighbours that in-memory filtering almost
         // always finds `limit` matches. sqlite-vec will return at most the table
         // row count, so this is bounded by index size.
-        usize::max(limit * 64, 4096)
+        usize::max(
+            limit * TIER1_FILTERED_FETCH_FACTOR,
+            TIER1_FILTERED_FETCH_MIN,
+        )
     };
     let sql = "SELECT chunks.id, chunks.path, chunks.page, chunks.line_start, chunks.line_end,
                       chunks.anchor, chunks.mtime,

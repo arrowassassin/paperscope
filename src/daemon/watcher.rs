@@ -154,7 +154,16 @@ impl Watcher {
             .collect();
 
         if !relevant_paths.is_empty() {
-            let _ = event_tx.try_send(relevant_paths);
+            // `try_send` is non-blocking because `handle_event` runs in the
+            // notify callback thread. Log when the channel is full so dropped
+            // events are visible instead of silent (IL).
+            let count = relevant_paths.len();
+            if event_tx.try_send(relevant_paths).is_err() {
+                tracing::warn!(
+                    "Watcher: event channel full, dropped {} events",
+                    count
+                );
+            }
         }
     }
 

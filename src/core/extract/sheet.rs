@@ -57,6 +57,8 @@ impl Extractor for Sheet {
         let sheets = workbook.sheet_names().to_vec();
         let mut blocks = Vec::new();
         let mut warnings = Vec::new();
+        let caps = self.capabilities();
+        let mut rows_processed = 0usize;
         for sheet in sheets {
             let range = match workbook.worksheet_range(&sheet) {
                 Ok(range) => range,
@@ -66,6 +68,16 @@ impl Extractor for Sheet {
                 }
             };
             for (row_index, row) in range.rows().enumerate() {
+                // Enforce the max-entries row cap so a hostile workbook cannot
+                // force unbounded iteration (I6).
+                if rows_processed >= caps.max_entries {
+                    warnings.push(format!(
+                        "stopped after {} rows (max_entries cap reached)",
+                        caps.max_entries
+                    ));
+                    break;
+                }
+                rows_processed += 1;
                 let mut cells = Vec::new();
                 let mut first_col = None;
                 let mut last_col = None;

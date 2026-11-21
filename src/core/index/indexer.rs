@@ -333,6 +333,7 @@ impl Indexer {
         }
 
         let tx = self.conn.inner().unchecked_transaction()?;
+        let mut removed = 0usize;
         {
             let mut del_vec = tx.prepare(
                 "DELETE FROM chunks_vec WHERE rowid IN
@@ -340,12 +341,17 @@ impl Indexer {
             )?;
             let mut del_chunks = tx.prepare("DELETE FROM chunks WHERE source_path = ?1")?;
             for path in &missing {
-                del_vec.execute([path])?;
-                del_chunks.execute([path])?;
+                // Re-verify existence immediately before delete so a file
+                // recreated between the check and the delete is not pruned
+                // (TOCTOU, I8).
+                if !path.is_empty() && !Path::new(path).exists() {
+                    del_vec.execute([path])?;
+                    del_chunks.execute([path])?;
+                    removed += 1;
+                }
             }
         }
         tx.commit()?;
-        let removed = missing.len();
         // Checkpoint and truncate the WAL so deleted pages are reclaimed and
         // the -wal/-shm files don't grow unbounded.
         self.conn
@@ -436,7 +442,7 @@ pub fn chunk_text(text: &str, max_words: usize, overlap_words: usize) -> Vec<Chu
                     kept_words += w;
                 }
             }
-            start_line = line_no - kept.len();
+            start_line = line_no.saturating_sub(kept.len());
             current = kept;
             current_words = kept_words;
         }

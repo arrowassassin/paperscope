@@ -137,7 +137,7 @@ impl Extractor for Docx {
             }
             buf.clear();
         }
-        let blocks = merge_paragraphs(paragraphs, 350);
+        let blocks = merge_paragraphs(paragraphs, DOCX_MERGE_MAX_WORDS);
         Ok(Some(single(name, "docx", blocks, Vec::new())))
     }
 }
@@ -162,6 +162,10 @@ fn style_level(e: &quick_xml::events::BytesStart<'_>) -> Option<u8> {
         .ok()
         .or(Some(1))
 }
+
+/// Maximum number of words per merged block when combining consecutive docx
+/// paragraphs into a single extracted block.
+const DOCX_MERGE_MAX_WORDS: usize = 350;
 
 fn merge_paragraphs(paragraphs: Vec<Paragraph>, max_words: usize) -> Vec<Block> {
     let mut blocks = Vec::new();

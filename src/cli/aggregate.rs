@@ -91,13 +91,14 @@ pub async fn run(args: AggregateArgs) -> Result<i32> {
         params.push(Box::new(parse_date_to_millis(before)?));
     }
 
-    // Extension filter
+    // Extension filter (case-insensitive, on source_path; escape LIKE wildcards).
     if !args.ext.is_empty() {
-        let _placeholders = args.ext.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-        where_clauses.push("path LIKE ?".to_string());
+        let mut ors = Vec::new();
         for ext in &args.ext {
-            params.push(Box::new(format!("%.{ext}")));
+            ors.push("lower(source_path) LIKE lower(?) ESCAPE '\\'".to_string());
+            params.push(Box::new(format!("%.{}", escape_like(ext))));
         }
+        where_clauses.push(format!("({})", ors.join(" OR ")));
     }
 
     // Path substring filter
@@ -198,4 +199,20 @@ fn parse_date_to_millis(date: &str) -> Result<i64> {
     let datetime = naive.and_hms_opt(0, 0, 0).unwrap();
     let timestamp = datetime.and_utc().timestamp_millis();
     Ok(timestamp)
+}
+
+/// Escape SQL LIKE wildcards (`%`, `_`, `\`) so a user-supplied extension is
+/// matched literally rather than interpreted as a pattern.
+fn escape_like(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '%' | '_' | '\\' => {
+                out.push('\\');
+                out.push(c);
+            }
+            c => out.push(c),
+        }
+    }
+    out
 }

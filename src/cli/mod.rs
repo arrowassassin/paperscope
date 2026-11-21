@@ -31,6 +31,9 @@ pub const EXIT_MODEL_MISSING: i32 = 3;
 pub struct Workspace {
     pub paths: Paths,
     pub config: Config,
+    /// Single `ModelManager`, constructed once so search/model checks don't
+    /// rebuild the client and spec list on every call (M2).
+    pub model_manager: ModelManager,
 }
 
 impl Default for Workspace {
@@ -44,6 +47,7 @@ impl Workspace {
         Self {
             paths: Paths::new(),
             config: Config::load().unwrap_or_default(),
+            model_manager: ModelManager::new(),
         }
     }
 
@@ -77,7 +81,7 @@ impl Workspace {
     /// trigger a surprise download. If both embedding models are present the
     /// multilingual one wins, since it also covers English.
     pub fn embedder(&self) -> Option<SharedEmbedder> {
-        let manager = ModelManager::new();
+        let manager = &self.model_manager;
         for candidate in [MULTILINGUAL_EMBEDDING, DEFAULT_EMBEDDING] {
             if !manager.is_installed(candidate) {
                 continue;
@@ -93,7 +97,7 @@ impl Workspace {
         Ok(SearchPipeline::new(
             self.open_index()?,
             self.embedder(),
-            ModelManager::new().reranker_if_installed(),
+            self.model_manager.reranker_if_installed(),
             self.config.search(),
         ))
     }
@@ -104,12 +108,12 @@ impl Workspace {
             // advertise one as installed.
             return false;
         }
-        let manager = ModelManager::new();
+        let manager = &self.model_manager;
         manager.is_installed(DEFAULT_EMBEDDING) || manager.is_installed(MULTILINGUAL_EMBEDDING)
     }
 
     pub fn reranker_installed(&self) -> bool {
-        ModelManager::new().is_installed(OPTIONAL_RERANKER)
+        self.model_manager.is_installed(OPTIONAL_RERANKER)
     }
 }
 

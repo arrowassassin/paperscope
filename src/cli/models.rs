@@ -3,6 +3,27 @@ use crate::cli::model_downloader::ModelDownloader;
 use crate::core::models::ModelManager;
 use anyhow::{Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex as StdMutex, OnceLock};
+
+/// Per-model install/removal guard.
+///
+/// Serializes concurrent `paper models install` / `paper models remove` calls
+/// for the same model so they cannot race on the shared model directory or its
+/// `.partial` download files. Different models proceed in parallel.
+static MODEL_INSTALL_LOCKS: OnceLock<StdMutex<HashMap<String, Arc<StdMutex<()>>>>> =
+    OnceLock::new();
+
+/// Returns a lock unique to `model_id`, creating it on first use.
+fn model_install_lock(model_id: &str) -> Arc<StdMutex<()>> {
+    let mut map = MODEL_INSTALL_LOCKS
+        .get_or_init(|| StdMutex::new(HashMap::new()))
+        .lock()
+        .expect("model install lock map poisoned");
+    map.entry(model_id.to_string())
+        .or_insert_with(|| Arc::new(StdMutex::new(())))
+        .clone()
+}
 
 pub async fn run(args: ModelsArgs) -> Result<i32> {
     let manager = ModelManager::new();
@@ -32,6 +53,10 @@ pub async fn run(args: ModelsArgs) -> Result<i32> {
                 );
                 return Ok(EXIT_ERROR);
             }
+            // Serialize installs of the same model so concurrent calls cannot
+            // race on the model directory / `.partial` files (M14).
+            let _install_guard = model_install_lock(&model);
+
             let spec = manager.spec(&model)?;
             let model_dir = manager.model_dir(&model);
             tokio::fs::create_dir_all(&model_dir).await?;
@@ -89,6 +114,10 @@ pub async fn run(args: ModelsArgs) -> Result<i32> {
             let _ = manager.is_installed(&model);
         }
         ModelsCommand::Remove { model } => {
+            // Serialize removals of the same model so an install and a remove
+            // cannot race on the model directory / `.partial` files (M14).
+            let _remove_guard = model_install_lock(&model);
+
             if manager.spec(&model).is_err() {
                 eprintln!("unknown model: {model}");
                 return Ok(EXIT_ERROR);

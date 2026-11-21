@@ -50,6 +50,36 @@ pub const MAX_PDF_PAGES: u32 = 5_000;
 const MAX_STUCK_PARSERS: usize = 4;
 static STUCK_PARSERS: Mutex<Vec<std::thread::JoinHandle<()>>> = Mutex::new(Vec::new());
 
+/// Background reaper: joins finished stuck parser threads so their resources
+/// are reclaimed instead of leaking until the next extraction attempt.
+fn reap_stuck_parsers() {
+    let mut stuck = STUCK_PARSERS.lock().unwrap_or_else(|e| e.into_inner());
+    let mut i = 0;
+    while i < stuck.len() {
+        if stuck[i].is_finished() {
+            let handle = stuck.remove(i);
+            let _ = handle.join();
+        } else {
+            i += 1;
+        }
+    }
+    drop(stuck);
+}
+
+/// Start a lazy background reaper that drains finished stuck parsers every few
+/// seconds. Spawned on first use.
+fn ensure_reaper() {
+    static REAPER: std::sync::OnceLock<std::thread::JoinHandle<()>> = std::sync::OnceLock::new();
+    let _ = REAPER.get_or_init(|| {
+        std::thread::spawn(move || {
+            loop {
+                std::thread::sleep(std::time::Duration::from_secs(5));
+                reap_stuck_parsers();
+            }
+        })
+    });
+}
+
 /// Capabilities declared by an extractor.
 ///
 /// These bounds are enforced by the extraction pipeline before and during
@@ -309,8 +339,9 @@ pub fn extract_named(
         // refuse to start more while the stalled set is at its cap. Normal
         // concurrent parsing is never limited.
         {
-            let mut stuck = STUCK_PARSERS.lock().unwrap_or_else(|e| e.into_inner());
-            stuck.retain(|h| !h.is_finished());
+            reap_stuck_parsers();
+            ensure_reaper();
+            let stuck = STUCK_PARSERS.lock().unwrap_or_else(|e| e.into_inner());
             if stuck.len() >= MAX_STUCK_PARSERS {
                 return Ok(Some(single(
                     name,
@@ -321,6 +352,7 @@ pub fn extract_named(
                     )],
                 )));
             }
+            drop(stuck);
         }
 
         let extractor_clone = extractor.clone();
@@ -352,8 +384,10 @@ pub fn extract_named(
             }
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
                 // Deliberately do NOT join: the parser may never return. Park the
-                // handle so it occupies a stalled slot until it finishes.
+                // handle so it occupies a stalled slot until it finishes. A
+                // background reaper joins finished handles so threads don't leak.
                 tracing::warn!("{}: extraction timed out after 5 seconds", name);
+                ensure_reaper();
                 STUCK_PARSERS
                     .lock()
                     .unwrap_or_else(|e| e.into_inner())

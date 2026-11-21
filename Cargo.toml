@@ -115,6 +115,9 @@ lindera = { version = "6", optional = true, features = ["embed-ipadic"] }
 # Optional shell-out accelerators and OCR (feature-gated)
 which = { version = "6.0", optional = true }
 
+# Temp files with random suffixes (used by OCR engine to avoid symlink attacks).
+tempfile = "3.8"
+
 # Extraction: pure-Rust parsers, all permissive licences (see deny.toml).
 lopdf = "0.47"
 calamine = "0.38"

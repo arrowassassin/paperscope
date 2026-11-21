@@ -91,13 +91,21 @@ impl RootAwareScheduler {
     /// Trigger an immediate full reindex with current roots.
     pub async fn trigger_full(&self) {
         let roots = self.roots.read().await.clone();
-        let _ = self.sender.try_send(DaemonRequest::IndexRoots { roots });
+        if let Err(e) = self.sender.try_send(DaemonRequest::IndexRoots { roots }) {
+            tracing::warn!(
+                "Scheduler: channel full, dropping scheduled full reindex: {e}"
+            );
+        }
     }
 
     /// Trigger an immediate incremental index with current roots.
     pub async fn trigger_incremental(&self) {
         let roots = self.roots.read().await.clone();
-        let _ = self.sender.try_send(DaemonRequest::IndexRoots { roots });
+        if let Err(e) = self.sender.try_send(DaemonRequest::IndexRoots { roots }) {
+            tracing::warn!(
+                "Scheduler: channel full, dropping scheduled incremental reindex: {e}"
+            );
+        }
     }
 
     async fn run_scheduler(

@@ -1,6 +1,7 @@
 use crate::core::extract::{single, Block, ExtractedDocument, MAX_EXTRACTED_BYTES};
 use anyhow::Result;
 use std::path::Path;
+use tempfile;
 
 /// OCR engine trait for different platform implementations.
 pub trait OcrEngine: Send + Sync {
@@ -32,23 +33,29 @@ impl Default for TesseractEngine {
 #[cfg(feature = "ocr")]
 impl OcrEngine for TesseractEngine {
     fn recognize(&self, image_bytes: &[u8]) -> Result<String> {
-        // Write image to temp file
-        let temp_dir = std::env::temp_dir();
-        let image_path = temp_dir.join(format!("paper_ocr_{}.png", std::process::id()));
-        let output_path = temp_dir.join(format!("paper_ocr_{}.txt", std::process::id()));
-
+        // Write image to a temp file with a random suffix to avoid symlink
+        // attacks on predictable names.
+        let image_temp = tempfile::Builder::new()
+            .prefix("paper_ocr_")
+            .suffix(".png")
+            .tempfile_in(std::env::temp_dir())?;
+        let image_path = image_temp.path().to_path_buf();
         std::fs::write(&image_path, image_bytes)?;
+
+        // Output path prefix: tesseract appends ".txt" itself.
+        let output_prefix = image_path.with_extension("");
 
         // Run tesseract
         let output = std::process::Command::new("tesseract")
             .arg(&image_path)
-            .arg(output_path.with_extension(""))
+            .arg(output_prefix)
             .arg("-l")
             .arg("eng")
             .output()?;
 
         // Clean up image
         let _ = std::fs::remove_file(&image_path);
+        let _ = image_temp.close();
 
         if !output.status.success() {
             anyhow::bail!(
@@ -57,7 +64,8 @@ impl OcrEngine for TesseractEngine {
             );
         }
 
-        // Read output
+        // Read output (tesseract appends ".txt" to the prefix).
+        let output_path = output_prefix.with_extension("txt");
         let text = std::fs::read_to_string(&output_path)?;
         let _ = std::fs::remove_file(&output_path);
 
@@ -135,9 +143,17 @@ impl OcrEngine for WindowsOcrEngine {
 }
 
 /// Detect and return the best available OCR engine.
+///
+/// All `recognize()` implementations currently fall back to the `tesseract`
+/// binary, so verify it is actually available before advertising any engine;
+/// otherwise return `None` and let callers handle the absence gracefully
+/// (M16).
 #[cfg(feature = "ocr")]
 pub fn detect_ocr_engine() -> Option<Box<dyn OcrEngine>> {
-    // Prefer native platform engines
+    if which::which("tesseract").is_err() {
+        return None;
+    }
+
     #[cfg(target_os = "macos")]
     {
         Some(Box::new(VisionEngine::new()))
@@ -148,11 +164,7 @@ pub fn detect_ocr_engine() -> Option<Box<dyn OcrEngine>> {
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
-        // Fall back to Tesseract if available
-        if which::which("tesseract").is_ok() {
-            return Some(Box::new(TesseractEngine::new()));
-        }
-        None
+        Some(Box::new(TesseractEngine::new()))
     }
 }
 

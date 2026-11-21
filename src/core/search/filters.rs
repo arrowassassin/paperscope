@@ -98,15 +98,21 @@ impl SearchFilters {
         if !self.extensions.is_empty() {
             let mut ors = Vec::new();
             for ext in &self.extensions {
-                ors.push("lower(chunks.path) LIKE ?".to_string());
-                params.push(Value::Text(format!("%.{}", ext.to_ascii_lowercase())));
+                ors.push("lower(chunks.path) LIKE ? ESCAPE '\\'".to_string());
+                params.push(Value::Text(format!(
+                    "%.{}",
+                    escape_like(&ext.to_ascii_lowercase())
+                )));
             }
             let ext_clause = format!("({})", ors.join(" OR "));
             clauses.push(ext_clause);
         }
         if let Some(needle) = &self.path_contains {
-            clauses.push("lower(chunks.path) LIKE ?".to_string());
-            params.push(Value::Text(format!("%{}%", needle.to_ascii_lowercase())));
+            clauses.push("lower(chunks.path) LIKE ? ESCAPE '\\'".to_string());
+            params.push(Value::Text(format!(
+                "%{}%",
+                escape_like(&needle.to_ascii_lowercase())
+            )));
         }
         if clauses.is_empty() {
             (String::new(), params)
@@ -156,6 +162,22 @@ fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
     let doy = (153 * mp + 2) / 5 + d - 1;
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
     era * 146_097 + doe - 719_468
+}
+
+/// Escape SQL LIKE wildcards (`%`, `_`, `\`) in a user-supplied value so it is
+/// matched literally rather than interpreted as a pattern (II).
+fn escape_like(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '%' | '_' | '\\' => {
+                out.push('\\');
+                out.push(c);
+            }
+            c => out.push(c),
+        }
+    }
+    out
 }
 
 #[cfg(test)]

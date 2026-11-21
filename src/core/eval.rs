@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
+use tempfile::TempDir;
 use thiserror::Error;
 
 /// Errors that can occur during evaluation.
@@ -115,12 +116,15 @@ pub fn build_golden_index(
     embedder: SharedEmbedder,
 ) -> Result<(Connection, HashMap<usize, Vec<i64>>), EvalError> {
     use crate::core::index::{init_db, Indexer};
-    use std::env;
 
-    // Create a temporary directory for the database and document files
-    let temp_dir = env::temp_dir().join(format!("paper_eval_{}", std::process::id()));
-    let db_path = temp_dir.join("eval.db");
-    let docs_dir = temp_dir.join("docs");
+    // Create a temporary directory for the database and document files.
+    // `TempDir` is dropped at the end of this function, cleaning up the index
+    // and document files instead of leaving them under `env::temp_dir()`
+    // (M18). The returned `Connection` holds an open fd to the db file, which
+    // remains valid on Unix after the directory entry is removed.
+    let temp_dir = TempDir::new()?;
+    let db_path = temp_dir.path().join("eval.db");
+    let docs_dir = temp_dir.path().join("docs");
     fs::create_dir_all(&docs_dir)?;
 
     // Write all documents to the filesystem

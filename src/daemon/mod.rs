@@ -21,7 +21,7 @@ use clap::Args;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::signal;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{mpsc, Notify, RwLock};
 
 /// Arguments for the daemon subcommand.
 #[derive(Args, Debug, Clone)]
@@ -79,6 +79,8 @@ pub struct DaemonArgs {
 struct DaemonState {
     roots: RwLock<Vec<PathBuf>>,
     paused: RwLock<bool>,
+    shutdown: RwLock<bool>,
+    shutdown_notify: Arc<Notify>,
     db_path: PathBuf,
     embedder: Option<SharedEmbedder>,
 }
@@ -88,7 +90,6 @@ struct DaemonHandlerImpl {
     state: Arc<DaemonState>,
     scheduler: Arc<RootAwareScheduler>,
     watcher: Arc<RwLock<Option<Watcher>>>,
-    request_tx: mpsc::Sender<DaemonRequest>,
 }
 
 #[async_trait::async_trait]
@@ -167,9 +168,16 @@ impl DaemonHandler for DaemonHandlerImpl {
                 DaemonResponse::Ok
             }
             DaemonRequest::GetStatus => {
-                let indexed_files = self.count_indexed_files();
                 let paused = *self.state.paused.read().await;
-                let model = self.stored_embedding_model();
+                // Open one connection and reuse it for both status queries
+                // instead of opening two separate connections (M15).
+                let (indexed_files, model) = match Connection::open(&self.state.db_path) {
+                    Ok(conn) => (
+                        Self::count_indexed_files(&conn),
+                        Self::stored_embedding_model(&conn),
+                    ),
+                    Err(_) => (0, None),
+                };
 
                 DaemonResponse::Status {
                     indexed_files,
@@ -187,11 +195,10 @@ impl DaemonHandler for DaemonHandlerImpl {
                 DaemonResponse::Ok
             }
             DaemonRequest::Shutdown => {
-                if self.request_tx.send(DaemonRequest::Shutdown).await.is_err() {
-                    return DaemonResponse::Error {
-                        msg: "Daemon dispatch loop is not running".to_string(),
-                    };
-                }
+                // Signal shutdown via a flag and wake the dispatch loop; do not
+                // re-enqueue Shutdown on the same channel (IK).
+                *self.state.shutdown.write().await = true;
+                self.state.shutdown_notify.notify_waiters();
                 DaemonResponse::Ok
             }
         }
@@ -199,18 +206,12 @@ impl DaemonHandler for DaemonHandlerImpl {
 }
 
 impl DaemonHandlerImpl {
-    fn count_indexed_files(&self) -> usize {
-        let Ok(conn) = Connection::open(&self.state.db_path) else {
-            return 0;
-        };
+    fn count_indexed_files(conn: &Connection) -> usize {
         conn.query_i64("SELECT COUNT(DISTINCT path) FROM chunks")
             .unwrap_or(0) as usize
     }
 
-    fn stored_embedding_model(&self) -> Option<String> {
-        let Ok(conn) = Connection::open(&self.state.db_path) else {
-            return None;
-        };
+    fn stored_embedding_model(conn: &Connection) -> Option<String> {
         conn.stored_embedding_model().ok().flatten()
     }
 }
@@ -253,6 +254,8 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
     let state = Arc::new(DaemonState {
         roots: RwLock::new(roots.clone()),
         paused: RwLock::new(false),
+        shutdown: RwLock::new(false),
+        shutdown_notify: Arc::new(Notify::new()),
         db_path,
         embedder,
     });
@@ -293,7 +296,6 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
         state: state.clone(),
         scheduler: scheduler.clone(),
         watcher: watcher.clone(),
-        request_tx: request_tx.clone(),
     });
 
     // Start components
@@ -358,14 +360,32 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
     // Dispatch loop: requests from the scheduler and watcher are handled here;
     // IPC requests are handled by the per-connection tasks in `run_ipc_server`.
     let dispatch = async {
-        while let Some(request) = request_rx.recv().await {
-            if matches!(request, DaemonRequest::Shutdown) {
-                break;
+        let state = state.clone();
+        loop {
+            tokio::select! {
+                // A request from the scheduler, watcher, or a directly-enqueued
+                // Shutdown.
+                request = request_rx.recv() => {
+                    match request {
+                        Some(request) => {
+                            if *state.shutdown.read().await || matches!(request, DaemonRequest::Shutdown) {
+                                break;
+                            }
+                            let handler = handler.clone();
+                            tokio::spawn(async move {
+                                let _ = handler.handle(request).await;
+                            });
+                        }
+                        None => break, // channel closed
+                    }
+                }
+                // Woken by the Shutdown handler (IK) so we can check the flag.
+                _ = state.shutdown_notify.notified() => {
+                    if *state.shutdown.read().await {
+                        break;
+                    }
+                }
             }
-            let handler = handler.clone();
-            tokio::spawn(async move {
-                let _ = handler.handle(request).await;
-            });
         }
     };
 

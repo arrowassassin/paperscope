@@ -86,7 +86,16 @@ impl Config {
     pub fn load_from(path: &std::path::Path) -> anyhow::Result<Self> {
         if path.exists() {
             let content = std::fs::read_to_string(path)?;
-            Ok(toml::from_str(&content)?)
+            match toml::from_str(&content) {
+                Ok(config) => Ok(config),
+                Err(e) => {
+                    tracing::warn!(
+                        "Config file at {} is corrupt ({e}); falling back to defaults",
+                        path.display()
+                    );
+                    Ok(Self::default())
+                }
+            }
         } else {
             Ok(Self::default())
         }
