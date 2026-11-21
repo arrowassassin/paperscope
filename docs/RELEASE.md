@@ -6,7 +6,7 @@ today; optional steps that are not wired up are marked as such.
 ## 1. Prepare
 
 ```bash
-cargo +1.91.0 test                       # MSRV build
+cargo +1.94.0 test                       # MSRV build
 cargo +stable test                       # current stable
 cargo +stable clippy --all-targets --all-features -- -D warnings
 cargo +stable clippy --no-default-features --all-targets -- -D warnings
@@ -152,7 +152,7 @@ log first.
 
 ## Release checklist
 
-- [ ] `cargo test` green on stable and on the MSRV (1.91)
+- [ ] `cargo test` green on stable and on the MSRV (1.94)
 - [ ] `cargo clippy --all-targets --all-features -- -D warnings` green
 - [ ] `cargo clippy --no-default-features --all-targets -- -D warnings` green
 - [ ] `cargo deny check licenses bans sources` green

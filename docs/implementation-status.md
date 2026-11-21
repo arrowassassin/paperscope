@@ -42,8 +42,10 @@ the tarball.
 
 - `cargo publish --dry-run` succeeds: **72 files, ~155 KiB compressed**, and the
   packaged tarball compiles in `target/package/paperscope-0.1.0`.
-- `rust-version = "1.91"` — the highest MSRV in the tree (`notify-types` 2.3.1;
-  `zip` 9.8 and `aes` 0.9 require 1.89, the `icu_*` crates require 1.88).
+- `rust-version = "1.94"` — the highest MSRV in the tree. `candle-core` 0.11.1
+  calls `__cpuid_count` from safe code on x86_64, which needs 1.94; the Windows
+  and Linux builds are therefore 1.94. (`notify-types` 2.3.1 needs 1.91,
+  `zip` 9.8 and `aes` 0.9 1.89, the `icu_*` crates 1.88.)
 - `cargo deny check licenses bans sources` passes. `deny.toml` allow-lists
   permissive licences and denies wildcard requirements, unknown registries and
   unknown git sources. `MPL-2.0` is permitted only because it enters through

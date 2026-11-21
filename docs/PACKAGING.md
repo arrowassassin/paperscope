@@ -16,7 +16,8 @@ This document describes what is actually shipped, how it is built, and what is
 The crate is `paperscope`; the binary and library targets are both named
 `paper`, so `cargo install paperscope` installs a `paper` command.
 
-- **MSRV:** 1.91 (`rust-version` in `Cargo.toml`).
+- **MSRV:** 1.94 (`rust-version` in `Cargo.toml`; `candle-core` 0.11.1 needs
+  it on x86_64).
 - **Runtime dependencies:** none. SQLite is compiled in (`rusqlite` with
   `bundled`) and `sqlite-vec` is statically linked, so there is no system
   `libsqlite3` to install. The only dynamic dependency is libc on the glibc
