@@ -107,8 +107,10 @@ icu_locid = { version = "1.5", optional = true }
 writeable = { version = "0.5", optional = true }
 
 # Lindera (pure Rust) for Japanese with IPADIC dictionary (MIT)
-lindera = { version = "0.9", optional = true }
-lindera-ipadic = { version = "0.9", optional = true }
+# `embed-ipadic` ships the dictionary inside the crate: no build-time network
+# fetch (lindera 0.9 downloaded from Google Drive in build.rs, which broke and
+# violated offline builds).
+lindera = { version = "6", optional = true, features = ["embed-ipadic"] }
 
 # Optional shell-out accelerators and OCR (feature-gated)
 which = { version = "6.0", optional = true }
@@ -177,7 +179,7 @@ jieba-rs = ["dep:jieba-rs"]
 icu_segmenter = ["dep:icu_segmenter", "dep:icu_provider", "dep:icu_provider_adapters", "dep:icu_normalizer", "dep:icu_properties", "dep:icu_locid", "dep:writeable"]
 
 # Lindera (pure Rust) for Japanese with IPADIC dictionary (MIT)
-lindera = ["dep:lindera", "dep:lindera-ipadic"]
+lindera = ["dep:lindera"]
 
 shell-accel = ["dep:which"]
 ocr = ["dep:which"]

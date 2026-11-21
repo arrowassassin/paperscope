@@ -1,42 +1,58 @@
 //! Lindera (pure Rust) Japanese tokenizer with IPADIC dictionary.
 //!
-//! Uses `TokenizeMode::Search` which is optimized for information retrieval
-//! (produces more tokens, better for search recall).
+//! Uses `Mode::Decompose` (the successor of the old `TokenizeMode::Search`)
+//! which is optimized for information retrieval: it produces more tokens,
+//! improving search recall.
+//!
+//! The IPADIC dictionary is embedded in the binary (`embed-ipadic` feature),
+//! so there is no build-time or run-time network access.
 
 #[cfg(feature = "lindera")]
-use lindera::tokenizer::{Tokenizer, TokenizeMode};
+use lindera::dictionary::{load_embedded_dictionary, DictionaryKind};
 #[cfg(feature = "lindera")]
-use lindera::dictionary::load_dictionary;
+use lindera::mode::{Mode, Penalty};
 #[cfg(feature = "lindera")]
-use lindera_ipadic::LinderaIpadicBuilder;
+use lindera::segmenter::Segmenter;
+#[cfg(feature = "lindera")]
+use std::sync::OnceLock;
 
-/// Segment Japanese text using Lindera with IPADIC dictionary in Search mode.
+/// Shared segmenter: loading the embedded dictionary is expensive, so do it once.
+#[cfg(feature = "lindera")]
+fn segmenter() -> Option<&'static Segmenter> {
+    static SEGMENTER: OnceLock<Option<Segmenter>> = OnceLock::new();
+    SEGMENTER
+        .get_or_init(|| {
+            let dictionary = load_embedded_dictionary(DictionaryKind::IPADIC).ok()?;
+            Some(Segmenter::new(
+                Mode::Decompose(Penalty::default()),
+                dictionary,
+                None,
+            ))
+        })
+        .as_ref()
+}
+
+/// Segment Japanese text using Lindera with IPADIC dictionary in decompose
+/// (search) mode.
 ///
 /// Returns a space-separated string of tokens suitable for FTS5 indexing.
 /// Falls back to returning the original text if Lindera segmentation fails.
 #[cfg(feature = "lindera")]
 pub fn lindera_segment(text: &str) -> String {
-    // Load the IPADIC dictionary
-    let dictionary = match load_dictionary(LinderaIpadicBuilder::default()) {
-        Ok(dict) => dict,
-        Err(_) => return text.to_string(), // Fallback to original text
+    let Some(segmenter) = segmenter() else {
+        return text.to_string();
     };
 
-    // Build the tokenizer with IPADIC dictionary
-    let tokenizer = match Tokenizer::new(dictionary, TokenizeMode::Search) {
-        Ok(t) => t,
-        Err(_) => return text.to_string(), // Fallback to original text
+    let Ok(tokens) = segmenter.segment(std::borrow::Cow::Borrowed(text)) else {
+        return text.to_string();
     };
 
-    // Tokenize the text
-    let tokens: Vec<String> = tokenizer
-        .tokenize(text)
-        .into_iter()
-        .map(|token| token.text.to_string())
+    let tokens: Vec<&str> = tokens
+        .iter()
+        .map(|token| token.surface.as_ref())
         .filter(|t| !t.trim().is_empty())
         .collect();
 
-    // If no tokens found, return original text
     if tokens.is_empty() {
         return text.to_string();
     }

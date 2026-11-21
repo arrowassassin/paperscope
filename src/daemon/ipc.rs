@@ -1,19 +1,21 @@
 //! IPC server for the paperscope daemon.
 //!
-//! JSON lines over Unix socket (Linux/macOS) / named pipe (Windows).
+//! JSON lines over a Unix socket (Linux/macOS). Each line is a JSON-encoded
+//! [`DaemonRequest`] or [`DaemonResponse`].
 
 use crate::core::index::IndexStats;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 /// Requests sent from clients to the daemon.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum DaemonRequest {
-    /// Index the given roots (full reindex).
+    /// Index the given roots (empty = all configured roots).
     IndexRoots { roots: Vec<PathBuf> },
     /// Add a new root to watch and index.
     AddRoot { path: PathBuf },
@@ -57,58 +59,44 @@ pub trait DaemonHandler: Send + Sync {
 
 /// Run the IPC server on the given socket path.
 ///
-/// This function binds to the Unix socket (or named pipe on Windows) and
-/// serves requests until the handler returns a `Shutdown` response or
-/// the connection is closed.
-pub async fn run_ipc_server(socket_path: &Path, handler: impl DaemonHandler + 'static) -> Result<()> {
+/// Binds to the Unix socket and serves requests until the task is aborted.
+/// Each connection is handled in its own task with a shared handler.
+#[cfg(unix)]
+pub async fn run_ipc_server(socket_path: &Path, handler: Arc<dyn DaemonHandler>) -> Result<()> {
+    use tokio::net::UnixListener;
+
     // Remove any stale socket file
     let _ = tokio::fs::remove_file(socket_path).await;
-
-    #[cfg(unix)]
-    {
-        use tokio::net::UnixListener;
-        let listener = UnixListener::bind(socket_path)
-            .with_context(|| format!("binding to {}", socket_path.display()))?;
-
-        tracing::info!("Daemon IPC server listening on {}", socket_path.display());
-
-        loop {
-            let (stream, _) = listener.accept().await?;
-            let handler = &handler;
-            tokio::spawn(async move {
-                if let Err(e) = handle_connection(stream, handler).await {
-                    tracing::warn!("IPC connection error: {e}");
-                }
-            });
-        }
+    if let Some(parent) = socket_path.parent() {
+        tokio::fs::create_dir_all(parent).await?;
     }
 
-    #[cfg(windows)]
-    {
-        // Named pipe implementation for Windows
-        // For simplicity, we use a file-based approach on Windows as well
-        // In production, this would use Windows named pipes via tokio-named-pipes
-        use tokio::net::UnixListener;
-        let listener = UnixListener::bind(socket_path)
-            .with_context(|| format!("binding to {}", socket_path.display()))?;
+    let listener = UnixListener::bind(socket_path)
+        .with_context(|| format!("binding to {}", socket_path.display()))?;
 
-        tracing::info!("Daemon IPC server listening on {}", socket_path.display());
+    tracing::info!("Daemon IPC server listening on {}", socket_path.display());
 
-        loop {
-            let (stream, _) = listener.accept().await?;
-            let handler = &handler;
-            tokio::spawn(async move {
-                if let Err(e) = handle_connection(stream, handler).await {
-                    tracing::warn!("IPC connection error: {e}");
-                }
-            });
-        }
+    loop {
+        let (stream, _) = listener.accept().await?;
+        let handler = handler.clone();
+        tokio::spawn(async move {
+            if let Err(e) = handle_connection(stream, handler).await {
+                tracing::warn!("IPC connection error: {e}");
+            }
+        });
     }
 }
 
+/// Windows named-pipe support is not implemented yet.
+#[cfg(windows)]
+pub async fn run_ipc_server(_socket_path: &Path, _handler: Arc<dyn DaemonHandler>) -> Result<()> {
+    anyhow::bail!("daemon IPC is not yet supported on Windows")
+}
+
+#[cfg(unix)]
 async fn handle_connection(
     stream: tokio::net::UnixStream,
-    handler: &impl DaemonHandler,
+    handler: Arc<dyn DaemonHandler>,
 ) -> Result<()> {
     let (reader, mut writer) = stream.into_split();
     let mut reader = BufReader::new(reader);
@@ -141,12 +129,6 @@ async fn handle_connection(
         writer.write_all(json.as_bytes()).await?;
         writer.write_all(b"\n").await?;
         writer.flush().await?;
-
-        if matches!(response, DaemonResponse::Ok) {
-            // Check if it was a shutdown request
-            // We can't easily check here without the request, so we rely on
-            // the handler to stop the server externally.
-        }
     }
 
     Ok(())
@@ -158,38 +140,30 @@ pub struct IpcClient {
     reader: BufReader<tokio::net::unix::OwnedReadHalf>,
     #[cfg(unix)]
     writer: tokio::net::unix::OwnedWriteHalf,
-    #[cfg(windows)]
-    reader: BufReader<tokio::net::unix::OwnedReadHalf>,
-    #[cfg(windows)]
-    writer: tokio::net::unix::OwnedWriteHalf,
 }
 
 impl IpcClient {
     /// Connect to the daemon IPC server.
+    #[cfg(unix)]
     pub async fn connect(socket_path: &Path) -> Result<Self> {
-        #[cfg(unix)]
-        {
-            let stream = tokio::net::UnixStream::connect(socket_path).await?;
-            let (reader, writer) = stream.into_split();
-            Ok(Self {
-                reader: BufReader::new(reader),
-                writer,
-            })
-        }
+        let stream = tokio::net::UnixStream::connect(socket_path)
+            .await
+            .with_context(|| format!("connecting to {}", socket_path.display()))?;
+        let (reader, writer) = stream.into_split();
+        Ok(Self {
+            reader: BufReader::new(reader),
+            writer,
+        })
+    }
 
-        #[cfg(windows)]
-        {
-            // On Windows, use Unix socket emulation for now
-            let stream = tokio::net::UnixStream::connect(socket_path).await?;
-            let (reader, writer) = stream.into_split();
-            Ok(Self {
-                reader: BufReader::new(reader),
-                writer,
-            })
-        }
+    /// Windows named-pipe support is not implemented yet.
+    #[cfg(windows)]
+    pub async fn connect(_socket_path: &Path) -> Result<Self> {
+        anyhow::bail!("daemon IPC is not yet supported on Windows")
     }
 
     /// Send a request and wait for the response.
+    #[cfg(unix)]
     pub async fn send(&mut self, request: DaemonRequest) -> Result<DaemonResponse> {
         let json = serde_json::to_string(&request)?;
         self.writer.write_all(json.as_bytes()).await?;

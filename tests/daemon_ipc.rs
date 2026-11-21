@@ -1,13 +1,12 @@
 //! Integration tests for the daemon IPC protocol.
 
-use paper::daemon::ipc::{DaemonRequest, DaemonResponse, run_ipc_server};
+use paper::daemon::ipc::{run_ipc_server, DaemonRequest, DaemonResponse};
 use paper::daemon::DaemonHandler;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::net::UnixStream;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::sync::mpsc;
 use tempfile::tempdir;
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::net::UnixStream;
 
 struct TestHandler;
 
@@ -15,11 +14,9 @@ struct TestHandler;
 impl DaemonHandler for TestHandler {
     async fn handle(&self, request: DaemonRequest) -> DaemonResponse {
         match request {
-            DaemonRequest::IndexRoots { roots: _ } => {
-                DaemonResponse::IndexRoots {
-                    stats: paper::core::index::IndexStats::default(),
-                }
-            }
+            DaemonRequest::IndexRoots { roots: _ } => DaemonResponse::IndexRoots {
+                stats: paper::core::index::IndexStats::default(),
+            },
             DaemonRequest::GetStatus => DaemonResponse::Status {
                 indexed_files: 0,
                 queued: 0,

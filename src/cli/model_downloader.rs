@@ -62,7 +62,10 @@ impl ModelDownloader {
             .unwrap_or_else(|_| ProgressStyle::default_bar())
             .progress_chars("##-"),
         );
-        pb.set_message(format!("Downloading {}", self.dest.file_name().unwrap().to_string_lossy()));
+        pb.set_message(format!(
+            "Downloading {}",
+            self.dest.file_name().unwrap().to_string_lossy()
+        ));
         pb.set_position(downloaded);
 
         let mut builder = self.client.get(&self.url);
@@ -80,7 +83,10 @@ impl ModelDownloader {
         // If the server ignored the Range header and sent the whole file (200),
         // the existing `.partial` prefix is stale: start it over.
         if downloaded > 0 && resp.status() != reqwest::StatusCode::PARTIAL_CONTENT {
-            tracing::debug!("server ignored Range for {}; restarting download", self.dest.display());
+            tracing::debug!(
+                "server ignored Range for {}; restarting download",
+                self.dest.display()
+            );
             tokio::fs::remove_file(&tmp).await.ok();
             downloaded = 0;
             pb.set_position(0);

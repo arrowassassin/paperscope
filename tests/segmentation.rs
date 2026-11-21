@@ -10,9 +10,12 @@ use paper::core::text::fts_segment;
 fn icu_segments_chinese_words_not_bigrams() {
     let text = "人工智能改变世界";
     let segmented = fts_segment(text); // with icu_segmenter feature
-    // Should contain actual words, not just bigrams
+                                       // Should contain actual words, not just bigrams
     assert!(
-        segmented.contains("人工") || segmented.contains("智能") || segmented.contains("改变") || segmented.contains("世界"),
+        segmented.contains("人工")
+            || segmented.contains("智能")
+            || segmented.contains("改变")
+            || segmented.contains("世界"),
         "Expected word-level segmentation, got: {}",
         segmented
     );
@@ -34,7 +37,7 @@ fn icu_segments_chinese_proper_words() {
 fn lindera_segments_japanese() {
     let text = "自然言語処理";
     let segmented = fts_segment(text); // with lindera feature
-    // Lindera in Search mode should produce proper Japanese tokens
+                                       // Lindera in Search mode should produce proper Japanese tokens
     assert!(
         segmented.contains("自然言語") || segmented.contains("言語") || segmented.contains("処理"),
         "Expected Japanese tokenization, got: {}",
@@ -46,7 +49,7 @@ fn lindera_segments_japanese() {
 fn icu_segments_korean() {
     let text = "인공지능";
     let segmented = fts_segment(text); // with icu_segmenter feature
-    // ICU Korean segmentation (weaker recall, documented)
+                                       // ICU Korean segmentation (weaker recall, documented)
     assert!(
         segmented.contains("인공") || segmented.contains("지능") || segmented.contains("인공지능"),
         "Expected Korean segmentation, got: {}",
@@ -58,7 +61,7 @@ fn icu_segments_korean() {
 fn icu_segments_thai() {
     let text = "ปัญญาประดิษฐ์";
     let segmented = fts_segment(text); // with icu_segmenter feature
-    // Thai should be segmented at word boundaries
+                                       // Thai should be segmented at word boundaries
     assert!(
         segmented.split_whitespace().count() > 1,
         "Expected Thai word segmentation, got: {}",
@@ -103,7 +106,7 @@ fn icu_segments_myanmar() {
 fn icu_segments_arabic() {
     let text = "الذكاء الاصطناعي";
     let segmented = fts_segment(text); // with icu_segmenter feature
-    // Arabic should be segmented at word boundaries
+                                       // Arabic should be segmented at word boundaries
     assert!(
         segmented.contains("الذكاء") || segmented.contains("اصطناعي"),
         "Expected Arabic word segmentation, got: {}",

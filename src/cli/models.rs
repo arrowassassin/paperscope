@@ -56,16 +56,22 @@ pub async fn run(args: ModelsArgs) -> Result<i32> {
                 );
 
                 // Use ModelDownloader for each file
-                let downloader = ModelDownloader::new(url, dest.clone(), file.sha256.to_string(), file.size);
-                downloader.download_with_progress().await.with_context(|| {
-                    format!("failed to download {}/{}", model, file.name)
-                })?;
+                let downloader =
+                    ModelDownloader::new(url, dest.clone(), file.sha256.to_string(), file.size);
+                downloader
+                    .download_with_progress()
+                    .await
+                    .with_context(|| format!("failed to download {}/{}", model, file.name))?;
 
                 // Update aggregate progress
                 aggregate_pb.inc(file.size);
             }
 
-            aggregate_pb.finish_with_message(format!("Installed {} at {}", model, model_dir.display()));
+            aggregate_pb.finish_with_message(format!(
+                "Installed {} at {}",
+                model,
+                model_dir.display()
+            ));
             println!("installed {} at {}", model, model_dir.display());
 
             // Update installed cache via is_installed (which caches on success)

@@ -1,6 +1,6 @@
 //! File system watcher with debouncing.
 //!
-//! Uses `notify` to watch for file changes, debounces events by 250ms,
+//! Uses `notify` to watch for file changes, debounces events (default 250ms),
 //! and batches them into a single `IndexRoots` request.
 
 use crate::daemon::ipc::DaemonRequest;
@@ -22,8 +22,6 @@ pub struct Watcher {
     notify_watcher: Option<RecommendedWatcher>,
     /// Handle to the debounce task
     debounce_handle: Option<tokio::task::JoinHandle<()>>,
-    /// Channel for receiving file events from notify
-    event_receiver: Option<mpsc::Receiver<Vec<PathBuf>>>,
 }
 
 impl Watcher {
@@ -38,7 +36,6 @@ impl Watcher {
             sender,
             notify_watcher: None,
             debounce_handle: None,
-            event_receiver: None,
         }
     }
 
@@ -48,10 +45,9 @@ impl Watcher {
     }
 
     /// Start the watcher.
-    pub fn start(&mut self) -> Result<()> {
+    pub async fn start(&mut self) -> Result<()> {
         let (event_tx, event_rx) = mpsc::channel::<Vec<PathBuf>>(100);
         let roots = self.roots.clone();
-        let sender = self.sender.clone();
         let debounce_ms = self.debounce_ms;
 
         // Create the notify watcher
@@ -65,10 +61,7 @@ impl Watcher {
         )?;
 
         // Watch current roots
-        let current_roots = {
-            let roots_guard = futures::executor::block_on(roots.read());
-            roots_guard.clone()
-        };
+        let current_roots = self.roots.read().await.clone();
         for root in &current_roots {
             if root.exists() {
                 watcher.watch(root, RecursiveMode::Recursive)?;
@@ -76,13 +69,11 @@ impl Watcher {
         }
 
         self.notify_watcher = Some(watcher);
-        self.event_receiver = Some(event_rx);
 
         // Start debounce task
-        let sender_clone = self.sender.clone();
-        let mut event_rx = self.event_receiver.take().unwrap();
+        let sender = self.sender.clone();
         let debounce_handle = tokio::spawn(async move {
-            Self::debounce_loop(event_rx, sender_clone, Duration::from_millis(debounce_ms)).await;
+            Self::debounce_loop(event_rx, sender, Duration::from_millis(debounce_ms)).await;
         });
         self.debounce_handle = Some(debounce_handle);
 
@@ -96,14 +87,16 @@ impl Watcher {
             let _ = handle.await;
         }
         if let Some(mut watcher) = self.notify_watcher.take() {
-            let _ = watcher.unwatch_all();
+            // notify has no unwatch_all: remove each watched root explicitly.
+            for root in self.roots.read().await.iter() {
+                let _ = watcher.unwatch(root);
+            }
         }
     }
 
     /// Add a root to watch.
     pub async fn add_root(&mut self, path: PathBuf) -> Result<()> {
-        let mut roots = self.roots.write().await;
-        roots.insert(path.clone());
+        self.roots.write().await.insert(path.clone());
 
         // If watcher is already running, add watch for new root
         if let Some(watcher) = &mut self.notify_watcher {
@@ -117,8 +110,7 @@ impl Watcher {
 
     /// Remove a root from watching.
     pub async fn remove_root(&mut self, path: &Path) -> Result<()> {
-        let mut roots = self.roots.write().await;
-        roots.remove(path);
+        self.roots.write().await.remove(path);
 
         // If watcher is already running, remove watch
         if let Some(watcher) = &mut self.notify_watcher {
@@ -158,9 +150,7 @@ impl Watcher {
         let relevant_paths: Vec<PathBuf> = event
             .paths
             .into_iter()
-            .filter(|p| {
-                current_roots.iter().any(|root| p.starts_with(root))
-            })
+            .filter(|p| current_roots.iter().any(|root| p.starts_with(root)))
             .collect();
 
         if !relevant_paths.is_empty() {
@@ -193,8 +183,6 @@ impl Watcher {
 
                         tracing::debug!("Watcher: triggering index for {} changed paths", pending_paths.len());
 
-                        // Get all current roots to reindex (simpler than incremental)
-                        // In a more sophisticated implementation, we'd only reindex changed files
                         let request = DaemonRequest::IndexRoots { roots: pending_paths.clone() };
                         if sender.send(request).await.is_err() {
                             tracing::warn!("Watcher: channel closed, stopping");

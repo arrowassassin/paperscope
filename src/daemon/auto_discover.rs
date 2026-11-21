@@ -70,7 +70,10 @@ mod tests {
         // This test would need a mock home dir, which dirs doesn't easily support
         // So we just test the filtering logic works
         let roots = vec![docs.clone(), downloads.clone()];
-        let filtered: Vec<_> = roots.into_iter().filter(|p| p.file_name().unwrap() == "Documents").collect();
+        let filtered: Vec<_> = roots
+            .into_iter()
+            .filter(|p| p.file_name().unwrap() == "Documents")
+            .collect();
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0], docs);
     }

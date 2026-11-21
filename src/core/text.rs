@@ -253,7 +253,8 @@ fn collect_bigram_first_char(text: &str) -> Vec<String> {
 /// Returns None if no supported dense script is detected.
 pub fn detect_language(text: &str) -> Option<&'static str> {
     // Count characters per script to find the dominant one
-    let mut script_counts: std::collections::HashMap<&'static str, usize> = std::collections::HashMap::new();
+    let mut script_counts: std::collections::HashMap<&'static str, usize> =
+        std::collections::HashMap::new();
 
     for c in text.chars() {
         let script = match c as u32 {
@@ -302,7 +303,10 @@ pub fn detect_language(text: &str) -> Option<&'static str> {
     }
 
     // Return the script with the highest count
-    script_counts.into_iter().max_by_key(|(_, count)| *count).map(|(script, _)| script)
+    script_counts
+        .into_iter()
+        .max_by_key(|(_, count)| *count)
+        .map(|(script, _)| script)
 }
 
 /// Check if text contains Japanese characters (Hiragana or Katakana).
@@ -311,7 +315,7 @@ fn is_japanese(text: &str) -> bool {
     text.chars().any(|c| {
         let cp = c as u32;
         (0x3040..=0x309F).contains(&cp) || // Hiragana
-        (0x30A0..=0x30FF).contains(&cp)    // Katakana
+        (0x30A0..=0x30FF).contains(&cp) // Katakana
     })
 }
 
@@ -432,11 +436,26 @@ fn collapse_whitespace(text: &str) -> String {
 mod tests {
     use super::*;
 
+    /// Bigram fallback only applies when the ICU feature is off.
+    #[cfg(not(feature = "icu_segmenter"))]
     #[test]
     fn cjk_runs_become_bigrams() {
         let s = fts_segment("全文檢索");
         let tokens: Vec<&str> = s.split_whitespace().collect();
         assert_eq!(tokens, ["全", "全文", "文檢", "檢索"]);
+    }
+
+    /// With ICU, CJK text is segmented into words instead of bigrams.
+    #[cfg(feature = "icu_segmenter")]
+    #[test]
+    fn cjk_runs_become_words() {
+        let s = fts_segment("全文檢索");
+        let tokens: Vec<&str> = s.split_whitespace().collect();
+        assert!(tokens.contains(&"檢索"), "{tokens:?}");
+        assert!(
+            !tokens.contains(&"文檢"),
+            "no cross-word bigrams under ICU: {tokens:?}"
+        );
     }
 
     #[test]
@@ -463,10 +482,22 @@ mod tests {
         assert_eq!(fts_segment("ＷＡＲＲＡＮＴＹ"), "WARRANTY");
     }
 
+    /// Per-character fallback only applies when the ICU feature is off.
+    #[cfg(not(feature = "icu_segmenter"))]
     #[test]
     fn thai_is_indexed_per_character() {
         let s = fts_segment("การรับประกัน");
         assert!(s.split_whitespace().count() > 3, "{s}");
+    }
+
+    /// With ICU, Thai is segmented at dictionary word boundaries.
+    #[cfg(feature = "icu_segmenter")]
+    #[test]
+    fn thai_is_indexed_per_word() {
+        let s = fts_segment("การรับประกัน");
+        let tokens: Vec<&str> = s.split_whitespace().collect();
+        assert!(tokens.contains(&"การ"), "{tokens:?}");
+        assert!(tokens.contains(&"รับประกัน"), "{tokens:?}");
     }
 
     #[test]

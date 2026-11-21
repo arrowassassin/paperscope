@@ -5,7 +5,7 @@
 //! Khmer, Myanmar, Arabic, Hebrew, Devanagari, etc.
 
 #[cfg(feature = "icu_segmenter")]
-use icu::segmenter::WordSegmenter;
+use icu_segmenter::WordSegmenter;
 
 /// Segment text using ICU's WordSegmenter for the given locale.
 ///
@@ -13,12 +13,8 @@ use icu::segmenter::WordSegmenter;
 /// Falls back to returning the original text if ICU segmentation fails.
 #[cfg(feature = "icu_segmenter")]
 pub fn icu_segment(text: &str, _locale: &str) -> String {
-    // Use WordSegmenter::new_auto() which automatically loads compiled data
-    // for the system's locale or falls back to root locale
-    let segmenter = match WordSegmenter::new_auto() {
-        Ok(s) => s,
-        Err(_) => return text.to_string(), // Fallback to original text
-    };
+    // With the `compiled_data` feature the constructor is infallible.
+    let segmenter = WordSegmenter::new_auto();
 
     // Iterate through word boundaries and collect tokens
     let mut tokens = Vec::new();

@@ -6,19 +6,22 @@ pub mod resource_guard;
 pub mod scheduler;
 pub mod watcher;
 
+pub use ipc::DaemonHandler;
+
 use crate::cli::Workspace;
-use crate::core::index::{Connection, Indexer, init_db};
+use crate::core::index::{init_db, Connection, Indexer};
+use crate::core::search::SharedEmbedder;
 use crate::daemon::auto_discover::discover_default_roots;
-use crate::daemon::ipc::{DaemonHandler, DaemonRequest, DaemonResponse, run_ipc_server};
-use crate::daemon::resource_guard::{PauseReason, ResourceGuard};
+use crate::daemon::ipc::{run_ipc_server, DaemonRequest, DaemonResponse};
+use crate::daemon::resource_guard::{PauseReason, ResourceGuard, ResourceGuardConfig};
 use crate::daemon::scheduler::RootAwareScheduler;
 use crate::daemon::watcher::Watcher;
 use anyhow::Result;
 use clap::Args;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock};
 use tokio::signal;
+use tokio::sync::{mpsc, RwLock};
 
 /// Arguments for the daemon subcommand.
 #[derive(Args, Debug, Clone)]
@@ -68,13 +71,16 @@ pub struct DaemonArgs {
     pub cpu_threshold: Option<u8>,
 }
 
-/// Shared daemon state (does NOT contain Indexer — it's not Send/Sync).
-/// Instead we create fresh connections per request.
+/// Shared daemon state.
+///
+/// Deliberately does NOT hold an `Indexer` or `Connection`: rusqlite
+/// connections are not `Sync`, so each indexing request opens a fresh
+/// connection inside `spawn_blocking` (the same pattern the CLI uses).
 struct DaemonState {
-    roots: Arc<RwLock<Vec<PathBuf>>>,
-    paused: Arc<RwLock<bool>>,
-    workspace: Workspace,
-    embedder: Arc<tokio::sync::RwLock<Option<std::sync::Arc<dyn crate::core::search::QueryEmbedder + Send + Sync>>>>,
+    roots: RwLock<Vec<PathBuf>>,
+    paused: RwLock<bool>,
+    db_path: PathBuf,
+    embedder: Option<SharedEmbedder>,
 }
 
 /// Daemon request handler.
@@ -82,8 +88,6 @@ struct DaemonHandlerImpl {
     state: Arc<DaemonState>,
     scheduler: Arc<RootAwareScheduler>,
     watcher: Arc<RwLock<Option<Watcher>>>,
-    resource_guard: Arc<ResourceGuard>,
-    sender: mpsc::Sender<DaemonRequest>,
 }
 
 #[async_trait::async_trait]
@@ -103,39 +107,33 @@ impl DaemonHandler for DaemonHandlerImpl {
                     };
                 }
 
-                // Check if paused
                 if *self.state.paused.read().await {
                     return DaemonResponse::Error {
                         msg: "Indexing paused by resource guard".to_string(),
                     };
                 }
 
-                // Get embedder
-                let embedder = self.state.embedder.read().await.clone();
+                let db_path = self.state.db_path.clone();
+                let embedder = self.state.embedder.clone();
 
-                // Create fresh indexer for this request (Indexer is not Send/Sync)
-                let conn = match self.state.workspace.open_index() {
-                    Ok(c) => c,
-                    Err(e) => {
-                        return DaemonResponse::Error {
-                            msg: format!("Failed to open index: {e}"),
-                        };
-                    }
-                };
-                let indexer = match Indexer::new(conn, embedder) {
-                    Ok(i) => i,
-                    Err(e) => {
-                        return DaemonResponse::Error {
-                            msg: format!("Failed to create indexer: {e}"),
-                        };
-                    }
-                };
-
-                // Run indexing
-                match indexer.index_roots(&roots_to_index) {
-                    Ok(stats) => DaemonResponse::IndexRoots { stats },
-                    Err(e) => DaemonResponse::Error {
+                // Indexing is blocking CPU/IO work and `Indexer` is not `Send`:
+                // create it inside the blocking task and run it there.
+                match tokio::task::spawn_blocking(
+                    move || -> Result<crate::core::index::IndexStats> {
+                        let conn = Connection::open(&db_path)?;
+                        init_db(&conn)?;
+                        let indexer = Indexer::new(conn, embedder)?;
+                        indexer.index_roots(&roots_to_index)
+                    },
+                )
+                .await
+                {
+                    Ok(Ok(stats)) => DaemonResponse::IndexRoots { stats },
+                    Ok(Err(e)) => DaemonResponse::Error {
                         msg: format!("Indexing failed: {e}"),
+                    },
+                    Err(e) => DaemonResponse::Error {
+                        msg: format!("Indexing task failed: {e}"),
                     },
                 }
             }
@@ -149,39 +147,32 @@ impl DaemonHandler for DaemonHandlerImpl {
                 let mut roots = self.state.roots.write().await;
                 if !roots.contains(&path) {
                     roots.push(path.clone());
+                    drop(roots);
 
-                    // Add to watcher if running
-                    if let Some(watcher) = self.watcher.read().await.as_mut() {
-                        let _ = watcher.add_root(path).await;
+                    if let Some(watcher) = self.watcher.write().await.as_mut() {
+                        let _ = watcher.add_root(path.clone()).await;
                     }
-
-                    // Update scheduler
                     self.scheduler.add_root(path).await;
                 }
                 DaemonResponse::Ok
             }
             DaemonRequest::RemoveRoot { path } => {
-                let mut roots = self.state.roots.write().await;
-                roots.retain(|r| r != &path);
+                self.state.roots.write().await.retain(|r| r != &path);
 
-                // Remove from watcher if running
-                if let Some(watcher) = self.watcher.read().await.as_mut() {
+                if let Some(watcher) = self.watcher.write().await.as_mut() {
                     let _ = watcher.remove_root(&path).await;
                 }
-
-                // Update scheduler
                 self.scheduler.remove_root(&path).await;
                 DaemonResponse::Ok
             }
             DaemonRequest::GetStatus => {
-                let indexed_files = self.count_indexed_files().await;
-                let queued = 0; // TODO: track queue depth
+                let indexed_files = self.count_indexed_files();
                 let paused = *self.state.paused.read().await;
-                let model = self.get_embedding_model().await;
+                let model = self.stored_embedding_model();
 
                 DaemonResponse::Status {
                     indexed_files,
-                    queued,
+                    queued: 0,
                     paused,
                     model,
                 }
@@ -194,41 +185,36 @@ impl DaemonHandler for DaemonHandlerImpl {
                 *self.state.paused.write().await = false;
                 DaemonResponse::Ok
             }
-            DaemonRequest::Shutdown => {
-                DaemonResponse::Ok
-            }
+            DaemonRequest::Shutdown => DaemonResponse::Ok,
         }
     }
 }
 
 impl DaemonHandlerImpl {
-    async fn count_indexed_files(&self) -> usize {
-        let conn = match self.state.workspace.open_index() {
-            Ok(c) => c,
-            Err(_) => return 0,
+    fn count_indexed_files(&self) -> usize {
+        let Ok(conn) = Connection::open(&self.state.db_path) else {
+            return 0;
         };
-        conn.query_i64("SELECT COUNT(DISTINCT source_path) FROM chunks")
+        conn.query_i64("SELECT COUNT(DISTINCT path) FROM chunks")
             .unwrap_or(0) as usize
     }
 
-    async fn get_embedding_model(&self) -> Option<String> {
-        let conn = match self.state.workspace.open_index() {
-            Ok(c) => c,
-            Err(_) => return None,
+    fn stored_embedding_model(&self) -> Option<String> {
+        let Ok(conn) = Connection::open(&self.state.db_path) else {
+            return None;
         };
         conn.stored_embedding_model().ok().flatten()
     }
 }
 
-/// Run the daemon.
+/// Run the daemon until SIGTERM/SIGINT or an IPC `Shutdown` request.
 pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
+    let workspace = Workspace::new();
+
     // Determine socket path
-    let socket_path = args.socket.unwrap_or_else(|| {
-        Workspace::new()
-            .paths
-            .base_dir()
-            .join("daemon.sock")
-    });
+    let socket_path = args
+        .socket
+        .unwrap_or_else(|| workspace.paths.base_dir().join("daemon.sock"));
 
     // Ensure parent directory exists
     if let Some(parent) = socket_path.parent() {
@@ -248,27 +234,33 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
         tracing::info!("Daemon will index: {:?}", roots);
     }
 
-    // Initialize workspace and embedder (but NOT indexer — it's not Send/Sync)
-    let workspace = Workspace::new();
+    // Load the embedder once (only if already on disk — never download here).
     let embedder = workspace.embedder();
+    let db_path = workspace.paths.db_path();
 
     // Create channels
     let (request_tx, mut request_rx) = mpsc::channel::<DaemonRequest>(100);
 
     // Create shared state
     let state = Arc::new(DaemonState {
-        roots: Arc::new(RwLock::new(roots.clone())),
-        paused: Arc::new(RwLock::new(false)),
-        workspace,
-        embedder: Arc::new(tokio::sync::RwLock::new(embedder.map(|e| std::sync::Arc::new(e) as std::sync::Arc<dyn crate::core::search::QueryEmbedder + Send + Sync>))),
+        roots: RwLock::new(roots.clone()),
+        paused: RwLock::new(false),
+        db_path,
+        embedder,
     });
 
     // Create scheduler
     let full_cron = args.full_cron.unwrap_or_else(|| "0 3 * * *".to_string());
-    let incremental_interval = args.incremental_interval.map(std::time::Duration::from_secs).unwrap_or_else(|| std::time::Duration::from_secs(5 * 60));
-    let mut scheduler = RootAwareScheduler::new(&full_cron, incremental_interval, request_tx.clone())?;
+    let incremental_interval = args
+        .incremental_interval
+        .map(std::time::Duration::from_secs)
+        .unwrap_or_else(|| std::time::Duration::from_secs(5 * 60));
+    let scheduler = Arc::new(RootAwareScheduler::new(
+        &full_cron,
+        incremental_interval,
+        request_tx.clone(),
+    )?);
     scheduler.set_roots(roots.clone()).await;
-    let scheduler = Arc::new(scheduler);
 
     // Create watcher
     let debounce_ms = args.debounce_ms.unwrap_or(250);
@@ -279,7 +271,7 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
     let watcher = Arc::new(RwLock::new(Some(watcher)));
 
     // Create resource guard
-    let mut resource_config = ResourceGuard::default().config;
+    let mut resource_config = ResourceGuardConfig::default();
     if let Some(b) = args.battery_threshold {
         resource_config.battery_threshold = b;
     }
@@ -289,40 +281,37 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
     let resource_guard = Arc::new(ResourceGuard::with_config(resource_config));
 
     // Create handler
-    let handler = Arc::new(DaemonHandlerImpl {
+    let handler: Arc<dyn DaemonHandler> = Arc::new(DaemonHandlerImpl {
         state: state.clone(),
         scheduler: scheduler.clone(),
         watcher: watcher.clone(),
-        resource_guard: resource_guard.clone(),
-        sender: request_tx.clone(),
     });
 
     // Start components
     if !args.no_schedule {
-        let mut scheduler_mut = (*scheduler).clone();
-        scheduler_mut.start();
+        scheduler.start().await;
     }
 
     if !args.no_watch {
         if let Some(w) = watcher.write().await.as_mut() {
-            w.start()?;
+            w.start().await?;
         }
     }
 
     if !args.no_resource_guard {
         let (pause_tx, mut pause_rx) = mpsc::channel::<PauseReason>(10);
         resource_guard.start_monitoring(pause_tx);
-        let state_paused = state.paused.clone();
+        let state = state.clone();
         tokio::spawn(async move {
             while let Some(reason) = pause_rx.recv().await {
                 match reason {
                     PauseReason::Resumed => {
-                        *state_paused.write().await = false;
+                        *state.paused.write().await = false;
                         tracing::info!("Resource guard: resuming indexing");
                     }
-                    _ => {
-                        *state_paused.write().await = true;
-                        tracing::warn!("Resource guard: pausing indexing due to {:?}", reason);
+                    other => {
+                        *state.paused.write().await = true;
+                        tracing::warn!("Resource guard: pausing indexing due to {:?}", other);
                     }
                 }
             }
@@ -357,31 +346,35 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
         Ok::<(), anyhow::Error>(())
     };
 
+    // Dispatch loop: requests from the scheduler and watcher are handled here;
+    // IPC requests are handled by the per-connection tasks in `run_ipc_server`.
+    let dispatch = async {
+        while let Some(request) = request_rx.recv().await {
+            if matches!(request, DaemonRequest::Shutdown) {
+                break;
+            }
+            let handler = handler.clone();
+            tokio::spawn(async move {
+                let _ = handler.handle(request).await;
+            });
+        }
+    };
+
     // Run until shutdown signal or shutdown request
     tokio::select! {
         _ = shutdown => {
             tracing::info!("Shutting down daemon...");
         }
-        _ = async {
-            while let Some(request) = request_rx.recv().await {
-                if matches!(request, DaemonRequest::Shutdown) {
-                    break;
-                }
-            }
-        } => {
+        _ = dispatch => {
             tracing::info!("Shutdown requested via IPC...");
         }
     }
 
     // Graceful shutdown
-    if !args.no_schedule {
-        // scheduler.stop().await; // Need mutable access
-    }
+    scheduler.stop().await;
 
-    if !args.no_watch {
-        if let Some(w) = watcher.write().await.as_mut() {
-            w.stop().await;
-        }
+    if let Some(w) = watcher.write().await.as_mut() {
+        w.stop().await;
     }
 
     ipc_handle.abort();
