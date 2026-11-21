@@ -1,63 +1,67 @@
 //! Integration tests for the daemon IPC protocol.
+//!
+//! Unix domain sockets are only available on Unix platforms.
 
-use paper::daemon::ipc::{run_ipc_server, DaemonRequest, DaemonResponse};
-use paper::daemon::DaemonHandler;
-use std::path::PathBuf;
-use std::sync::Arc;
-use tempfile::tempdir;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::UnixStream;
+#[cfg(unix)]
+mod tests {
+    use paper::daemon::ipc::{run_ipc_server, DaemonRequest, DaemonResponse};
+    use paper::daemon::DaemonHandler;
+    use std::path::PathBuf;
+    use std::sync::Arc;
+    use tempfile::tempdir;
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+    use tokio::net::UnixStream;
 
-struct TestHandler;
+    struct TestHandler;
 
-#[async_trait::async_trait]
-impl DaemonHandler for TestHandler {
-    async fn handle(&self, request: DaemonRequest) -> DaemonResponse {
-        match request {
-            DaemonRequest::IndexRoots { roots: _ } => DaemonResponse::IndexRoots {
-                stats: paper::core::index::IndexStats::default(),
-            },
-            DaemonRequest::GetStatus => DaemonResponse::Status {
-                indexed_files: 0,
-                queued: 0,
-                paused: false,
-                model: None,
-            },
-            DaemonRequest::Pause => DaemonResponse::Ok,
-            DaemonRequest::Resume => DaemonResponse::Ok,
-            DaemonRequest::Shutdown => DaemonResponse::Ok,
-            DaemonRequest::AddRoot { path: _ } => DaemonResponse::Ok,
-            DaemonRequest::RemoveRoot { path: _ } => DaemonResponse::Ok,
+    #[async_trait::async_trait]
+    impl DaemonHandler for TestHandler {
+        async fn handle(&self, request: DaemonRequest) -> DaemonResponse {
+            match request {
+                DaemonRequest::IndexRoots { roots: _ } => DaemonResponse::IndexRoots {
+                    stats: paper::core::index::IndexStats::default(),
+                },
+                DaemonRequest::GetStatus => DaemonResponse::Status {
+                    indexed_files: 0,
+                    queued: 0,
+                    paused: false,
+                    model: None,
+                },
+                DaemonRequest::Pause => DaemonResponse::Ok,
+                DaemonRequest::Resume => DaemonResponse::Ok,
+                DaemonRequest::Shutdown => DaemonResponse::Ok,
+                DaemonRequest::AddRoot { path: _ } => DaemonResponse::Ok,
+                DaemonRequest::RemoveRoot { path: _ } => DaemonResponse::Ok,
+            }
         }
     }
-}
 
-async fn setup_ipc() -> (tokio::task::JoinHandle<()>, IpcClient) {
-    let dir = tempdir().unwrap();
-    let socket_path = dir.path().join("paper.sock");
-    let socket_path_clone = socket_path.clone();
+    async fn setup_ipc() -> (tokio::task::JoinHandle<()>, IpcClient) {
+        let dir = tempdir().unwrap();
+        let socket_path = dir.path().join("paper.sock");
+        let socket_path_clone = socket_path.clone();
 
-    let handler = Arc::new(TestHandler);
-    let server_handle = tokio::spawn(async move {
-        let _ = run_ipc_server(&socket_path_clone, handler).await;
-    });
+        let handler = Arc::new(TestHandler);
+        let server_handle = tokio::spawn(async move {
+            let _ = run_ipc_server(&socket_path_clone, handler).await;
+        });
 
-    // Wait for server to be ready
-    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        // Wait for server to be ready
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-    let stream = UnixStream::connect(&socket_path).await.unwrap();
-    let client = IpcClient::new(stream);
+        let stream = UnixStream::connect(&socket_path).await.unwrap();
+        let client = IpcClient::new(stream);
 
-    (server_handle, client)
-}
+        (server_handle, client)
+    }
 
-struct IpcClient {
-    reader: BufReader<tokio::net::unix::OwnedReadHalf>,
-    writer: tokio::net::unix::OwnedWriteHalf,
-}
+    struct IpcClient {
+        reader: BufReader<tokio::net::unix::OwnedReadHalf>,
+        writer: tokio::net::unix::OwnedWriteHalf,
+    }
 
-impl IpcClient {
-    fn new(stream: UnixStream) -> Self {
+    impl IpcClient {
+        fn new(stream: UnixStream) -> Self {
         let (reader, writer) = stream.into_split();
         Self {
             reader: BufReader::new(reader),
@@ -122,4 +126,5 @@ async fn ipc_request_add_remove_root_returns_ok() {
         .await
         .unwrap();
     assert!(matches!(resp, DaemonResponse::Ok));
+}
 }
