@@ -142,6 +142,36 @@ prints a hint. `--semantic` makes a missing model an explicit error (exit 3).
 `PAPER_HOME` overrides the data directory; `PAPER_OFFLINE=1` forbids all network
 access.
 
+## Answers
+
+Answers are **extractive**: a verbatim quote from a local document plus exact citations. Without `--polish` nothing generative is involved.
+
+`paper answer --polish` optionally rewrites the extract through an engine from
+the config file:
+
+```toml
+[local_engine]
+base_url = "http://localhost:11434"
+model = "llama3.1"
+```
+
+`--engine openrouter` is the opt-in cloud fallback and needs an API key
+(`OPENROUTER_API_KEY` or `[openrouter] api_key`). `PAPER_OFFLINE=1` refuses to
+contact any engine.
+
+Grounding rules, all enforced in code:
+
+- The question and the extracts are wrapped in `<<<QUESTION>>>` / `<<<EXTRACTS>>>`
+  blocks, and any `<<<`/`>>>` inside them is escaped, so a document cannot close
+  the block and impersonate the instruction.
+- The engine must cite every claim as `[doc:N]`.
+- A reply citing an extract that does not exist, or citing nothing at all, is
+  rejected: the verbatim extract is returned instead.
+- The reply is size-capped (64 KiB), stripped of control characters, and the
+  local citations stay attached to the answer.
+- Any failure — transport, HTTP status, malformed reply — falls back to the
+  verbatim extract with a note on stderr.
+
 ## MCP tools
 
 `search_documents`, `read_source`, `list_sources`, `answer_documents`.
@@ -177,18 +207,20 @@ is not on disk.
 
 ## Tests
 
-`cargo test` — 90 tests, no network access, no model downloads.
+`cargo test` — 99 tests, no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 
 ```
 cargo test --test models -- --ignored   # 134 MB / 487 MB / 1.13 GB
 ```
 
-Coverage: schema + triggers + WAL + KNN, chunking and line-number fidelity,
-incremental reindex, orphan-vector cleanup, pruning, FTS5 injection, root
-allow-listing, RRF ordering, keyword early-exit, model-free operation, CLI exit
-codes and JSON, MCP over real stdio JSON-RPC, model pinning and checksum
-corruption.
+Coverage: schema + triggers + WAL + KNN, schema migration, chunking and
+line-number fidelity, incremental reindex, orphan-vector cleanup, pruning,
+FTS5 injection, root allow-listing, RRF ordering, keyword early-exit,
+model-free operation, CLI exit codes and JSON, MCP over real stdio JSON-RPC,
+model pinning and checksum corruption, index storage (no duplicated text),
+snippet fidelity, dense-script queries, and the polish path (grounding,
+citation validation, offline refusal, fallback).
 
 ## Measured performance (release build, M-series Mac, 3 small documents)
 
@@ -201,7 +233,6 @@ corruption.
 
 ## Known gaps (not yet built)
 
-- **Generative polish** (`--polish` prints a notice and returns the extract).
 - **Windows Search / Spotlight as live Tier 0.** `spotlight_paths` exists but is
   not wired into the pipeline; FTS5 is the keyword engine on every platform.
 - **Model/index mismatch guard.** Switching embedding models requires a reindex;

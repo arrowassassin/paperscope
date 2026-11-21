@@ -151,6 +151,10 @@ pub struct AnswerArgs {
     pub root: Vec<String>,
     #[arg(long)]
     pub polish: bool,
+    /// Which engine polishes the answer: `local` (an OpenAI-compatible server
+    /// on this machine) or `openrouter` (opt-in cloud fallback).
+    #[arg(long, default_value = "local", value_parser = ["local", "openrouter"])]
+    pub engine: String,
     #[arg(long)]
     pub json: bool,
     #[arg(long)]

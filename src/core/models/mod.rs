@@ -1,4 +1,6 @@
+pub mod chat;
 pub mod manager;
+pub mod polish;
 pub mod specs;
 
 #[cfg(feature = "embeddings")]

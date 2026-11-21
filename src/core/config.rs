@@ -11,6 +11,56 @@ pub struct Config {
     pub max_chunk_tokens: usize,
     pub chunk_overlap: usize,
     pub roots: Vec<PathBuf>,
+    /// Optional local, OpenAI-compatible server (Ollama, LM Studio, vLLM).
+    /// Only used by `paper answer --polish --engine local`.
+    pub local_engine: LocalEngineConfig,
+    /// Optional cloud fallback. Only used by `paper answer --polish
+    /// --engine openrouter`, and only when an API key is configured.
+    pub openrouter: OpenRouterConfig,
+}
+
+/// Local OpenAI-compatible server used for optional answer polishing.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LocalEngineConfig {
+    /// Base URL of the server, e.g. `http://localhost:11434`.
+    pub base_url: String,
+    /// Model name as the server knows it, e.g. `llama3.1`.
+    pub model: String,
+    /// Request timeout in seconds.
+    pub timeout_secs: u64,
+}
+
+impl Default for LocalEngineConfig {
+    fn default() -> Self {
+        Self {
+            base_url: String::new(),
+            model: String::new(),
+            timeout_secs: 60,
+        }
+    }
+}
+
+/// OpenRouter settings for the opt-in cloud fallback.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct OpenRouterConfig {
+    /// API key. When empty, `OPENROUTER_API_KEY` from the environment is used.
+    pub api_key: String,
+    /// Model slug, e.g. `anthropic/claude-sonnet-4-5`.
+    pub model: String,
+    /// Request timeout in seconds.
+    pub timeout_secs: u64,
+}
+
+impl Default for OpenRouterConfig {
+    fn default() -> Self {
+        Self {
+            api_key: String::new(),
+            model: String::new(),
+            timeout_secs: 120,
+        }
+    }
 }
 
 impl Default for Config {
@@ -22,6 +72,8 @@ impl Default for Config {
             max_chunk_tokens: 400,
             chunk_overlap: 40,
             roots: vec![],
+            local_engine: LocalEngineConfig::default(),
+            openrouter: OpenRouterConfig::default(),
         }
     }
 }

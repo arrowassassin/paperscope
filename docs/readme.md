@@ -30,7 +30,7 @@ Searching **never** downloads a model. Without weights you get keyword-only sear
 ```
 paper index  --root <dir> [--embeddings] [--file <path>] [--ocr]
 paper search <query> [--root <dir>] [--limit N] [--json] [--semantic] [--after DATE] [--before DATE] [--ext pdf,docx] [--path substr]
-paper answer <question> [--json]
+paper answer <question> [--json] [--polish [--engine local|openrouter]]
 paper aggregate --field date|amount --op min|max|sum|avg|count [--filter kind=warranty|receipt|invoice|contract]
 paper models list|install <id>|remove <id>
 paper serve  --mcp [--root <dir>]
@@ -102,6 +102,27 @@ still works, and `--semantic` explains how to get the full build.
 | `BAAI/bge-reranker-base` | 1.13 GB | Opt-in | Cross-encoder reranking |
 
 All models are Hugging Face Candle (pure Rust, no ONNX/Python), commit-pinned with per-file SHA256.
+
+## Answers
+
+Answers are **extractive**: a verbatim quote from a local document plus exact citations. Without `--polish` nothing generative is ever involved.
+
+`--polish` optionally rewrites that extract through an engine you configure:
+
+```toml
+# $PAPER_HOME/config.toml
+[local_engine]
+base_url = "http://localhost:11434"   # Ollama, LM Studio, vLLM, llama.cpp
+model = "llama3.1"
+```
+
+```bash
+paper answer "when does the fridge warranty expire" --polish --engine local
+```
+
+The rewrite is **grounded and checked**: the extracts are wrapped in delimiters (delimiters inside the text are escaped), the engine must cite every claim as `[doc:N]`, and a reply that cites an extract that does not exist — or cites nothing — is rejected and the verbatim extract is used instead. The local citations always stay attached, so generated prose can be checked against the source.
+
+`--engine openrouter` sends the extracts to OpenRouter. It is opt-in: it needs `--polish --engine openrouter` **and** an API key (`OPENROUTER_API_KEY` or `[openrouter] api_key`). `PAPER_OFFLINE=1` refuses to contact any engine.
 
 ## MCP Server
 
