@@ -70,6 +70,35 @@ fn raw(id: i64) -> RawHit {
 }
 
 #[test]
+fn snippet_is_centred_on_the_match_not_the_chunk_start() {
+    let fx = Fixture::new();
+    // The chunk is capped at 400 words, so this stays one chunk while putting
+    // the only match far past the first 240 characters.
+    let mut long = String::from("Boiler notes\n");
+    for _ in 0..120 {
+        long.push_str("alpha ");
+    }
+    long.push_str("replacement boiler valve ZQ-4471 must be ordered.\n");
+    fs::write(fx.docs.join("boiler.txt"), long).unwrap();
+    fx.indexer
+        .index_roots(std::slice::from_ref(&fx.docs))
+        .unwrap();
+
+    let hits = fx.pipeline().search("ZQ-4471", &[]).unwrap();
+    assert!(!hits.is_empty(), "expected a keyword hit");
+    let snippet = &hits[0].snippet;
+    assert!(
+        snippet.contains("ZQ-4471"),
+        "snippet should show the matching text: {snippet}"
+    );
+    assert!(
+        snippet.chars().count() <= 242,
+        "snippet should stay short: {} chars",
+        snippet.chars().count()
+    );
+}
+
+#[test]
 fn keyword_search_finds_the_right_document() {
     let fx = Fixture::new();
     let hits = tier0_search(fx.indexer.connection(), "fridge warranty", &[], 10).unwrap();

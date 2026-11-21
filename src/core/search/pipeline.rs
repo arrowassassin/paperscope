@@ -5,6 +5,7 @@ use super::tier1::tier1_search_filtered;
 use crate::core::config::SearchConfig;
 use crate::core::index::Connection;
 use crate::core::models::{Embedder, Reranker};
+use crate::core::text::{excerpt, is_searchable_query, query_terms, SNIPPET_CHARS};
 use anyhow::{bail, Result};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -72,8 +73,11 @@ impl SearchPipeline {
         roots: &[PathBuf],
         filters: &SearchFilters,
     ) -> Result<Vec<Hit>> {
-        if query.chars().count() < MIN_QUERY_LEN {
-            bail!("query must be at least {MIN_QUERY_LEN} characters");
+        if !is_searchable_query(query) {
+            bail!(
+                "query must be at least {MIN_QUERY_LEN} characters \
+                 (one is enough for CJK and other scripts without spaces)"
+            );
         }
 
         let kw_hits =
@@ -110,7 +114,8 @@ impl SearchPipeline {
             self.config.fused_limit,
         );
         let relevance = relevance_map(&kw_hits, &sem_hits);
-        let mut hits = self.hydrate(&fused, &relevance)?;
+        let terms = query_terms(query);
+        let mut hits = self.hydrate(&fused, &relevance, &terms)?;
 
         if let Some(reranker) = &self.reranker {
             // Only the top candidates go through the cross-encoder: it is one
@@ -175,10 +180,15 @@ impl SearchPipeline {
     /// RRF scores only define the *order* — they are tiny fractions like 0.016
     /// and meaningless to a user. The displayed `score` is the underlying
     /// normalised relevance, which is also what confidence is derived from.
-    fn hydrate(&self, fused: &[(i64, f32)], relevance: &HashMap<i64, f32>) -> Result<Vec<Hit>> {
+    fn hydrate(
+        &self,
+        fused: &[(i64, f32)],
+        relevance: &HashMap<i64, f32>,
+        terms: &[String],
+    ) -> Result<Vec<Hit>> {
         let mut hits = Vec::with_capacity(fused.len());
         let mut stmt = self.conn.inner().prepare(
-            "SELECT id, path, source_path, page, line_start, line_end, anchor, content
+            "SELECT id, path, source_path, page, line_start, line_end, anchor, section, content
              FROM chunks WHERE id = ?",
         )?;
         for &(id, score) in fused {
@@ -191,8 +201,9 @@ impl SearchPipeline {
                     line_start: row.get(4)?,
                     line_end: row.get(5)?,
                     anchor: row.get(6)?,
+                    section: row.get(7)?,
                     snippet: String::new(),
-                    content: row.get::<_, String>(7)?,
+                    content: row.get::<_, String>(8)?,
                     score: relevance.get(&id).copied().unwrap_or(score),
                     why_matched: String::new(),
                     confidence: Confidence::Low,
@@ -201,7 +212,7 @@ impl SearchPipeline {
             });
             match row {
                 Ok(mut hit) => {
-                    hit.snippet = make_snippet(&hit.content);
+                    hit.snippet = excerpt(&hit.content, terms, SNIPPET_CHARS);
                     hits.push(hit);
                 }
                 // A chunk can disappear between the scan and hydration.
@@ -264,11 +275,9 @@ fn full_term_coverage(query: &str, text: &str) -> bool {
     text.contains(&first) && terms.all(|t| text.contains(&t))
 }
 
-fn make_snippet(content: &str) -> String {
-    let collapsed = content.split_whitespace().collect::<Vec<_>>().join(" ");
-    collapsed.chars().take(240).collect()
-}
-
+/// Snippets are drawn from the stored `content`, not from the segmented index
+/// text: FTS5's `snippet()` would emit bigram-separated CJK and would need an
+/// unreliable desegmentation pass to look right.
 fn why_matched(hit: &Hit, keyword: &[RawHit], semantic: &[RawHit]) -> String {
     let kw = keyword.iter().any(|h| h.chunk_id == hit.source_id);
     let sem = semantic.iter().any(|h| h.chunk_id == hit.source_id);

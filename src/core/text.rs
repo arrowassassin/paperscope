@@ -261,27 +261,8 @@ pub fn query_terms(query: &str) -> Vec<String> {
         .collect()
 }
 
-/// Undo the spaces [`fts_segment`] inserted between characters of non-spaced
-/// scripts, so an FTS snippet reads like the original document.
-pub fn fts_desegment(text: &str) -> String {
-    let chars: Vec<char> = text.chars().collect();
-    let mut out = String::with_capacity(text.len());
-    let mut i = 0usize;
-    while i < chars.len() {
-        let c = chars[i];
-        if c == ' ' && i + 1 < chars.len() {
-            let prev = out.chars().next_back();
-            let next = chars[i + 1];
-            if prev.is_some_and(is_dense_script) && is_dense_script(next) {
-                i += 1;
-                continue;
-            }
-        }
-        out.push(c);
-        i += 1;
-    }
-    out
-}
+/// Characters shown in a search-result snippet.
+pub const SNIPPET_CHARS: usize = 240;
 
 /// A verbatim window of `text` around the first query term it contains.
 pub fn excerpt(text: &str, terms: &[String], max_chars: usize) -> String {

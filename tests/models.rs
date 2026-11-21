@@ -175,6 +175,7 @@ fn reranker_scores_relevant_passage_higher() {
         line_start: 1,
         line_end: 2,
         anchor: None,
+        section: None,
         snippet: snippet.to_string(),
         content: snippet.to_string(),
         score: 0.0,

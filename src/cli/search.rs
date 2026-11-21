@@ -32,6 +32,9 @@ pub async fn run(args: SearchArgs) -> Result<i32> {
                 None => format!("{}:{}-{}", hit.path, hit.line_start, hit.line_end),
             };
             println!("{location}");
+            if let Some(section) = &hit.section {
+                println!("  § {section}");
+            }
             println!("  {}", hit.snippet);
             println!("  score {:.2}  {}", hit.score, hit.why_matched);
         }

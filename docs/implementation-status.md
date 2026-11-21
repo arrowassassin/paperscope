@@ -138,9 +138,31 @@ Answers are **extractive**: a verbatim quote plus `path:line_start-line_end`
 citations. No generative model is bundled, so an answer cannot state a fact that
 is not on disk.
 
+## Index storage (schema v4)
+
+- Whole-file dedup by BLAKE3 content hash: an unchanged file is skipped even when
+  `mtime`/`size` change (`touch`, rsync, restores). Chunks are **not** deduplicated
+  across documents — every document owns its rows, which keeps citations simple.
+- `fts_text` / `fts_section` store only text that segmentation actually changed.
+  Latin chunks store `''` and the FTS5 triggers index `content` / `section`
+  through a `COALESCE` fallback, so the database no longer keeps a second copy of
+  every Latin passage. Measured on `docs/` (142 chunks): `fts_text` payload
+  98 KB → 1.8 KB, database **452 KiB → 356 KiB (−21%)**. The comparison is on
+  whitespace-separated tokens because FTS5 tokenises newlines and spaces alike.
+- Snippets are verbatim windows of the stored `content` around the first matching
+  query term, never FTS5 `snippet()` output. No desegmentation pass exists, so
+  CJK excerpts cannot be garbled, and a match deep inside a chunk stays visible.
+- Citations carry `section` (heading path) alongside `path`, `page`,
+  `line_start`/`line_end` and `anchor` — in CLI JSON, answers and `read_source`.
+- Queries in scripts without spaces are searchable from one character; Latin
+  queries still require three. (The old 3-character check rejected `検索` even
+  though the segmenter already supported it.)
+- `prune_missing` batches its deletes in one transaction: one fsync per prune,
+  not one per deleted document.
+
 ## Tests
 
-`cargo test` — 55 tests, no network access, no model downloads.
+`cargo test` — 90 tests, no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 
 ```

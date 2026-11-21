@@ -225,20 +225,30 @@ impl Indexer {
             }
             let chunks = chunk_blocks(&doc.blocks, self.max_chunk_words, self.overlap_words);
             for chunk in &chunks {
-                // The section path is indexed but not quoted: it helps retrieval
-                // ("warranty / coverage") without altering the cited bytes.
-                let fts_text = match &chunk.section {
-                    Some(section) => {
-                        format!("{}\n{}", fts_segment(section), fts_segment(&chunk.content))
-                    }
-                    None => fts_segment(&chunk.content),
-                };
+                // `fts_text` / `fts_section` hold only text that segmentation
+                // actually changed. Latin text segments to itself, and storing
+                // that copy doubled the size of most indexes; the triggers fall
+                // back to `content` and `section` instead.
+                //
+                // Compare whitespace-separated tokens, not bytes: segmentation
+                // normalises whitespace, and FTS5 tokenises newlines and spaces
+                // identically, so `a\nb` and `a b` produce the same index and
+                // must not be stored twice.
+                let mut fts_text = fts_segment(&chunk.content);
+                if same_tokens(&fts_text, &chunk.content) {
+                    fts_text.clear();
+                }
+                let section = chunk.section.as_deref().unwrap_or("");
+                let mut fts_section = fts_segment(section);
+                if same_tokens(&fts_section, section) {
+                    fts_section.clear();
+                }
                 let metadata = fields::analyse(&chunk.content);
                 tx.execute(
                     "INSERT INTO chunks
                        (path, source_path, page, line_start, line_end, anchor, section, content,
-                        fts_text, content_hash, mtime, size, metadata)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        fts_text, fts_section, content_hash, mtime, size, metadata)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     rusqlite::params![
                         doc.path,
                         path_string,
@@ -249,6 +259,7 @@ impl Indexer {
                         chunk.section,
                         chunk.content,
                         fts_text,
+                        fts_section,
                         hash.as_bytes().as_slice(),
                         mtime,
                         size,
@@ -292,20 +303,32 @@ impl Indexer {
         let paths: Vec<String> = stmt
             .query_map([], |row| row.get(0))?
             .collect::<std::result::Result<_, _>>()?;
-        let mut removed = 0;
-        for path in paths {
-            if path.is_empty() || Path::new(&path).exists() {
-                continue;
-            }
-            self.conn.inner().execute(
-                "DELETE FROM chunks_vec WHERE rowid IN (SELECT id FROM chunks WHERE source_path = ?)",
-                [&path],
-            )?;
-            self.conn
-                .inner()
-                .execute("DELETE FROM chunks WHERE source_path = ?", [&path])?;
-            removed += 1;
+        drop(stmt);
+
+        // One `stat` per indexed document is unavoidable, but the deletes are
+        // not: batching them into a single transaction turns N fsyncs into one.
+        let missing: Vec<String> = paths
+            .into_iter()
+            .filter(|path| !path.is_empty() && !Path::new(path).exists())
+            .collect();
+        if missing.is_empty() {
+            return Ok(0);
         }
+
+        let tx = self.conn.inner().unchecked_transaction()?;
+        {
+            let mut del_vec = tx.prepare(
+                "DELETE FROM chunks_vec WHERE rowid IN
+                     (SELECT id FROM chunks WHERE source_path = ?1)",
+            )?;
+            let mut del_chunks = tx.prepare("DELETE FROM chunks WHERE source_path = ?1")?;
+            for path in &missing {
+                del_vec.execute([path])?;
+                del_chunks.execute([path])?;
+            }
+        }
+        tx.commit()?;
+        let removed = missing.len();
         // Checkpoint and truncate the WAL so deleted pages are reclaimed and
         // the -wal/-shm files don't grow unbounded.
         self.conn
@@ -316,6 +339,11 @@ impl Indexer {
 }
 
 use rusqlite::OptionalExtension;
+
+/// True when segmentation added nothing but whitespace normalisation.
+fn same_tokens(a: &str, b: &str) -> bool {
+    a.split_whitespace().eq(b.split_whitespace())
+}
 
 /// Wipe stored chunks when the extractor/chunker version changes.
 ///

@@ -1,6 +1,6 @@
 use super::filters::SearchFilters;
 use crate::core::index::Connection;
-use crate::core::text::{fts_desegment, fts_segment};
+use crate::core::text::{excerpt, fts_segment, is_searchable_query, query_terms, SNIPPET_CHARS};
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 
@@ -106,7 +106,7 @@ pub fn tier0_search_filtered(
     filters: &SearchFilters,
     limit: usize,
 ) -> Result<Vec<RawHit>> {
-    if query.chars().count() < MIN_QUERY_LEN {
+    if !is_searchable_query(query) {
         return Ok(vec![]);
     }
     let match_expr = fts5_match_expr(query);
@@ -119,7 +119,7 @@ pub fn tier0_search_filtered(
     let sql = format!(
         "SELECT chunks.id, chunks.path, chunks.page, chunks.line_start, chunks.line_end,
                 chunks.anchor, chunks.mtime,
-                snippet(chunks_fts, 0, '', '', '…', 24) AS snip,
+                chunks.content,
                 bm25(chunks_fts) AS rank
          FROM chunks_fts
          JOIN chunks ON chunks.id = chunks_fts.rowid
@@ -152,8 +152,9 @@ pub fn tier0_search_filtered(
 
     let mut hits = Vec::new();
     let mut best: f32 = 0.0;
+    let terms = query_terms(query);
     for row in rows {
-        let (id, path, page, ls, le, anchor, mtime, snippet, bm25) = row?;
+        let (id, path, page, ls, le, anchor, mtime, content, bm25) = row?;
         // SQLite's bm25() is <= 0; more negative means more relevant.
         let relevance = (-bm25 as f32).max(0.0);
         best = best.max(relevance);
@@ -164,9 +165,10 @@ pub fn tier0_search_filtered(
             line_start: ls,
             line_end: le,
             anchor,
-            // The snippet comes from the segmented index text; put it back into
-            // readable form before it is ever shown to a user.
-            snippet: fts_desegment(&snippet),
+            // Built from the stored `content`, not the segmented index text:
+            // the excerpt is a verbatim window around the first matching term,
+            // so it never has to be "desegmented" back into readable form.
+            snippet: excerpt(&content, &terms, SNIPPET_CHARS),
             score: relevance,
             source: HitSource::Keyword,
             mtime,
@@ -186,7 +188,7 @@ pub fn tier0_search_filtered(
 pub fn spotlight_paths(query: &str, roots: &[PathBuf], limit: usize) -> Result<Vec<PathBuf>> {
     use std::process::Command;
 
-    if query.chars().count() < MIN_QUERY_LEN {
+    if !is_searchable_query(query) {
         return Ok(vec![]);
     }
     let escaped = query.replace('"', "\\\"");

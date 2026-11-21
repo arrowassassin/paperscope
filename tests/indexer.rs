@@ -206,3 +206,68 @@ fn indexed_vectors_are_semantically_searchable() {
     assert_eq!(hits.len(), 1);
     assert!(hits[0].snippet.contains("dishwasher"));
 }
+
+#[test]
+fn latin_chunks_store_only_one_copy_of_the_text() {
+    let (dir, indexer) = indexer();
+    let file = dir.path().join("manual.txt");
+    let body = "The dishwasher warranty covers parts and labour for 24 months.\n";
+    fs::write(&file, body).unwrap();
+    indexer.index_file(&file).unwrap();
+
+    // Segmentation is the identity for Latin text: `fts_text` must be empty so
+    // the row does not carry a second copy of `content`.
+    let duplicated: i64 = indexer
+        .connection()
+        .query_i64("SELECT COUNT(*) FROM chunks WHERE fts_text != ''")
+        .unwrap();
+    assert_eq!(duplicated, 0);
+
+    // The trigger still indexes the row through the content fallback.
+    let hits =
+        paper::core::search::tier0_search(indexer.connection(), "dishwasher warranty", &[], 5)
+            .unwrap();
+    assert_eq!(hits.len(), 1);
+    assert!(hits[0].snippet.contains("warranty"));
+}
+
+#[test]
+fn cjk_chunks_store_segmented_text_and_stay_searchable() {
+    let (dir, indexer) = indexer();
+    let file = dir.path().join("jp.txt");
+    fs::write(&file, "保証期間は24ヶ月です。\n").unwrap();
+    indexer.index_file(&file).unwrap();
+
+    let segmented: i64 = indexer
+        .connection()
+        .query_i64("SELECT COUNT(*) FROM chunks WHERE fts_text != ''")
+        .unwrap();
+    assert_eq!(segmented, 1, "CJK chunks must keep segmented index text");
+
+    let hits = paper::core::search::tier0_search(indexer.connection(), "保証", &[], 5).unwrap();
+    assert!(!hits.is_empty(), "bigram query must match CJK text");
+    // The snippet is verbatim source text, not bigram-separated index text.
+    assert!(hits[0].snippet.contains("保証期間"), "{}", hits[0].snippet);
+}
+
+#[test]
+fn deleting_a_document_removes_its_fts_entries() {
+    let (dir, indexer) = indexer();
+    let file = dir.path().join("gone.txt");
+    fs::write(&file, "the unique token zqxwarranty appears here").unwrap();
+    indexer.index_file(&file).unwrap();
+    assert!(
+        !paper::core::search::tier0_search(indexer.connection(), "zqxwarranty", &[], 5)
+            .unwrap()
+            .is_empty()
+    );
+
+    fs::remove_file(&file).unwrap();
+    indexer.prune_missing().unwrap();
+    assert!(
+        paper::core::search::tier0_search(indexer.connection(), "zqxwarranty", &[], 5)
+            .unwrap()
+            .is_empty(),
+        "deleted rows must not linger in the FTS index"
+    );
+}

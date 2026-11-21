@@ -16,6 +16,9 @@ pub struct Hit {
     /// `para 4-9`, `spine 1: chapter.xhtml`, `message <id>`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub anchor: Option<String>,
+    /// Heading path the chunk sits under, as the parser reported it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub section: Option<String>,
     pub snippet: String,
     /// Full chunk text. Kept separate from `snippet` (which is truncated for
     /// display) because confidence checks and the cross-encoder need the whole

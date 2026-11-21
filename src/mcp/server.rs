@@ -135,8 +135,8 @@ impl PaperMcp {
         >,
     ) -> Result<CallToolResult, McpError> {
         let context = req.context.unwrap_or(0) as i64;
-        let sql = "SELECT id, path, page, line_start, line_end, content FROM chunks
-                   WHERE id BETWEEN ? AND ? ORDER BY id";
+        let sql = "SELECT id, path, page, line_start, line_end, content, anchor, section
+                   FROM chunks WHERE id BETWEEN ? AND ? ORDER BY id";
         let conn = self.inner.connect()?;
         let mut stmt = conn
             .inner()
@@ -151,6 +151,8 @@ impl PaperMcp {
                     "line_start": row.get::<_, i64>(3)?,
                     "line_end": row.get::<_, i64>(4)?,
                     "content": row.get::<_, String>(5)?,
+                    "anchor": row.get::<_, Option<String>>(6)?,
+                    "section": row.get::<_, Option<String>>(7)?,
                 }))
             })
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;

@@ -17,6 +17,9 @@ pub struct Citation {
     /// Format-specific anchor, when the source has one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub anchor: Option<String>,
+    /// Heading path the quoted passage sits under.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub section: Option<String>,
     /// `path [anchor]:line_start-line_end`, or `path:line_start-line_end`.
     pub reference: String,
 }
@@ -51,6 +54,7 @@ impl Citation {
             line_start: hit.line_start,
             line_end: hit.line_end,
             anchor: hit.anchor.clone(),
+            section: hit.section.clone(),
             reference,
         }
     }
