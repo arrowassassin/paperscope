@@ -169,6 +169,17 @@ impl ModelManager {
             .error_for_status()
             .with_context(|| format!("download failed for {url}"))?;
 
+        // A resumed request must be answered with 206 Partial Content. If the
+        // server ignored the Range header and sent the whole file (200), the
+        // existing `.partial` prefix is stale: start it over instead of
+        // appending a second copy and failing the checksum later.
+        if downloaded > 0 && resp.status() != reqwest::StatusCode::PARTIAL_CONTENT {
+            tracing::debug!("server ignored Range for {label}; restarting download");
+            tokio::fs::remove_file(&tmp).await?;
+            downloaded = 0;
+            pb.set_position(0);
+        }
+
         // `.partial` first: an interrupted download is never mistaken for a model.
         let mut file = tokio::fs::OpenOptions::new()
             .create(true)

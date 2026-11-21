@@ -42,6 +42,14 @@ pub const MAX_EXTRACTED_BYTES: usize = 32 * 1024 * 1024;
 pub const MAX_ARCHIVE_ENTRIES: usize = 2_000;
 pub const MAX_PDF_PAGES: u32 = 5_000;
 
+/// A parser that blows its five-second deadline is not killed (Rust has no safe
+/// cancellation), so its thread and input copy survive. This keeps the handles
+/// of stalled parsers so finished ones can be reaped and the set can be capped.
+/// Normal concurrency is not limited: only threads that outlived the deadline
+/// occupy a slot. Worst-case retention is `MAX_STUCK_PARSERS` input copies.
+const MAX_STUCK_PARSERS: usize = 4;
+static STUCK_PARSERS: Mutex<Vec<std::thread::JoinHandle<()>>> = Mutex::new(Vec::new());
+
 /// Capabilities declared by an extractor.
 ///
 /// These bounds are enforced by the extraction pipeline before and during
@@ -293,10 +301,28 @@ pub fn extract_named(
             )));
         }
 
-        // Per-parser timeout: run extract in a separate thread with a 5-second deadline.
-        // Using std::thread + mpsc avoids tokio runtime nesting issues. The JoinHandle
-        // is kept so we can attempt to join the worker thread instead of leaking it
-        // when the parser hangs (C1: unbounded detached thread accumulation).
+        // Per-parser timeout: run extract in a separate thread with a 5-second
+        // deadline. `std::thread` + mpsc avoids nesting a tokio runtime.
+        //
+        // A parser that ignores its deadline must not be able to spawn an
+        // unbounded number of threads. Reap any that have since finished, and
+        // refuse to start more while the stalled set is at its cap. Normal
+        // concurrent parsing is never limited.
+        {
+            let mut stuck = STUCK_PARSERS.lock().unwrap_or_else(|e| e.into_inner());
+            stuck.retain(|h| !h.is_finished());
+            if stuck.len() >= MAX_STUCK_PARSERS {
+                return Ok(Some(single(
+                    name,
+                    extractor.name(),
+                    Vec::new(),
+                    vec![format!(
+                        "skipped: {MAX_STUCK_PARSERS} parsers are stalled; restart the indexer"
+                    )],
+                )));
+            }
+        }
+
         let extractor_clone = extractor.clone();
         let name_owned = name.to_string();
         let bytes_owned = bytes.to_vec();
@@ -307,8 +333,14 @@ pub fn extract_named(
         let result = rx.recv_timeout(std::time::Duration::from_secs(5));
 
         let mut docs = match result {
-            Ok(Ok(Some(docs))) => docs,
-            Ok(Ok(None)) => continue,
+            Ok(Ok(Some(docs))) => {
+                let _ = handle.join();
+                docs
+            }
+            Ok(Ok(None)) => {
+                let _ = handle.join();
+                continue;
+            }
             Ok(Err(err)) => {
                 let _ = handle.join();
                 return Ok(Some(single(
@@ -319,10 +351,13 @@ pub fn extract_named(
                 )));
             }
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-                // Parser is stuck. Wait for the worker thread to finish so we
-                // don't leak it (C1). If the parser is truly hung this blocks,
-                // but a hung parser is a parser bug regardless.
-                let _ = handle.join();
+                // Deliberately do NOT join: the parser may never return. Park the
+                // handle so it occupies a stalled slot until it finishes.
+                tracing::warn!("{}: extraction timed out after 5 seconds", name);
+                STUCK_PARSERS
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .push(handle);
                 return Ok(Some(single(
                     name,
                     extractor.name(),
