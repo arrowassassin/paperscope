@@ -5,7 +5,7 @@
 [![Licence](https://img.shields.io/badge/licence-MIT%20OR%20Apache--2.0-blue)](#licence)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-black)](#install)
 
-Local-first document search with exact citations. One Rust binary, two front-ends: a CLI and an MCP stdio server. No telemetry, no account, no cloud unless explicitly opted in.
+Local-first document search with exact citations. One Rust binary (`paper`), two front-ends: a CLI and an MCP stdio server. No telemetry, no account, no cloud unless explicitly opted in.
 
 ```
 $ paper search "when does the fridge warranty expire"
@@ -18,17 +18,39 @@ Every hit carries `path` + `line_start` + `line_end`, so a citation always resol
 
 ## Install
 
+Choose one installation method:
+
 ```bash
-# Option 1: cargo-dist installer (curl | sh)
+# Option 1: curl installer (recommended - handles your platform automatically)
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/arrowassassin/paperscope/releases/latest/download/paper-installer.sh | sh
 
 # Option 2: crates.io
-cargo install paperscope      # installs the `paper` binary
+cargo install paperscope
 
-# Option 3: optional embedding model for semantic search
-paper models install bge-small-en-v1.5   # 134 MB, English default
+# Option 3: Homebrew
+brew install arrowassassin/tap/paper
+```
 
+Then install at least one embedding model for semantic search:
+
+```bash
+paper models install bge-small-en-v1.5   # 134 MB, English default (recommended)
+# or:
+paper models install multilingual-e5-small   # 487 MB, 100 languages
+```
+
+Then index your documents:
+
+```bash
 paper index --root ~/Documents
+```
+
+You're done — search works immediately:
+
+```bash
+$ paper search "when does the fridge warranty expire"
+/Users/you/Documents/fridge-warranty.txt:1-4
+  Samsung refrigerator warranty certificate ... Coverage ends on 2027-01-15.
 ```
 
 Searching **never** downloads a model. Without weights you get keyword-only search plus a hint; `--semantic` turns a missing model into a hard error (exit code 3) instead of a silent download.
@@ -71,6 +93,10 @@ your documents through `paper serve --mcp`. Setup instructions for each client
 are in [docs/CLAUDE_PLUGIN.md](docs/CLAUDE_PLUGIN.md). Website:
 [kintsugi Tools](https://kintsugi.tools) (portfolio homepage) + the
 [Paper landing page](https://kintsugi.tools/paperscope.html).
+
+**Claude plugin:** Paperscope is also available as a Claude Code plugin. Upload
+`paperscope-plugin.zip` at Customize > Plugins > Add > Upload plugin, or load
+with `claude --plugin-dir ./paperscope-plugin`.
 
 | Variable | Effect |
 | --- | --- |
