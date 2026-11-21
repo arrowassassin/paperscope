@@ -4,9 +4,9 @@
 //! [`DaemonRequest`] or [`DaemonResponse`].
 
 use crate::core::index::IndexStats;
-use anyhow::Result;
 #[cfg(unix)]
 use anyhow::Context;
+use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
