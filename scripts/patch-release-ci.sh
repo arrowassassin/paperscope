@@ -3,13 +3,19 @@
 # owns.
 #
 # `dist generate --mode=ci` rewrites .github/workflows/release.yml from
-# scratch, so anything added by hand is lost. The patch adds two things:
+# scratch, so anything added by hand is lost. The patch adds three things:
 #
 # 1. The block of signing secrets. dist reads them from the environment, and
 #    GitHub Actions secrets are not environment variables until they are mapped.
 #    They are only read when present, so a release without signing material
 #    still builds (unsigned) instead of failing.
 # 2. An SBOM job that attaches CycloneDX and SPDX SBOMs to the release.
+# 3. A model fetch/verify step before the global dist build. dist uploads
+#    extra-artifacts automatically once they exist; its per-artifact build
+#    commands then reuse the verified files instead of downloading them again.
+#
+# Each insertion has an independent idempotency check so this script can add a
+# new customisation to an already-patched workflow without duplicating old ones.
 #
 # Usage: scripts/patch-release-ci.sh
 set -euo pipefail
@@ -18,6 +24,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 workflow="$root/.github/workflows/release.yml"
 
 python3 - "$workflow" <<'PY'
+import re
 import sys
 
 path = sys.argv[1]
@@ -25,9 +32,8 @@ with open(path) as handle:
     text = handle.read()
 
 marker = "# patched-by: scripts/patch-release-ci.sh"
-if marker in text:
-    print(f"{path} is already patched")
-    raise SystemExit(0)
+model_marker = "# patched-by: scripts/patch-release-ci.sh (model assets)"
+changed = False
 
 signing = """
 # patched-by: scripts/patch-release-ci.sh
@@ -86,25 +92,65 @@ sbom_job = """
 
 """
 
-lines = text.splitlines(keepends=True)
+model_step = """
+      # patched-by: scripts/patch-release-ci.sh (model assets)
+      # dist includes extra-artifacts in its global manifest and uploads them
+      # with the other release assets. Fetch and verify their source files first;
+      # the build commands in dist-workspace.toml are idempotent and reuse them.
+      - name: Fetch and verify model release assets
+        shell: bash
+        run: scripts/fetch-models.sh
+"""
 
-# 1. signing environment, right after the workflow name
-for index, line in enumerate(lines):
-    if line.startswith("name: Release"):
-        lines.insert(index + 1, signing)
-        break
-else:
-    raise SystemExit("could not find the `name: Release` line")
+# 1. Signing environment, right after the workflow name. Check for the actual
+# setting rather than only the shared marker so workflows patched by older
+# versions of this script remain compatible.
+if "  CODESIGN_IDENTITY: ${{ secrets.CODESIGN_IDENTITY }}" not in text:
+    lines = text.splitlines(keepends=True)
+    for index, line in enumerate(lines):
+        if line.startswith("name: Release"):
+            lines.insert(index + 1, signing)
+            break
+    else:
+        raise SystemExit("could not find the `name: Release` line")
+    text = "".join(lines)
+    changed = True
 
-# 2. the SBOM job, before the final `announce` job
-for index, line in enumerate(lines):
-    if line.startswith("  announce:"):
-        lines.insert(index, sbom_job)
-        break
-else:
-    raise SystemExit("could not find the `announce:` job")
+# 2. The SBOM job, before the final `announce` job.
+if not re.search(r"(?m)^  sbom:\s*$", text):
+    lines = text.splitlines(keepends=True)
+    for index, line in enumerate(lines):
+        if line.startswith("  announce:"):
+            lines.insert(index, sbom_job)
+            break
+    else:
+        raise SystemExit("could not find the `announce:` job")
+    text = "".join(lines)
+    changed = True
+
+# 3. Model files are global (architecture-independent) extra-artifacts, so they
+# belong in build-global-artifacts rather than in every platform build.
+if model_marker not in text:
+    lines = text.splitlines(keepends=True)
+    for index, line in enumerate(lines):
+        if "dist build " in line and '"--artifacts=global"' in line:
+            insertion = index
+            while insertion >= 0 and not lines[insertion].startswith("      - id: cargo-dist"):
+                insertion -= 1
+            if insertion < 0:
+                raise SystemExit("could not find the global cargo-dist step")
+            lines.insert(insertion, model_step)
+            break
+    else:
+        raise SystemExit("could not find the global `dist build` command")
+    text = "".join(lines)
+    changed = True
+
+if not changed:
+    print(f"{path} is already patched")
+    raise SystemExit(0)
 
 with open(path, "w") as handle:
-    handle.write("".join(lines))
+    handle.write(text)
 print(f"patched {path}")
 PY

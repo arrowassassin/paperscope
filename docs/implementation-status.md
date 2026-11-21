@@ -60,12 +60,19 @@ the tarball.
 - `dist-workspace.toml` is the source of truth for the release;
   `.github/workflows/release.yml` is **generated** by `dist generate --mode=ci`
   and patched by `scripts/patch-release-ci.sh` (signing secrets + the SBOM
-  job). `scripts/regenerate-release-ci.sh` does both in one step.
+  job + model prefetch). `scripts/regenerate-release-ci.sh` does both in one
+  step.
 - The generated jobs are `plan` → `build-local-artifacts` →
   `build-global-artifacts` → `host` → `sbom` → `announce`.
 - Artifacts: per-target `tar.xz`/`zip`, source tarball, `sha256.sum`, shell
-  and PowerShell installers, a Homebrew formula, an npm package, and CycloneDX
-  + SPDX SBOMs.
+  and PowerShell installers, a Homebrew formula, an npm package, CycloneDX
+  + SPDX SBOMs, and nine separate model files. `scripts/fetch-models.sh`
+  downloads the pinned Hugging Face files, verifies their sizes and SHA256
+  hashes, and stages unique `<model-id>-<file>` release asset names under
+  `models/release/`; `scripts/prepare-release.sh` prints the local build and
+  tag-driven release commands. Models are not bundled into platform archives.
+  The nine unique assets are confirmed by `dist plan`; a real tag run is still
+  pending.
 - **Not** built: `.deb`/`.rpm`/`.apk`, AppImage, MSI/pkg; no code signing or
   notarization (no certificate is configured, so artifacts are unsigned but
   checksummed); no SLSA provenance; no Homebrew-tap or npm publish job (the
@@ -91,6 +98,7 @@ the tarball.
 | Feature | Default | Effect |
 | --- | --- | --- |
 | `embeddings` | on | Candle + tokenizers: semantic search and reranking. Off = keyword-only binary with no inference code (11.8 MB vs 15.1 MB). |
+| `daemon` | on | Background indexing daemon, Unix-socket control CLI, and Linux/macOS user-service integration. |
 | `jieba-rs` | off | Chinese word segmentation instead of the dictionary-free bigrams. |
 | `shell-accel` | off | Prefer `pdftotext`/`pandoc` when present; pure Rust otherwise. |
 | `ocr` | off | Tesseract OCR for scanned pages. |
@@ -112,6 +120,11 @@ file**, and verified by downloading the real weights and running inference.
 | `BAAI/bge-small-en-v1.5` | default embedding | **134 MB** | 384 | BERT | semantic ordering correct |
 | `intfloat/multilingual-e5-small` | opt-in multilingual embedding | **487 MB** | 384 | BERT | English query → French document retrieved |
 | `BAAI/bge-reranker-base` | opt-in cross-encoder | **1129 MB** | — | XLM-RoBERTa seq-classification | relevant passage ranked first, score > 0.5 |
+
+`paper models install` and `ModelManager` currently download these pinned
+Hugging Face URLs directly; they do not yet construct GitHub Release asset
+URLs. The release assets use `<model-id>-<file>` names to avoid basename
+collisions.
 
 ### Why not EmbeddingGemma / bge-reranker-v2-m3 (the original spec)
 
@@ -156,7 +169,19 @@ paper answer <question> [--json] [--polish]
 paper models list|install <id>|remove <id>
 paper serve  --mcp [--root <dir>]
 paper doctor
+paper daemon --foreground [--socket <path>] [--root <dir>]
+paper daemon-control [--socket <path>] status [--json]|pause|resume|stop
+paper daemon-control index [--root <dir>]...
+paper daemon-control add-root <dir>|remove-root <dir>
+paper daemon-control install [--force]|uninstall|start|restart
 ```
+
+`daemon-control` uses a five-second IPC timeout and defaults to
+`$PAPER_HOME/daemon.sock`, or the platform cache directory's `paper/daemon.sock`
+when `PAPER_HOME` is unset. `install` creates a systemd user service on Linux or
+a launchd user agent on macOS; Windows service installation and IPC are not yet
+supported. Service definitions are replaced atomically, and replacing a
+different existing definition requires `--force`.
 
 Exit codes: `0` found, `1` not found, `2` error, `3` model missing.
 
@@ -241,7 +266,7 @@ is not on disk.
 
 ## Tests
 
-`cargo test` — 100 tests, no network access, no model downloads.
+`cargo test` — 132 passing tests (plus 3 ignored model downloads), no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 
 ```
@@ -253,8 +278,11 @@ line-number fidelity, incremental reindex, orphan-vector cleanup, pruning,
 FTS5 injection, root allow-listing, RRF ordering, keyword early-exit,
 model-free operation, CLI exit codes and JSON, MCP over real stdio JSON-RPC,
 model pinning and checksum corruption, index storage (no duplicated text),
-snippet fidelity, dense-script queries, and the polish path (grounding,
-citation validation, offline refusal, fallback).
+snippet fidelity, dense-script queries, the polish path (grounding,
+citation validation, offline refusal, fallback), and daemon control (real
+Unix-socket round-trips, human/JSON status, pause/resume, graceful shutdown,
+missing-daemon diagnostics, and systemd/launchd rendering without installing a
+real service).
 
 ## Measured performance (release build, M-series Mac, 3 small documents)
 

@@ -48,6 +48,29 @@ impl ModelSpec {
     pub fn file(&self, name: &str) -> Option<&ModelFile> {
         self.files.iter().find(|f| f.name == name)
     }
+
+    /// Candidate download URLs for one file, in preference order.
+    ///
+    /// The primary source is this crate's own GitHub Release, which carries
+    /// the exact pinned bytes as `<model-id>-<file>` assets (staged by
+    /// `scripts/fetch-models.sh` during release CI). Hugging Face is the
+    /// fallback for development builds whose `v<version>` tag has no release
+    /// yet. Both sources are verified against the same SHA256 pin, so either
+    /// is safe to consume.
+    pub fn download_urls(&self, file_name: &str) -> Vec<String> {
+        vec![
+            format!(
+                "https://github.com/arrowassassin/paperscope/releases/download/v{}/{}-{}",
+                env!("CARGO_PKG_VERSION"),
+                self.id,
+                file_name
+            ),
+            format!(
+                "https://huggingface.co/{}/resolve/{}/{}",
+                self.repo, self.revision, file_name
+            ),
+        ]
+    }
 }
 
 /// Default: small, fast, English. 134 MB total.
@@ -164,4 +187,28 @@ pub fn all_specs() -> Vec<ModelSpec> {
 
 pub fn spec(model_id: &str) -> Option<ModelSpec> {
     all_specs().into_iter().find(|s| s.id == model_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn download_urls_prefer_github_releases_with_dist_asset_names() {
+        let spec = spec(DEFAULT_EMBEDDING).unwrap();
+        let urls = spec.download_urls("model.safetensors");
+        assert_eq!(urls.len(), 2);
+        // Must match the staged asset names in dist-workspace.toml:
+        // `models/release/<model-id>-<file>`.
+        assert_eq!(
+            urls[0],
+            format!(
+                "https://github.com/arrowassassin/paperscope/releases/download/v{}/bge-small-en-v1.5-model.safetensors",
+                env!("CARGO_PKG_VERSION")
+            )
+        );
+        // Hugging Face stays the fallback, pinned to the same revision.
+        assert!(urls[1].starts_with("https://huggingface.co/BAAI/bge-small-en-v1.5/resolve/"));
+        assert!(urls[1].ends_with("/model.safetensors"));
+    }
 }

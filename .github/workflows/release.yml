@@ -201,6 +201,14 @@ jobs:
           pattern: artifacts-*
           path: target/distrib/
           merge-multiple: true
+
+      # patched-by: scripts/patch-release-ci.sh (model assets)
+      # dist includes extra-artifacts in its global manifest and uploads them
+      # with the other release assets. Fetch and verify their source files first;
+      # the build commands in dist-workspace.toml are idempotent and reuse them.
+      - name: Fetch and verify model release assets
+        shell: bash
+        run: scripts/fetch-models.sh
       - id: cargo-dist
         shell: bash
         run: |

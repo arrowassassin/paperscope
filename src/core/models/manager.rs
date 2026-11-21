@@ -116,12 +116,27 @@ impl ModelManager {
                     file.name
                 );
             }
-            let url = format!(
-                "https://huggingface.co/{}/resolve/{}/{}",
-                spec.repo, spec.revision, file.name
-            );
-            self.download(&url, &dest, &format!("{model_id}/{}", file.name), file.size)
-                .await?;
+            // GitHub Releases first, Hugging Face as fallback (see
+            // `ModelSpec::download_urls`). Both are SHA256-verified below.
+            let mut last_error = None;
+            for url in spec.download_urls(file.name) {
+                match self
+                    .download(&url, &dest, &format!("{model_id}/{}", file.name), file.size)
+                    .await
+                {
+                    Ok(()) => {
+                        last_error = None;
+                        break;
+                    }
+                    Err(e) => {
+                        tracing::warn!("download failed from {url}: {e:#}; trying next source");
+                        last_error = Some(e);
+                    }
+                }
+            }
+            if let Some(e) = last_error {
+                return Err(e);
+            }
             if !verify_sha256(&dest, file.sha256)? {
                 let _ = tokio::fs::remove_file(&dest).await;
                 bail!(

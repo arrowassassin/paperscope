@@ -50,18 +50,29 @@ pub async fn run(args: ModelsArgs) -> Result<i32> {
 
             for file in spec.files {
                 let dest = model_dir.join(file.name);
-                let url = format!(
-                    "https://huggingface.co/{}/resolve/{}/{}",
-                    spec.repo, spec.revision, file.name
-                );
 
-                // Use ModelDownloader for each file
-                let downloader =
-                    ModelDownloader::new(url, dest.clone(), file.sha256.to_string(), file.size);
-                downloader
-                    .download_with_progress()
-                    .await
-                    .with_context(|| format!("failed to download {}/{}", model, file.name))?;
+                // GitHub Releases first, Hugging Face as fallback (see
+                // `ModelSpec::download_urls`). ModelDownloader verifies the
+                // same SHA256 pin regardless of source.
+                let mut last_error = None;
+                for url in spec.download_urls(file.name) {
+                    let downloader =
+                        ModelDownloader::new(url, dest.clone(), file.sha256.to_string(), file.size);
+                    match downloader.download_with_progress().await {
+                        Ok(()) => {
+                            last_error = None;
+                            break;
+                        }
+                        Err(e) => {
+                            eprintln!("download failed, trying next source: {e:#}");
+                            last_error = Some(e);
+                        }
+                    }
+                }
+                if let Some(e) = last_error {
+                    return Err(e)
+                        .with_context(|| format!("failed to download {}/{}", model, file.name));
+                }
 
                 // Update aggregate progress
                 aggregate_pb.inc(file.size);
