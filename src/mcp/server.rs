@@ -130,7 +130,18 @@ impl PaperMcp {
             ReadSourceRequest,
         >,
     ) -> Result<CallToolResult, McpError> {
-        let context = req.context.unwrap_or(0) as i64;
+        // C4: bound the context window and validate source_id so an MCP client
+        // cannot read adjacent chunks across the whole index.
+        const MAX_CONTEXT: usize = 5;
+        let source_id = req.source_id;
+        if source_id < 1 {
+            return Err(McpError::invalid_params(
+                format!("source_id must be >= 1, got {source_id}"),
+                None,
+            ));
+        }
+        let context = req.context.unwrap_or(0).clamp(0, MAX_CONTEXT) as i64;
+
         let sql = "SELECT id, path, page, line_start, line_end, content, anchor, section
                    FROM chunks WHERE id BETWEEN ? AND ? ORDER BY id";
         let conn = self.inner.connect()?;
@@ -139,7 +150,7 @@ impl PaperMcp {
             .prepare(sql)
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
         let rows = stmt
-            .query_map([req.source_id - context, req.source_id + context], |row| {
+            .query_map([source_id - context, source_id + context], |row| {
                 Ok(serde_json::json!({
                     "source_id": row.get::<_, i64>(0)?,
                     "path": row.get::<_, String>(1)?,

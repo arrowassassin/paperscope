@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "paper": {
+      "command": "paper",
+      "args": ["serve", "--mcp"]
+    }
+  }
+}

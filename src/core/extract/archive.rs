@@ -56,6 +56,41 @@ impl Extractor for Archive {
 
 type Member = (String, Vec<u8>);
 
+/// Return `true` if `name` is safe to use as an archive member in a virtual
+/// namespace. Rejects `..` components, absolute paths, and drive-letter
+/// prefixes so a member name can never escape the `{archive}!/{member}`
+/// virtual namespace (C1: path traversal via archive member names).
+fn is_safe_member_name(name: &str) -> bool {
+    if name.is_empty() {
+        return false;
+    }
+    // Absolute paths escape the virtual namespace.
+    if name.starts_with('/') {
+        return false;
+    }
+    // Drive-letter prefixes (e.g. `C:\`) on Windows escape the namespace.
+    if cfg!(target_os = "windows") {
+        let bytes = name.as_bytes();
+        if bytes.len() >= 2
+            && bytes[0].is_ascii_alphabetic()
+            && bytes[1] == b':'
+        {
+            return false;
+        }
+    }
+    // `..` components escape the virtual namespace; `RootDir` and `Prefix`
+    // components are absolute/escaping as well. `CurDir` and `Normal` are safe.
+    for component in std::path::Path::new(name).components() {
+        match component {
+            std::path::Component::ParentDir
+            | std::path::Component::RootDir
+            | std::path::Component::Prefix(_) => return false,
+            std::path::Component::CurDir | std::path::Component::Normal(_) => {}
+        }
+    }
+    true
+}
+
 fn read_zip(bytes: &[u8]) -> Result<Vec<Member>> {
     let mut zip = zip::ZipArchive::new(Cursor::new(bytes))?;
     let mut out = Vec::new();
@@ -67,6 +102,9 @@ fn read_zip(bytes: &[u8]) -> Result<Vec<Member>> {
             continue;
         }
         let name = file.name().map(|cow| cow.into_owned()).unwrap_or_default();
+        if !is_safe_member_name(&name) {
+            continue;
+        }
         let mut data = Vec::with_capacity(file.size().min(MAX_EXTRACTED_BYTES as u64) as usize);
         if file
             .by_ref()
@@ -97,6 +135,9 @@ fn read_tar(bytes: &[u8]) -> Result<Vec<Member>> {
             .path()
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_default();
+        if !is_safe_member_name(&name) {
+            continue;
+        }
         let mut data = Vec::with_capacity(size.min(MAX_EXTRACTED_BYTES));
         if entry
             .by_ref()

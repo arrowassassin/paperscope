@@ -12,9 +12,17 @@ static REGISTER_VEC: Once = Once::new();
 #[allow(clippy::missing_transmute_annotations)]
 pub fn register_sqlite_vec() {
     REGISTER_VEC.call_once(|| unsafe {
-        // SAFETY: `sqlite3_vec_init` has the exact C signature SQLite expects for
-        // an extension entry point; the transmute is the pattern shipped in the
-        // upstream sqlite-vec crate's own tests.
+        // SAFETY: `sqlite_vec::sqlite3_vec_init` has the SQLite extension entry
+        // point signature, `sqlite3_extension_init`:
+        //     int (*sqlite3_extension_init)(sqlite3 *db, char **pzErrMsg,
+        //                                   const sqlite3_api_routines *pThunk)
+        // `sqlite3_auto_extension` registers entry points of type
+        // `void (*)(void)`. The sqlite-vec crate documents transmuting
+        // `sqlite3_vec_init` to `void (*)(void)` as the supported way to register
+        // a statically-linked extension. Both are `extern "C"` fn pointers of the
+        // same width, so the transmute is sound: SQLite invokes the entry point
+        // with the extension-init argument layout that `sqlite3_vec_init`
+        // expects. Registration runs once per process via `REGISTER_VEC`.
         rusqlite::ffi::sqlite3_auto_extension(Some(std::mem::transmute(
             sqlite_vec::sqlite3_vec_init as *const (),
         )));

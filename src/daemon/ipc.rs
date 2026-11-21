@@ -12,7 +12,96 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 #[cfg(unix)]
+use std::os::raw::c_int;
+#[cfg(any(target_os = "linux", target_os = "android"))]
+use std::os::raw::{c_uint, c_void};
+#[cfg(unix)]
+use std::os::unix::io::AsRawFd;
+#[cfg(unix)]
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
+/// UID of the daemon process, used to authorize IPC peers (C3).
+///
+/// On Unix every connected peer must run under the same UID as the daemon;
+/// otherwise the connection is dropped before any request is handled.
+#[cfg(unix)]
+fn current_uid() -> Option<u32> {
+    unsafe { Some(getuid()) }
+}
+
+#[cfg(unix)]
+unsafe extern "C" {
+    fn getuid() -> u32;
+}
+
+/// Peer UID of a connected Unix stream socket.
+///
+/// Uses `SO_PEERCRED` on Linux/Android and `getpeereid` on BSD/macOS.
+#[cfg(unix)]
+fn peer_uid(stream: &tokio::net::UnixStream) -> std::io::Result<Option<u32>> {
+    peer_uid_fd(stream.as_raw_fd())
+}
+
+#[cfg(unix)]
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn peer_uid_fd(fd: c_int) -> std::io::Result<Option<u32>> {
+    const SOL_SOCKET: c_int = 1;
+    const SO_PEERCRED: c_int = 17;
+
+    #[repr(C)]
+    struct UCred {
+        pid: c_int,
+        uid: u32,
+        gid: u32,
+    }
+
+    unsafe extern "C" {
+        fn getsockopt(
+            sockfd: c_int,
+            level: c_int,
+            optname: c_int,
+            optval: *mut c_void,
+            optlen: *mut c_uint,
+        ) -> c_int;
+    }
+
+    let mut cred = UCred {
+        pid: 0,
+        uid: 0,
+        gid: 0,
+    };
+    let mut len: c_uint = std::mem::size_of::<UCred>() as c_uint;
+    let rc = unsafe {
+        getsockopt(
+            fd,
+            SOL_SOCKET,
+            SO_PEERCRED,
+            &mut cred as *mut UCred as *mut c_void,
+            &mut len,
+        )
+    };
+    if rc == 0 {
+        Ok(Some(cred.uid))
+    } else {
+        Err(std::io::Error::last_os_error())
+    }
+}
+
+#[cfg(unix)]
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+fn peer_uid_fd(fd: c_int) -> std::io::Result<Option<u32>> {
+    unsafe extern "C" {
+        fn getpeereid(fd: c_int, uid: *mut u32, gid: *mut u32) -> c_int;
+    }
+    let mut uid: u32 = 0;
+    let mut gid: u32 = 0;
+    let rc = unsafe { getpeereid(fd, &mut uid, &mut gid) };
+    if rc == 0 {
+        Ok(Some(uid))
+    } else {
+        Err(std::io::Error::last_os_error())
+    }
+}
 
 /// Requests sent from clients to the daemon.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,6 +170,24 @@ pub async fn run_ipc_server(socket_path: &Path, handler: Arc<dyn DaemonHandler>)
 
     loop {
         let (stream, _) = listener.accept().await?;
+        // C3: only accept connections from the same UID as the daemon.
+        if let Some(daemon_uid) = current_uid() {
+            match peer_uid(&stream) {
+                Ok(Some(uid)) if uid == daemon_uid => {}
+                Ok(Some(uid)) => {
+                    tracing::warn!(
+                        "rejecting IPC connection from peer uid {uid} (daemon uid {daemon_uid})"
+                    );
+                    continue;
+                }
+                Ok(None) | Err(_) => {
+                    tracing::warn!(
+                        "rejecting IPC connection: unable to determine peer credentials"
+                    );
+                    continue;
+                }
+            }
+        }
         let handler = handler.clone();
         tokio::spawn(async move {
             if let Err(e) = handle_connection(stream, handler).await {
