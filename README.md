@@ -34,10 +34,35 @@ paper answer <question> [--json] [--polish [--engine local|openrouter]]
 paper aggregate --field date|amount --op min|max|sum|avg|count [--filter kind=warranty|receipt|invoice|contract]
 paper models list|install <id>|remove <id>
 paper serve  --mcp [--root <dir>]
+paper daemon [--foreground] [--root <dir>]...
+paper daemon-control status|pause|resume|index|add-root|remove-root|stop|install|uninstall|start|restart
 paper doctor
 ```
 
 Exit codes: `0` found, `1` not found, `2` error, `3` model missing.
+
+## Background indexing (daemon)
+
+`paper daemon` auto-discovers `~/Documents`, `~/Downloads` and `~/Desktop`,
+watches for changes (250 ms debounce), reindexes daily at 3 AM plus every
+5 minutes incrementally, and pauses on battery <20% or sustained CPU >80%.
+Control it over IPC with `paper daemon-control status|pause|resume|stop`, or
+install it as a systemd user service (Linux) / launchd agent (macOS):
+
+```bash
+paper daemon-control install   # writes + starts the OS service
+paper daemon-control status    # indexed files, paused state, model
+```
+
+Windows daemon support is not implemented yet.
+
+## Using with agents (MCP)
+
+Any MCP client (Claude Desktop, Claude Code, Codex CLI, OpenCode) can search
+your documents through `paper serve --mcp`. Setup instructions for each client
+are in [docs/CLAUDE_PLUGIN.md](docs/CLAUDE_PLUGIN.md). Website:
+[kintsugi.tools](https://kintsugi.tools) + the
+[paper landing page](https://kintsugi.tools/paperscope.html).
 
 | Variable | Effect |
 | --- | --- |
@@ -75,14 +100,17 @@ CJK (Chinese/Japanese/Korean), Thai, Lao, Khmer and Myanmar are indexed as **ove
 
 The scheme is strongest for Chinese and Japanese, where words are not space-separated. **Korean is weaker**: Hangul is written with spaces between words, and bigrams match character pairs rather than whole words, so a query for a whole eojeol only matches when its bigrams appear. Expect lower precision on Korean than on Chinese/Japanese.
 
-Optional dictionary segmenters behind features: `jieba-rs` (Chinese) is implemented; `icu-segmenter` and `lindera` are not. All are default off to keep the binary small.
+Optional dictionary segmenters behind features: `jieba-rs` (Chinese), `icu_segmenter` (ICU4X word boundaries for CJK, Korean, Thai, Lao, Khmer, Myanmar, Arabic, Hebrew, Devanagari and more), and `lindera` (Japanese IPADIC morphological analysis in search mode, dictionary embedded in the binary). All are default off to keep the binary small.
 
 ## Build options
 
 | Feature | Default | Effect |
 |---------|---------|--------|
 | `embeddings` | on | Candle + tokenizers: semantic search and reranking. |
+| `daemon` | on | `paper daemon` background indexer + `paper daemon-control` (systemd/launchd service). |
 | `jieba-rs` | off | Chinese word segmentation instead of bigrams. |
+| `icu_segmenter` | off | ICU4X word segmentation for all major scripts. |
+| `lindera` | off | Japanese IPADIC segmentation (embedded dictionary, no network). |
 | `shell-accel` | off | Use `pdftotext`/`pandoc` when present, pure Rust otherwise. |
 | `ocr` | off | Tesseract OCR for scanned pages. |
 
@@ -101,7 +129,7 @@ still works, and `--semantic` explains how to get the full build.
 | `intfloat/multilingual-e5-small` | 487 MB | Opt-in | 100 languages (384 dims) |
 | `BAAI/bge-reranker-base` | 1.13 GB | Opt-in | Cross-encoder reranking |
 
-All models are Hugging Face Candle (pure Rust, no ONNX/Python), commit-pinned with per-file SHA256.
+All models are Hugging Face Candle (pure Rust, no ONNX/Python), commit-pinned with per-file SHA256. Downloads come from this repo's GitHub Releases (resumable, SHA256-verified) with the pinned Hugging Face revision as fallback.
 
 ## Answers
 

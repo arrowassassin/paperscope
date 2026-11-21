@@ -4,11 +4,37 @@ All notable changes to this project are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html); while the version is
 `0.x`, minor releases may change behaviour.
 
-## [0.1.0] — 2026-11-19
+## [0.1.0] — 2026-11-21
 
 First published release.
 
 ### Added
+
+- `paper daemon` — background indexer with IPC (JSON-lines over Unix socket),
+  daily 3 AM full + 5-minute incremental scheduling, file watching (250 ms
+  debounce), and a resource guard (battery <20%, sustained CPU >80%).
+  Auto-discovers `~/Documents`, `~/Downloads`, `~/Desktop`.
+- `paper daemon-control` — `status`/`pause`/`resume`/`index`/`add-root`/
+  `remove-root`/`stop` over IPC, plus `install`/`uninstall`/`start`/`restart`
+  for the systemd user service (Linux) and launchd agent (macOS).
+- `icu_segmenter` feature — ICU4X word segmentation for CJK, Korean, Thai,
+  Lao, Khmer, Myanmar, Arabic, Hebrew, Devanagari and more.
+- `lindera` feature — Japanese IPADIC segmentation (search mode) with the
+  dictionary embedded in the crate: no network at build or run time.
+- Model distribution through GitHub Releases: release CI fetches the pinned
+  models (`scripts/fetch-models.sh`), verifies sizes/SHA256, and uploads nine
+  `<model-id>-<file>` assets. `paper models install` downloads from the
+  release first (resumable, SHA256-verified, atomic rename) with Hugging Face
+  as fallback.
+- `scripts/verify-release.sh` — every release gate in one command.
+- `docs/CLAUDE_PLUGIN.md` — MCP setup for Claude Desktop, Claude Code,
+  Codex CLI and OpenCode.
+- Website: kintsugi.tools portfolio homepage, `paperscope.html` landing page,
+  interactive `install.sh`/`pick-model.sh`, GitHub Pages deploy.
+- End-to-end tests: full offline product flow, and MCP index freshness (a
+  running server sees newly indexed documents without restart).
+
+### Added (initial)
 
 - `paper index` — incremental indexing of UTF-8 text files into one SQLite file,
   with line-accurate, overlapping chunks (`blake3` + mtime + size skip).
@@ -37,9 +63,8 @@ Hugging Face Candle (pure Rust). Searching never downloads a model.
 
 ### Known gaps
 
-- PDF, DOCX, spreadsheet and email extraction are not implemented yet; only
-  UTF-8 text formats are indexed and `page` is always 0.
-- `paper index --watch` prints a notice and exits.
-- `--polish` prints a notice and returns the verbatim extract; no generative
-  engine is bundled.
+- Daemon IPC and service installation are Unix-only (Linux/macOS); Windows
+  named-pipe IPC and Windows Service support are future work.
+- Release artifacts are unsigned (no signing certificates available); every
+  artifact carries a SHA256 checksum instead.
 - `--json` and text output are not yet a stability guarantee.
