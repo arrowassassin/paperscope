@@ -71,9 +71,27 @@ Scanned PDFs return empty pages with a warning. OCR is opt-in via `paper index -
 
 ## Multilingual
 
-CJK (Chinese/Japanese/Korean), Thai, Lao, Khmer, Myanmar are indexed as **overlapping bigrams + first character** — the best-performing dictionary-free scheme measured across all three languages, without shipping a 15–20 MB dictionary. NFKC normalization handles full-width/half-width forms.
+CJK (Chinese/Japanese/Korean), Thai, Lao, Khmer and Myanmar are indexed as **overlapping bigrams + first character** — a dictionary-free scheme that needs no 15–20 MB word list and keeps two-character words searchable (which `trigram` cannot). NFKC normalization handles full-width/half-width forms.
 
-Optional dictionary segmenters behind features: `icu-segmenter` (Thai/Lao/Khmer/Myanmar), `lindera` (Japanese), `jieba-rs` (Chinese). Default off to keep the binary small.
+The scheme is strongest for Chinese and Japanese, where words are not space-separated. **Korean is weaker**: Hangul is written with spaces between words, and bigrams match character pairs rather than whole words, so a query for a whole eojeol only matches when its bigrams appear. Expect lower precision on Korean than on Chinese/Japanese.
+
+Optional dictionary segmenters behind features: `jieba-rs` (Chinese) is implemented; `icu-segmenter` and `lindera` are not. All are default off to keep the binary small.
+
+## Build options
+
+| Feature | Default | Effect |
+|---------|---------|--------|
+| `embeddings` | on | Candle + tokenizers: semantic search and reranking. |
+| `jieba-rs` | off | Chinese word segmentation instead of bigrams. |
+| `shell-accel` | off | Use `pdftotext`/`pandoc` when present, pure Rust otherwise. |
+| `ocr` | off | Tesseract OCR for scanned pages. |
+
+```bash
+cargo install paperscope --no-default-features   # keyword-only: 10.9 MB vs 13.7 MB
+```
+
+A keyword-only build has no inference code in the binary at all; `paper search`
+still works, and `--semantic` explains how to get the full build.
 
 ## Models
 

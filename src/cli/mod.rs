@@ -93,6 +93,11 @@ impl Workspace {
     }
 
     pub fn embedding_model_installed(&self) -> bool {
+        if !cfg!(feature = "embeddings") {
+            // A keyword-only build can never load a model, so it must not
+            // advertise one as installed.
+            return false;
+        }
         let manager = ModelManager::new();
         manager.is_installed(DEFAULT_EMBEDDING) || manager.is_installed(MULTILINGUAL_EMBEDDING)
     }

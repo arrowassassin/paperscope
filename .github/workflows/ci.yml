@@ -71,6 +71,16 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
         run: cargo clippy --all-targets --all-features -- -D warnings
 
+      # The keyword-only build (no Candle, no tokenizers) must keep compiling and
+      # passing: it is a supported install shape.
+      - name: cargo clippy (keyword-only build)
+        if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
+        run: cargo clippy --no-default-features --all-targets -- -D warnings
+
+      - name: cargo test (keyword-only build)
+        if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
+        run: cargo test --no-default-features
+
       - name: cargo check --all-targets (warning-free)
         # Beta is allowed to warn: new compiler versions add new lints, and beta
         # is here to catch breakage early, not to gate the release.

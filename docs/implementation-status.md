@@ -63,6 +63,21 @@ the tarball.
 | Inference | Hugging Face **Candle** 0.8 (`candle-transformers`) | pure Rust, no ONNX Runtime, no Python |
 | MCP | `rmcp` 0.2 (`server`, `transport-io`) | official Rust MCP SDK, stdio only |
 
+### Cargo features
+
+| Feature | Default | Effect |
+| --- | --- | --- |
+| `embeddings` | on | Candle + tokenizers: semantic search and reranking. Off = keyword-only binary with no inference code (10.9 MB vs 13.7 MB). |
+| `jieba-rs` | off | Chinese word segmentation instead of the dictionary-free bigrams. |
+| `shell-accel` | off | Prefer `pdftotext`/`pandoc` when present; pure Rust otherwise. |
+| `ocr` | off | Tesseract OCR for scanned pages. |
+
+`icu-segmenter` and `lindera` are **not** implemented — only `jieba-rs` exists.
+The dictionary-free default (overlapping bigrams + first character) is the
+right default for Chinese and Japanese; for Korean it is weaker, because
+Hangul words are space-separated and bigrams match character pairs rather than
+whole words. This limit is documented in the README rather than papered over.
+
 ## Models (as built)
 
 All three are **ungated** (no Hugging Face account or token), published by the
@@ -177,7 +192,8 @@ corruption.
 
 ## Measured performance (release build, M-series Mac, 3 small documents)
 
-- Binary size: **10 MB** (stripped, LTO).
+- Binary size: **13.7 MB** with the default `embeddings` feature, **10.9 MB**
+  without it (`--no-default-features`, keyword-only, no inference code).
 - Keyword search: **~0.5 s** including process start.
 - Semantic search including a cold model load: **~0.47 s**.
 - The same query in a debug build takes ~6.8 s, so always measure `--release`.
@@ -185,17 +201,6 @@ corruption.
 
 ## Known gaps (not yet built)
 
-- **PDF/DOCX extraction.** Only UTF-8 text formats are indexed; `page` is always
-  0 because there are no pages yet. This is the biggest gap against the spec.
-- **Non-English keyword search.** FTS5 uses `tokenize='porter unicode61'`, which
-  is English-centric: the Porter stemmer is wrong for inflected and
-  non-concatenative languages, and `unicode61` treats a contiguous CJK/Thai run
-  as one token (a probe on bundled SQLite returned **zero** hits for `保証`
-  inside `保証期間は24ヶ月です`). Semantic search with
-  `intfloat/multilingual-e5-small` works cross-lingually, but keyword-only
-  search does not. Fix: app-side segmentation (`icu_segmenter`, `lindera`,
-  `jieba-rs`) or `trigram` as a lossy fallback; see the release-stack report.
-- **Watch mode** (`paper index --watch` prints a notice and exits).
 - **Generative polish** (`--polish` prints a notice and returns the extract).
 - **Windows Search / Spotlight as live Tier 0.** `spotlight_paths` exists but is
   not wired into the pipeline; FTS5 is the keyword engine on every platform.

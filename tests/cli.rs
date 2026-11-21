@@ -75,7 +75,13 @@ fn semantic_flag_without_model_exits_with_code_3() {
     let fx = Fixture::new();
     let out = fx.run(&["search", "fridge", "--semantic"]);
     assert_eq!(out.status.code(), Some(3));
-    assert!(String::from_utf8_lossy(&out.stderr).contains("paper models install"));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    // A default build points at the model installer; a keyword-only build
+    // explains that it was built without embedding support.
+    assert!(
+        stderr.contains("paper models install") || stderr.contains("--features embeddings"),
+        "unexpected stderr: {stderr}"
+    );
 }
 
 #[test]

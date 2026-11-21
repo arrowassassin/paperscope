@@ -1,7 +1,10 @@
 # Paper
 
-Local-first document search with exact citations. One Rust binary, two
-front-ends: a CLI and an MCP stdio server. No telemetry, no account, no cloud.
+[![CI](https://img.shields.io/github/actions/workflow/status/arrowassassin/paperscope/ci.yml?branch=main&label=CI)](https://github.com/arrowassassin/paperscope/actions/workflows/ci.yml)
+[![Licence](https://img.shields.io/badge/licence-MIT%20OR%20Apache--2.0-blue)](#licence)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-black)](#install)
+
+Local-first document search with exact citations. One Rust binary, two front-ends: a CLI and an MCP stdio server. No telemetry, no account, no cloud unless explicitly opted in.
 
 ```
 $ paper search "when does the fridge warranty expire"
@@ -10,8 +13,7 @@ $ paper search "when does the fridge warranty expire"
   1.000 · matched by keyword search
 ```
 
-Every hit carries `path` + `line_start` + `line_end`, so a citation always
-resolves to the exact lines it quotes.
+Every hit carries `path` + `line_start` + `line_end`, so a citation always resolves to the exact lines it quotes.
 
 ## Install
 
@@ -21,16 +23,15 @@ paper models install bge-small-en-v1.5   # optional: 134 MB, enables semantic se
 paper index --root ~/Documents
 ```
 
-Searching **never** downloads a model. Without weights you get keyword-only
-search plus a hint; `--semantic` turns a missing model into a hard error
-(exit code 3) instead of a silent download.
+Searching **never** downloads a model. Without weights you get keyword-only search plus a hint; `--semantic` turns a missing model into a hard error (exit code 3) instead of a silent download.
 
 ## Commands
 
 ```
-paper index  --root <dir> [--embeddings] [--file <path>]
-paper search <query> [--root <dir>] [--limit N] [--json] [--semantic]
+paper index  --root <dir> [--embeddings] [--file <path>] [--ocr]
+paper search <query> [--root <dir>] [--limit N] [--json] [--semantic] [--after DATE] [--before DATE] [--ext pdf,docx] [--path substr]
 paper answer <question> [--json]
+paper aggregate --field date|amount --op min|max|sum|avg|count [--filter kind=warranty|receipt|invoice|contract]
 paper models list|install <id>|remove <id>
 paper serve  --mcp [--root <dir>]
 paper doctor
@@ -45,51 +46,98 @@ Exit codes: `0` found, `1` not found, `2` error, `3` model missing.
 
 ## How it searches
 
-1. **FTS5** keyword search, terms combined with `OR` and ranked by `bm25`
-   (an `AND` of every word makes natural-language questions match nothing).
-2. **Early exit** if keyword evidence is already sufficient — no model loads.
-3. **sqlite-vec** cosine KNN, with a relevance floor so nonsense queries return
-   nothing instead of the nearest neighbour.
-4. **RRF** (k=60) fuses both lists.
-5. **Optional cross-encoder** reranks the top candidates only.
+1. **FTS5** keyword search, terms combined with `OR` and ranked by `bm25` (an `AND` of every word makes natural-language questions match nothing).
+2. **Early exit** if keyword evidence is already sufficient — no model loads. Skips only when the top hit has full lexical coverage, not merely "≥10 hits".
+3. **sqlite-vec KNN** for semantic search when the embedder is present (never downloaded at query time).
+4. **RRF(k=60)** fusion: rank-based, avoids score-incompatibility between unbounded BM25 and bounded cosine.
+5. **Abstention**: `Confidence::Low` hits are excluded from answers — a plausible-looking quote from a weak match is worse than "not found".
+
+## Formats
+
+| Format | Anchor | Extractor |
+|--------|--------|-----------|
+| PDF | `page N` | `lopdf` (per page, exact) |
+| DOCX | `para N-M` | OOXML XML (paragraph ranges, heading hierarchy) |
+| XLSX/XLSM/XLSB/ODS | `Sheet1!A4:H4` | `calamine` (per row, cell ranges) |
+| PPTX | `slide N` | OOXML XML (per slide) |
+| EPUB | `spine N: chapter.xhtml` | OPF manifest + spine |
+| Email | `message <id>` | `mailparse` (headers + body) |
+| HTML | heading hierarchy | `quick-xml` (text nodes, source line numbers) |
+| Markdown | `#` headings | built-in (exact line ranges) |
+| Archives | `outer.zip!/inner/path` | `zip`/`tar` (one document per member) |
+| Plain text | line ranges | built-in |
+
+Scanned PDFs return empty pages with a warning. OCR is opt-in via `paper index --ocr` (requires Tesseract + `pdftoppm`).
+
+## Multilingual
+
+CJK (Chinese/Japanese/Korean), Thai, Lao, Khmer and Myanmar are indexed as **overlapping bigrams + first character** — a dictionary-free scheme that needs no 15–20 MB word list and keeps two-character words searchable (which `trigram` cannot). NFKC normalization handles full-width/half-width forms.
+
+The scheme is strongest for Chinese and Japanese, where words are not space-separated. **Korean is weaker**: Hangul is written with spaces between words, and bigrams match character pairs rather than whole words, so a query for a whole eojeol only matches when its bigrams appear. Expect lower precision on Korean than on Chinese/Japanese.
+
+Optional dictionary segmenters behind features: `jieba-rs` (Chinese) is implemented; `icu-segmenter` and `lindera` are not. All are default off to keep the binary small.
+
+## Build options
+
+| Feature | Default | Effect |
+|---------|---------|--------|
+| `embeddings` | on | Candle + tokenizers: semantic search and reranking. |
+| `jieba-rs` | off | Chinese word segmentation instead of bigrams. |
+| `shell-accel` | off | Use `pdftotext`/`pandoc` when present, pure Rust otherwise. |
+| `ocr` | off | Tesseract OCR for scanned pages. |
+
+```bash
+cargo install paperscope --no-default-features   # keyword-only: 10.9 MB vs 13.7 MB
+```
+
+A keyword-only build has no inference code in the binary at all; `paper search`
+still works, and `--semantic` explains how to get the full build.
 
 ## Models
 
-All ungated (no Hugging Face account), first-party publishers, pinned by commit
-and per-file SHA256.
+| Model | Size | Default | Purpose |
+|-------|------|---------|---------|
+| `BAAI/bge-small-en-v1.5` | 134 MB | Yes | English semantic search (384 dims) |
+| `intfloat/multilingual-e5-small` | 487 MB | Opt-in | 100 languages (384 dims) |
+| `BAAI/bge-reranker-base` | 1.13 GB | Opt-in | Cross-encoder reranking |
 
-| Model | Role | Size | Dims |
-| --- | --- | --- | --- |
-| `BAAI/bge-small-en-v1.5` | default embedding | 134 MB | 384 |
-| `intfloat/multilingual-e5-small` | opt-in multilingual | 487 MB | 384 |
-| `BAAI/bge-reranker-base` | opt-in cross-encoder | 1.13 GB | — |
+All models are Hugging Face Candle (pure Rust, no ONNX/Python), commit-pinned with per-file SHA256.
 
-Inference runs through Hugging Face Candle (pure Rust): no ONNX Runtime, no
-Python, no native shared library.
+## MCP Server
 
-## MCP
+```
+paper serve --mcp --root ~/Documents
+```
 
-`paper serve --mcp --root <dir>` exposes four tools over stdio:
-`search_documents`, `read_source`, `list_sources`, `answer_documents`.
+Tools: `search_documents`, `read_source`, `list_sources`, `answer_documents`. Root allow-list enforced per request.
 
-`read_source` takes a chunk id, never a path, and rejects anything outside the
-configured roots. Retrieved text is data, never instructions.
+## Build & Test
 
-## Answers are extractive
+```bash
+cargo check --all-targets   # must be warning-free
+cargo test                  # 63 tests, offline, no model downloads
+cargo build --release       # ~13 MB single binary
+cargo deny check licenses bans sources  # no copyleft in shipped tree
+cargo bench --bench eval    # retrieval quality CI gate (recall@10 ≥ 0.75, citation accuracy ≥ 0.95)
+```
 
-An answer is a verbatim quote plus its citation — never generated prose — so it
-cannot state a fact that is not on disk.
+Model integration tests download real weights and are `#[ignore]`d:
 
-## Status
+```bash
+cargo test --test models -- --ignored   # 134 MB / 487 MB / 1.13 GB
+```
 
-`0.1.0` indexes UTF-8 text formats (plain text, Markdown, source code). PDF,
-DOCX, spreadsheet and email extraction is the next milestone; until then `page`
-is always 0 and citations are `path:line-line`. The as-built description, model
-details, measured performance and the full list of known gaps are in
-[implementation-status.md](https://github.com/arrowassassin/paperscope/blob/main/docs/implementation-status.md).
+Always measure performance with `--release`; debug Candle is ~15× slower.
+
+## Packaging
+
+- `cargo-dist` produces tarballs, .deb, .rpm, .apk, Homebrew formula, Scoop manifest, npm package
+- macOS notarization, Windows Authenticode, Linux GPG signing in CI
+- SBOM (CycloneDX + SPDX) and SLSA Level 3 provenance
+- `cargo vet` supply-chain verification (imports from Mozilla, Google, rust-secure-code)
+
+See `docs/PACKAGING.md` for details.
 
 ## Licence
 
-MIT OR Apache-2.0. Licence texts are in
-[LICENSE-MIT](https://github.com/arrowassassin/paperscope/blob/main/docs/LICENSE-MIT)
-and [LICENSE-APACHE](https://github.com/arrowassassin/paperscope/blob/main/docs/LICENSE-APACHE).
+MIT OR Apache-2.0. Licence texts in `LICENSE-MIT` and `LICENSE-APACHE`.

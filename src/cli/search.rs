@@ -4,6 +4,13 @@ use anyhow::Result;
 
 pub async fn run(args: SearchArgs) -> Result<i32> {
     let ws = Workspace::new();
+    if args.semantic && !cfg!(feature = "embeddings") {
+        eprintln!(
+            "this build has no embedding support: rebuild with --features embeddings \
+             or drop --semantic for keyword-only search"
+        );
+        return Ok(EXIT_MODEL_MISSING);
+    }
     if args.semantic && !ws.embedding_model_installed() {
         eprintln!(
             "embedding model is not installed; run `paper models install {DEFAULT_EMBEDDING}` \

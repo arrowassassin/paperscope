@@ -23,6 +23,13 @@ pub async fn run(args: ModelsArgs) -> Result<i32> {
             }
         }
         ModelsCommand::Install { model } => {
+            if !cfg!(feature = "embeddings") {
+                eprintln!(
+                    "this build has no embedding support: rebuild with --features embeddings \
+                     (keyword search works without it)"
+                );
+                return Ok(EXIT_ERROR);
+            }
             let path = manager.ensure(&model).await?;
             println!("installed {model} at {}", path.display());
         }

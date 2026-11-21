@@ -12,12 +12,16 @@ pub async fn run(args: IndexArgs) -> Result<i32> {
     let conn = ws.open_index()?;
     let embedder = ws.embedder();
     if args.embeddings && embedder.is_none() {
-        eprintln!(
-            "embedding model is not installed; run `paper models install {DEFAULT_EMBEDDING}`"
-        );
+        if cfg!(feature = "embeddings") {
+            eprintln!(
+                "embedding model is not installed; run `paper models install {DEFAULT_EMBEDDING}`"
+            );
+        } else {
+            eprintln!("this build has no embedding support: rebuild with --features embeddings");
+        }
         return Ok(EXIT_MODEL_MISSING);
     }
-    if embedder.is_none() {
+    if embedder.is_none() && cfg!(feature = "embeddings") {
         eprintln!("indexing without embeddings (keyword search only); install {DEFAULT_EMBEDDING} for semantic search");
     }
 
@@ -39,7 +43,9 @@ pub async fn run(args: IndexArgs) -> Result<i32> {
         return Ok(EXIT_FOUND);
     }
 
-    if !ws.embedding_model_installed() {
+    if !cfg!(feature = "embeddings") {
+        // Keyword-only build: there is nothing to install, so do not hint.
+    } else if !ws.embedding_model_installed() {
         eprintln!("hint: `paper models install {DEFAULT_EMBEDDING}` enables semantic search");
     }
     Ok(EXIT_FOUND)
