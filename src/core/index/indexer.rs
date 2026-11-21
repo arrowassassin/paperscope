@@ -4,7 +4,7 @@ use crate::core::extract;
 use crate::core::fields;
 use crate::core::search::serialize_f32_vec;
 use crate::core::search::SharedEmbedder;
-use crate::core::text::fts_segment;
+use crate::core::text::{fts_segment, same_tokens};
 use anyhow::{Context, Result};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -339,11 +339,6 @@ impl Indexer {
 }
 
 use rusqlite::OptionalExtension;
-
-/// True when segmentation added nothing but whitespace normalisation.
-fn same_tokens(a: &str, b: &str) -> bool {
-    a.split_whitespace().eq(b.split_whitespace())
-}
 
 /// Wipe stored chunks when the extractor/chunker version changes.
 ///

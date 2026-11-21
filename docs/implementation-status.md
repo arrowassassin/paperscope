@@ -215,6 +215,12 @@ is not on disk.
   every Latin passage. Measured on `docs/` (142 chunks): `fts_text` payload
   98 KB → 1.8 KB, database **452 KiB → 356 KiB (−21%)**. The comparison is on
   whitespace-separated tokens because FTS5 tokenises newlines and spaces alike.
+- The v3 → v4 migration drops the duplicate on the way in, comparing **tokens**
+  rather than bytes — v3 stored the whitespace-normalised segmentation, so a
+  byte comparison would have left most duplicates behind. On a synthetic
+  5 000-row v3 index the `chunks` table shrank **1.21 MB → 0.74 MB (−39%)**,
+  and the file is compacted (`VACUUM`) afterwards so the space is returned to
+  the filesystem instead of merely becoming reusable.
 - Snippets are verbatim windows of the stored `content` around the first matching
   query term, never FTS5 `snippet()` output. No desegmentation pass exists, so
   CJK excerpts cannot be garbled, and a match deep inside a chunk stays visible.

@@ -253,6 +253,16 @@ pub fn fts_segment(text: &str) -> String {
     }
 }
 
+/// True when two strings carry the same whitespace-separated tokens.
+///
+/// Segmentation normalises whitespace and FTS5 tokenises newlines and spaces
+/// identically, so `a\nb` and `a b` produce the same index. Comparing tokens
+/// rather than bytes is what lets the indexer skip storing a second copy of
+/// text that segmentation did not actually change.
+pub fn same_tokens(a: &str, b: &str) -> bool {
+    a.split_whitespace().eq(b.split_whitespace())
+}
+
 /// Split a query into FTS terms after segmentation (same boundaries as the index).
 pub fn query_terms(query: &str) -> Vec<String> {
     fts_segment(query)

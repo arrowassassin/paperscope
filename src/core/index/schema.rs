@@ -1,4 +1,5 @@
 use super::connection::Connection;
+use crate::core::text::same_tokens;
 use anyhow::Result;
 
 /// Embedding width of the supported models. Kept as a constant so the schema and
@@ -199,6 +200,9 @@ COMMIT;
     // triggers fall back to `content`/`section`.
     if version < 4 {
         add_column_if_missing(conn, "fts_section", "TEXT NOT NULL DEFAULT ''")?;
+        // Drop the redundant copies *before* the FTS table is rebuilt, so the
+        // rebuild indexes the fallback text instead of the old duplicate.
+        dedup_fts_text(conn)?;
         conn.execute_batch(
             r#"
 BEGIN;
@@ -213,10 +217,8 @@ CREATE VIRTUAL TABLE chunks_fts USING fts5(
     content_rowid='id',
     tokenize='unicode61 remove_diacritics 2'
 );
-UPDATE chunks
-   SET fts_text = ''
- WHERE fts_text = content
-    OR fts_text = COALESCE(section, '') || char(10) || content;
+-- `fts_text` was emptied above, where it only repeated `content` (or the
+-- heading plus `content`); the rebuild below indexes the fallback text.
 INSERT INTO chunks_fts(rowid, fts_text, fts_section)
     SELECT id,
            COALESCE(NULLIF(fts_text, ''), content),
@@ -248,8 +250,61 @@ PRAGMA user_version = 4;
 COMMIT;
 "#,
         )?;
+        // The rebuild leaves the old pages in the file: the freed space is
+        // reusable but not returned to the filesystem. VACUUM hands it back.
+        // A failure here is not fatal — the index is already correct — so it
+        // is reported and ignored.
+        if let Err(err) = conn.execute_batch("VACUUM;") {
+            tracing::warn!("could not compact the database after the migration: {err}");
+        }
     }
 
+    Ok(())
+}
+
+/// Drop the duplicated text from rows written by schema v3.
+///
+/// In v3, `fts_text` held a segmented copy of `content` (sometimes prefixed
+/// with the section heading). When segmentation was the identity — the usual
+/// case for Latin text — that copy is redundant, because the FTS triggers fall
+/// back to `content`.
+///
+/// The comparison is on whitespace-separated tokens, not on bytes: v3 stored
+/// the *normalised* segmentation, so `content` and `fts_text` rarely matched
+/// byte for byte even when they indexed exactly the same words. Comparing
+/// tokens is what makes the migration reclaim the space instead of leaving a
+/// normalised duplicate behind.
+fn dedup_fts_text(conn: &Connection) -> Result<()> {
+    let tx = conn.inner().unchecked_transaction()?;
+    let redundant: Vec<i64> = {
+        let mut stmt =
+            tx.prepare("SELECT id, fts_text, content, section FROM chunks WHERE fts_text != ''")?;
+        let mut rows = stmt.query([])?;
+        let mut ids = Vec::new();
+        while let Some(row) = rows.next()? {
+            let id: i64 = row.get(0)?;
+            let fts_text: String = row.get(1)?;
+            let content: String = row.get(2)?;
+            let section: Option<String> = row.get(3)?;
+            let heading = section.unwrap_or_default();
+            let with_heading = if heading.is_empty() {
+                content.clone()
+            } else {
+                format!("{heading}\n{content}")
+            };
+            if same_tokens(&fts_text, &content) || same_tokens(&fts_text, &with_heading) {
+                ids.push(id);
+            }
+        }
+        ids
+    };
+    {
+        let mut update = tx.prepare("UPDATE chunks SET fts_text = '' WHERE id = ?")?;
+        for id in redundant {
+            update.execute([id])?;
+        }
+    }
+    tx.commit()?;
     Ok(())
 }
 
@@ -306,7 +361,11 @@ INSERT INTO chunks
      content_hash, mtime, size)
 VALUES
     (1, 'a.txt', 'a.txt', 0, 1, 1, 'fridge warranty text',
-     'fridge warranty text', x'00', 0, 0);
+     'fridge warranty text', x'00', 0, 0),
+    (2, 'b.txt', 'b.txt', 0, 1, 1, 'tax   deadline text',
+     'tax deadline text', x'00', 0, 0),
+    (3, 'c.txt', 'c.txt', 0, 1, 1, 'guarantee period text',
+     'guarantee period text', x'00', 0, 0);
 PRAGMA user_version = 3;
 "#,
         )
@@ -332,6 +391,16 @@ PRAGMA user_version = 3;
             .unwrap();
         assert_eq!(fts_text, "", "duplicate copy must be dropped");
 
+        // Row 2 differs from `content` only in whitespace: the tokens are the
+        // same, so the copy is redundant too and must be dropped as well.
+        let normalised: String = conn
+            .query_row("SELECT fts_text FROM chunks WHERE id = 2", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(
+            normalised, "",
+            "a whitespace-normalised duplicate must be dropped too"
+        );
+
         let matches: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM chunks_fts WHERE chunks_fts MATCH 'warranty'",
@@ -342,6 +411,18 @@ PRAGMA user_version = 3;
         assert_eq!(
             matches, 1,
             "the fallback to content must keep the row indexed"
+        );
+
+        let normalised_matches: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM chunks_fts WHERE chunks_fts MATCH 'deadline'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            normalised_matches, 1,
+            "the row must stay searchable after its duplicate is dropped"
         );
 
         // Deleting through the new trigger must not corrupt the index.
