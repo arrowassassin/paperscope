@@ -23,7 +23,6 @@
   <link rel="stylesheet" href="components.css">
   <link rel="stylesheet" href="layout.css">
   <link rel="icon" type="image/svg+xml" href="favicon-paperscope.svg">
-  <link rel="apple-touch-icon" href="apple-touch-icon-paperscope.png">
 </head>
 <body>
   <a href="#main" class="skip-link">Skip to main content</a>
@@ -117,15 +116,15 @@
             <div class="terminal-body" id="searchDemo">
               <div class="terminal-line">
                 <span class="terminal-prompt">$</span>
-                <span class="terminal-output"> paper index ~/docs --recursive</span>
+                <span class="terminal-output"> paper index --root ~/docs</span>
               </div>
               <div class="terminal-line">
                 <span class="terminal-prompt">$</span>
-                <span class="terminal-output success"> ✓ Indexed 1,247 documents (2.3 GB) in 14.2s</span>
+                <span class="terminal-output success"> ✓ Index complete</span>
               </div>
               <div class="terminal-line">
                 <span class="terminal-prompt">$</span>
-                <span class="terminal-output"> paper ask "What does the paper say about transformer attention mechanisms?"</span>
+                <span class="terminal-output"> paper answer "What does the paper say about transformer attention mechanisms?"</span>
               </div>
               <div class="terminal-line">
                 <span class="terminal-prompt">💡</span>
@@ -188,7 +187,7 @@
               <div class="install-step-number">2</div>
               <div class="install-step-content">
                 <h3 class="install-step-title">Install an Embedding Model</h3>
-                <p class="install-step-desc">Download a local embedding model for vector search. <code>bge-small-en-v1.5</code> is fast and accurate (33MB).</p>
+                <p class="install-step-desc">Download a local embedding model for vector search. <code>bge-small-en-v1.5</code> is the English default (134 MB).</p>
                 <div class="code-block install-code-block">
                   <pre><code>$ paper models install bge-small-en-v1.5</code></pre>
                 </div>
@@ -201,7 +200,7 @@
                 <h3 class="install-step-title">Index Your Documents</h3>
                 <p class="install-step-desc">Point Paperscope at a directory. It recursively indexes PDFs, EPUBs, Office docs, Markdown, HTML, and more.</p>
                 <div class="code-block install-code-block">
-                  <pre><code>$ paper index ~/Documents/research --recursive</code></pre>
+                  <pre><code>$ paper index --root ~/Documents/research</code></pre>
                 </div>
               </div>
             </div>
@@ -212,7 +211,7 @@
                 <h3 class="install-step-title">Search & Ask</h3>
                 <p class="install-step-desc">Natural language questions with exact citations, or keyword search with hybrid ranking.</p>
                 <div class="code-block install-code-block">
-                  <pre><code>$ paper ask "What method does the paper propose?"
+                  <pre><code>$ paper answer "What method does the paper propose?"
 $ paper search "transformer architecture" --limit 10</code></pre>
                 </div>
               </div>
@@ -251,7 +250,7 @@ $ cargo build --release</code></pre>
         <header class="section-header">
           <span class="eyebrow section-eyebrow">Capabilities</span>
           <h2 id="features-title" class="h1 section-title">Search That Shows Its Work</h2>
-          <p class="section-desc">Every answer cites its source. Every result is traceable. No hallucinations.</p>
+          <p class="section-desc">Every answer cites its source. Every result is traceable. Answers are extractive by default.</p>
         </header>
 
         <div class="feature-grid">
@@ -289,7 +288,7 @@ $ cargo build --release</code></pre>
               </svg>
             </div>
             <h3 class="feature-title">MCP Server for LLMs</h3>
-            <p class="feature-desc">Run <code>paper mcp serve</code> to expose search as an MCP server. Claude, Cursor, and other agents can query your docs directly.</p>
+            <p class="feature-desc">Run <code>paper serve --mcp</code> to expose search as an MCP server. Claude, Cursor, and other agents can query your docs directly.</p>
           </article>
 
           <article class="card feature-card animate-on-scroll">
@@ -301,7 +300,7 @@ $ cargo build --release</code></pre>
               </svg>
             </div>
             <h3 class="feature-title">100+ Languages</h3>
-            <p class="feature-desc">Multilingual embeddings (BGE-M3, E5, Jina) support cross-lingual search. Query in English, find documents in Chinese, Arabic, Hindi, and more.</p>
+            <p class="feature-desc">The optional <code>multilingual-e5-small</code> model supports 100 languages. Query in one language and find documents written in another.</p>
           </article>
 
           <article class="card feature-card animate-on-scroll">
@@ -474,41 +473,41 @@ $ cargo build --release</code></pre>
         <div class="card" style="padding: var(--space-8);">
           <div class="grid grid-3" style="gap: var(--space-6);">
             <div class="text-center">
-              <div class="stat-value" style="font-size: 2.5rem; margin-bottom: var(--space-2); color: var(--color-accent);">100+</div>
-              <p class="stat-label">Languages Supported</p>
+              <div class="stat-value" style="font-size: 2.5rem; margin-bottom: var(--space-2); color: var(--color-accent);">100</div>
+              <p class="stat-label">Languages with Multilingual E5</p>
             </div>
             <div class="text-center">
-              <div class="stat-value" style="font-size: 2.5rem; margin-bottom: var(--space-2); color: var(--color-accent);">3</div>
+              <div class="stat-value" style="font-size: 2.5rem; margin-bottom: var(--space-2); color: var(--color-accent);">2</div>
               <p class="stat-label">Embedding Models</p>
             </div>
             <div class="text-center">
-              <div class="stat-value" style="font-size: 2.5rem; margin-bottom: var(--space-2); color: var(--color-accent);">∞</div>
-              <p class="stat-label">Cross-lingual Pairs</p>
+              <div class="stat-value" style="font-size: 2.5rem; margin-bottom: var(--space-2); color: var(--color-accent);">1</div>
+              <p class="stat-label">Optional Reranker</p>
             </div>
           </div>
 
           <div style="margin-top: var(--space-8);">
-            <h3 class="h3" style="margin: 0 0 var(--space-4);">Recommended Models</h3>
+            <h3 class="h3" style="margin: 0 0 var(--space-4);">Available Models</h3>
             <div class="grid grid-3" style="gap: var(--space-4);">
               <div class="card" style="padding: var(--space-4);">
-                <h4 class="h3" style="font-size: 0.9375rem; margin: 0 0 var(--space-2);">BGE-M3 (Default)</h4>
-                <p class="body-sm" style="margin: 0;">Multilingual dense + sparse + ColBERT. 100+ languages. Best overall quality.</p>
+                <h4 class="h3" style="font-size: 0.9375rem; margin: 0 0 var(--space-2);">BGE Small English (Default)</h4>
+                <p class="body-sm" style="margin: 0;">English semantic search with 384-dimensional embeddings. 134 MB.</p>
                 <div class="code-block" style="margin-top: var(--space-3);">
-                  <pre><code>$ paper models install bge-m3</code></pre>
+                  <pre><code>$ paper models install bge-small-en-v1.5</code></pre>
                 </div>
               </div>
               <div class="card" style="padding: var(--space-4);">
-                <h4 class="h3" style="font-size: 0.9375rem; margin: 0 0 var(--space-2);">E5-Mistral-7B</h4>
-                <p class="body-sm" style="margin: 0;">Instruction-tuned, 100 languages. Strong on code and technical docs. Larger (4GB).</p>
+                <h4 class="h3" style="font-size: 0.9375rem; margin: 0 0 var(--space-2);">Multilingual E5 Small</h4>
+                <p class="body-sm" style="margin: 0;">Multilingual semantic search across 100 languages. 487 MB.</p>
                 <div class="code-block" style="margin-top: var(--space-3);">
-                  <pre><code>$ paper models install e5-mistral-7b-instruct</code></pre>
+                  <pre><code>$ paper models install multilingual-e5-small</code></pre>
                 </div>
               </div>
               <div class="card" style="padding: var(--space-4);">
-                <h4 class="h3" style="font-size: 0.9375rem; margin: 0 0 var(--space-2);">Jina Embeddings v3</h4>
-                <p class="body-sm" style="margin: 0;">Task-specific LoRA adapters. 89 languages. Good for retrieval + classification.</p>
+                <h4 class="h3" style="font-size: 0.9375rem; margin: 0 0 var(--space-2);">BGE Reranker Base (Optional)</h4>
+                <p class="body-sm" style="margin: 0;">Cross-encoder reranking for search results. 1.13 GB.</p>
                 <div class="code-block" style="margin-top: var(--space-3);">
-                  <pre><code>$ paper models install jina-embeddings-v3</code></pre>
+                  <pre><code>$ paper models install bge-reranker-base</code></pre>
                 </div>
               </div>
             </div>
@@ -541,7 +540,7 @@ $ cargo build --release</code></pre>
   "mcpServers": {
     "paperscope": {
       "command": "paper",
-      "args": ["mcp", "serve", "--index", "~/docs/index.db"]
+      "args": ["serve", "--mcp", "--root", "~/Documents"]
     }
   }
 }</code></pre>
@@ -554,16 +553,16 @@ $ cargo build --release</code></pre>
               <p class="body-sm" style="margin: 0;">Hybrid keyword + vector search with filters</p>
             </div>
             <div class="card" style="padding: var(--space-4);">
-              <h4 class="h3" style="font-size: 0.9375rem; margin: 0 0 var(--space-1);"><code>ask_documents</code></h4>
-              <p class="body-sm" style="margin: 0;">Natural language Q&A with extractive citations</p>
+              <h4 class="h3" style="font-size: 0.9375rem; margin: 0 0 var(--space-1);"><code>answer_documents</code></h4>
+              <p class="body-sm" style="margin: 0;">Extractive answers with exact citations</p>
             </div>
             <div class="card" style="padding: var(--space-4);">
-              <h4 class="h3" style="font-size: 0.9375rem; margin: 0 0 var(--space-1);"><code>get_document</code></h4>
-              <p class="body-sm" style="margin: 0;">Fetch full document content by ID</p>
+              <h4 class="h3" style="font-size: 0.9375rem; margin: 0 0 var(--space-1);"><code>read_source</code></h4>
+              <p class="body-sm" style="margin: 0;">Read cited source spans within configured roots</p>
             </div>
             <div class="card" style="padding: var(--space-4);">
-              <h4 class="h3" style="font-size: 0.9375rem; margin: 0 0 var(--space-1);"><code>list_collections</code></h4>
-              <p class="body-sm" style="margin: 0;">Browse indexed collections and stats</p>
+              <h4 class="h3" style="font-size: 0.9375rem; margin: 0 0 var(--space-1);"><code>list_sources</code></h4>
+              <p class="body-sm" style="margin: 0;">Browse indexed sources</p>
             </div>
           </div>
         </div>
@@ -585,7 +584,7 @@ $ cargo build --release</code></pre>
               </svg>
               Download Latest Release
             </a>
-            <a href="https://github.com/arrowassassin/paperscope/blob/main/docs/INSTALL.md" class="btn btn-ghost btn-lg" target="_blank" rel="noopener">
+            <a href="https://github.com/arrowassassin/paperscope/blob/main/README.md#install" class="btn btn-ghost btn-lg" target="_blank" rel="noopener">
               Read Installation Guide
             </a>
           </div>
@@ -629,8 +628,8 @@ $ cargo build --release</code></pre>
         <ul class="footer-links">
           <li><a href="https://github.com/arrowassassin/kintsugi" target="_blank" rel="noopener">GitHub Repository</a></li>
           <li><a href="https://github.com/arrowassassin/kintsugi/releases" target="_blank" rel="noopener">Releases</a></li>
-          <li><a href="https://github.com/arrowassassin/kintsugi/blob/main/docs/QUICKSTART.md" target="_blank" rel="noopener">Quickstart</a></li>
-          <li><a href="https://github.com/arrowassassin/kintsugi/blob/main/docs/POLICIES.md" target="_blank" rel="noopener">Policy Reference</a></li>
+          <li><a href="https://github.com/arrowassassin/kintsugi#install" target="_blank" rel="noopener">Quickstart</a></li>
+          <li><a href="https://github.com/arrowassassin/kintsugi/blob/main/docs/policy.md" target="_blank" rel="noopener">Policy Reference</a></li>
         </ul>
       </div>
 
@@ -639,8 +638,8 @@ $ cargo build --release</code></pre>
         <ul class="footer-links">
           <li><a href="https://github.com/arrowassassin/paperscope" target="_blank" rel="noopener">GitHub Repository</a></li>
           <li><a href="https://crates.io/crates/paperscope" target="_blank" rel="noopener">crates.io</a></li>
-          <li><a href="https://github.com/arrowassassin/paperscope/blob/main/docs/INSTALL.md" target="_blank" rel="noopener">Installation Guide</a></li>
-          <li><a href="https://github.com/arrowassassin/paperscope/blob/main/docs/MCP.md" target="_blank" rel="noopener">MCP Integration</a></li>
+          <li><a href="https://github.com/arrowassassin/paperscope/blob/main/README.md#install" target="_blank" rel="noopener">Installation Guide</a></li>
+          <li><a href="https://github.com/arrowassassin/paperscope/blob/main/README.md#mcp-server" target="_blank" rel="noopener">MCP Integration</a></li>
         </ul>
       </div>
 
@@ -649,8 +648,8 @@ $ cargo build --release</code></pre>
         <ul class="footer-links">
           <li><a href="/about.html">About Arrowassassin</a></li>
           <li><a href="https://github.com/arrowassassin" target="_blank" rel="noopener">All Projects</a></li>
-          <li><a href="https://github.com/arrowassassin/paperscope/blob/main/LICENSE" target="_blank" rel="noopener">License (MIT)</a></li>
-          <li><a href="https://github.com/arrowassassin/paperscope/blob/main/SECURITY.md" target="_blank" rel="noopener">Security Policy</a></li>
+          <li><a href="https://github.com/arrowassassin/paperscope/blob/main/README.md#licence" target="_blank" rel="noopener">License (MIT OR Apache-2.0)</a></li>
+          <li><a href="mailto:security@arrowassassin.dev">Security Contact</a></li>
         </ul>
       </div>
     </div>
@@ -658,8 +657,8 @@ $ cargo build --release</code></pre>
     <div class="footer-bottom">
       <p class="footer-copyright">&copy; 2026 Arrowassassin. All rights reserved.</p>
       <div class="footer-legal">
-        <a href="https://github.com/arrowassassin/paperscope/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
-        <a href="https://github.com/arrowassassin/paperscope/blob/main/SECURITY.md" target="_blank" rel="noopener">Security</a>
+        <a href="https://github.com/arrowassassin/paperscope/blob/main/README.md#licence" target="_blank" rel="noopener">MIT OR Apache-2.0</a>
+        <a href="mailto:security@arrowassassin.dev">Security</a>
         <a href="mailto:security@arrowassassin.dev">Report Vulnerability</a>
       </div>
     </div>
@@ -720,9 +719,9 @@ $ cargo build --release</code></pre>
 
     // Search Demo Animation
     const searchLines = [
-      { prompt: '$', text: ' paper index ~/docs --recursive', class: '' },
-      { prompt: '$', text: ' ✓ Indexed 1,247 documents (2.3 GB) in 14.2s', class: 'success' },
-      { prompt: '$', text: ' paper ask "What does the paper say about transformer attention mechanisms?"', class: '' },
+      { prompt: '$', text: ' paper index --root ~/docs', class: '' },
+      { prompt: '$', text: ' ✓ Index complete', class: 'success' },
+      { prompt: '$', text: ' paper answer "What does the paper say about transformer attention mechanisms?"', class: '' },
       { prompt: '💡', text: ' Answer: The paper describes multi-head attention as...', class: '' },
       { prompt: '📄', text: ' Citation: vaswani2017attention.pdf, p. 3-4, §3.2', class: 'dim' },
       { prompt: '📄', text: ' Citation: devlin2019bert.pdf, p. 5, §2.1', class: 'dim' },

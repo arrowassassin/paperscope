@@ -60,7 +60,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`
   "mcpServers": {
     "paper": {
       "command": "paper",
-      "args": ["serve"]
+      "args": ["serve", "--mcp"]
     }
   }
 }
@@ -72,20 +72,20 @@ Use the absolute path to `paper` if it is not on the default `PATH`
 ## 4. Wire up Claude Code
 
 ```sh
-claude mcp add paper -- paper serve
+claude mcp add paper -- paper serve --mcp
 ```
 
 or add the same `mcpServers` block to `.mcp.json` in your project root.
 
 ## 5. Other MCP agents
 
-Any MCP client works the same way — spawn `paper serve` over stdio. Examples:
+Any MCP client works the same way — spawn `paper serve --mcp` over stdio. Examples:
 
 - **Codex CLI**: add to `~/.codex/config.toml`:
   ```toml
   [mcp_servers.paper]
   command = "paper"
-  args = ["serve"]
+  args = ["serve", "--mcp"]
   ```
 - **OpenCode**: add to `opencode.json`:
   ```json
@@ -93,7 +93,7 @@ Any MCP client works the same way — spawn `paper serve` over stdio. Examples:
     "mcp": {
       "paper": {
         "type": "local",
-        "command": ["paper", "serve"]
+        "command": ["paper", "serve", "--mcp"]
       }
     }
   }
