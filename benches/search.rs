@@ -36,6 +36,10 @@ impl QueryEmbedder for HashEmbedder {
         }
         Ok(v)
     }
+
+    fn model_id(&self) -> &str {
+        "bench-hash-embedder"
+    }
 }
 
 fn fixture() -> (tempfile::TempDir, Indexer) {

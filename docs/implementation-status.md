@@ -269,8 +269,13 @@ citation validation, offline refusal, fallback).
 
 - **Windows Search / Spotlight as live Tier 0.** `spotlight_paths` exists but is
   not wired into the pipeline; FTS5 is the keyword engine on every platform.
-- **Model/index mismatch guard.** Switching embedding models requires a reindex;
-  the DB does not yet record which model produced its vectors.
+- **Model/index mismatch guard — implemented.** The `index_meta` table now
+  records the embedding model ID (`embedding_model` key) at index time.
+  `SearchPipeline::search_with` compares the current embedder's `model_id()`
+  against the stored value and returns a clear error on mismatch
+  (`embedding model mismatch: index was built with 'X' but search is using 'Y'.
+  Re-index or install the correct model.`). Both supported embedders (BGE and
+  E5) and the deterministic test embedder implement `model_id()`.
 - **Code signing and notarization.** The workflow maps the `CODESIGN_*`
   secrets, but no certificate is configured: artifacts are unsigned (and
   checksummed). No SLSA provenance, no `.deb`/`.rpm`/`.apk`, no Homebrew-tap or

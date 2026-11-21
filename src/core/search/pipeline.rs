@@ -21,6 +21,10 @@ pub trait QueryEmbedder {
     fn embed_query(&self, text: &str) -> Result<Vec<f32>> {
         self.embed(text)
     }
+
+    /// The model identifier (e.g. "bge-small-en-v1.5"). Used to detect
+    /// index/search model mismatches.
+    fn model_id(&self) -> &str;
 }
 
 impl QueryEmbedder for Embedder {
@@ -30,6 +34,10 @@ impl QueryEmbedder for Embedder {
 
     fn embed_query(&self, text: &str) -> Result<Vec<f32>> {
         Embedder::embed_query(self, text)
+    }
+
+    fn model_id(&self) -> &str {
+        Embedder::model_id(self)
     }
 }
 
@@ -78,6 +86,21 @@ impl SearchPipeline {
                 "query must be at least {MIN_QUERY_LEN} characters \
                  (one is enough for CJK and other scripts without spaces)"
             );
+        }
+
+        // If we have an embedder and the index has a stored embedding model,
+        // they must match. This prevents silently searching with the wrong model.
+        if let Some(embedder) = &self.embedder {
+            if let Some(stored) = self.conn.stored_embedding_model()? {
+                if stored != embedder.model_id() {
+                    bail!(
+                        "embedding model mismatch: index was built with '{stored}' \
+                         but search is using '{current}'. Re-index or install the \
+                         correct model.",
+                        current = embedder.model_id()
+                    );
+                }
+            }
         }
 
         let kw_hits =

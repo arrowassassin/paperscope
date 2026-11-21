@@ -515,6 +515,10 @@ pub fn make_eval_pipeline(conn: Connection) -> SearchPipeline {
             }
             Ok(v)
         }
+
+        fn model_id(&self) -> &str {
+            "test-hash-embedder"
+        }
     }
 
     let embedder: SharedEmbedder = Arc::new(HashEmbedder);

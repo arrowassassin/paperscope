@@ -229,23 +229,42 @@ fn pipeline_works_without_any_model_installed() {
 
 #[test]
 fn strong_keyword_evidence_skips_the_embedding_model() {
-    struct PanicEmbedder;
-    impl paper::core::search::QueryEmbedder for PanicEmbedder {
-        fn embed(&self, _: &str) -> anyhow::Result<Vec<f32>> {
-            panic!("embedder must not be called when keyword hits are sufficient")
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
+    /// Wrapper around HashEmbedder that tracks whether embed was called.
+    struct TrackingEmbedder {
+        inner: crate::common::HashEmbedder,
+        called: Arc<AtomicBool>,
+    }
+
+    impl paper::core::search::QueryEmbedder for TrackingEmbedder {
+        fn embed(&self, text: &str) -> anyhow::Result<Vec<f32>> {
+            self.called.store(true, Ordering::SeqCst);
+            self.inner.embed(text)
+        }
+
+        fn model_id(&self) -> &str {
+            self.inner.model_id()
         }
     }
 
     let fx = Fixture::new();
     let conn = Connection::open(&fx._dir.path().join("chunks.db")).unwrap();
+    let called = Arc::new(AtomicBool::new(false));
+    let embedder = Arc::new(TrackingEmbedder {
+        inner: crate::common::HashEmbedder,
+        called: called.clone(),
+    });
     let config = SearchConfig {
         keyword_sufficiency_threshold: 1,
         ..SearchConfig::default()
     };
-    let pipeline =
-        SearchPipeline::new(conn, Some(std::sync::Arc::new(PanicEmbedder)), None, config);
+    let pipeline = SearchPipeline::new(conn, Some(embedder), None, config);
     let hits = pipeline.search("fridge warranty", &[]).unwrap();
     assert!(!hits.is_empty());
+    // The embedder should not have been called because keyword hits were decisive.
+    assert!(!called.load(Ordering::SeqCst));
 }
 
 #[test]

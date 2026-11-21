@@ -71,6 +71,11 @@ impl Indexer {
     ) -> Result<Self> {
         init_db(&conn)?;
         invalidate_on_upgrade(&conn)?;
+        // Record the embedding model used for this index, so we can detect
+        // mismatches at search time.
+        if let Some(embedder) = &embedder {
+            Self::record_embedding_model(&conn, embedder.model_id())?;
+        }
         Ok(Self {
             conn,
             embedder,
@@ -78,6 +83,18 @@ impl Indexer {
             overlap_words: 40,
             ocr_enabled,
         })
+    }
+
+    /// Store the embedding model ID in index_meta. This is called when the
+    /// indexer is created with an embedder, so the index knows which model
+    /// produced its vectors.
+    fn record_embedding_model(conn: &Connection, model_id: &str) -> Result<()> {
+        conn.inner().execute(
+            "INSERT INTO index_meta (key, value) VALUES ('embedding_model', ?)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            [model_id],
+        )?;
+        Ok(())
     }
 
     pub fn connection(&self) -> &Connection {

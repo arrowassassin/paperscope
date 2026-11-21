@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use rusqlite::OptionalExtension;
 use std::path::Path;
 use std::sync::Once;
 
@@ -114,5 +115,18 @@ impl Connection {
         f: impl FnOnce(&rusqlite::Row<'_>) -> rusqlite::Result<T>,
     ) -> Result<T> {
         Ok(self.conn.query_row(sql, params, f)?)
+    }
+
+    /// Get the embedding model ID stored in the index, if any.
+    pub fn stored_embedding_model(&self) -> Result<Option<String>> {
+        let model: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT value FROM index_meta WHERE key = 'embedding_model'",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(model)
     }
 }

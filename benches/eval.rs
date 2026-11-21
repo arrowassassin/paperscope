@@ -67,6 +67,10 @@ fn make_eval_embedder() -> SharedEmbedder {
             }
             Ok(v)
         }
+
+        fn model_id(&self) -> &str {
+            "bench-hash-embedder"
+        }
     }
     Arc::new(HashEmbedder)
 }

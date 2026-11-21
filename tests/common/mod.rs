@@ -32,6 +32,10 @@ impl QueryEmbedder for HashEmbedder {
         }
         Ok(v)
     }
+
+    fn model_id(&self) -> &str {
+        "test-hash-embedder"
+    }
 }
 
 pub fn hash_embedder() -> paper::core::search::SharedEmbedder {
