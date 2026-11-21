@@ -17,6 +17,7 @@ description = "Paper: local-first document search with exact page and line citat
 license = "MIT OR Apache-2.0"
 readme = "docs/readme.md"
 repository = "https://github.com/arrowassassin/paperscope"
+homepage = "https://github.com/arrowassassin/paperscope"
 documentation = "https://docs.rs/paperscope"
 categories = ["command-line-utilities", "database", "text-processing"]
 keywords = ["rag", "search", "sqlite", "mcp", "local-first"]

@@ -1,150 +1,167 @@
-# Release Process
+# Release process
 
-This document describes how to create a signed, multi-platform release for Paper.
+This is the runbook for a Paper release. It describes the pipeline that exists
+today; optional steps that are not wired up are marked as such.
 
-## Prerequisites
-
-### Required Secrets (GitHub Repository Settings → Secrets and variables → Actions)
-
-#### macOS Code Signing & Notarization
-| Secret | Description | How to Obtain |
-|--------|-------------|---------------|
-| `APPLE_CERTIFICATE` | Base64-encoded `.p12` Developer ID Application certificate | Export from Keychain Access (File → Export), then `base64 -i certificate.p12 -o -` |
-| `APPLE_CERT_PASSWORD` | Password for the `.p12` file | The password you set when exporting |
-| `APPLE_TEAM_ID` | 10-character Team ID (e.g., `ABCD123456`) | Apple Developer Account → Membership |
-| `APPLE_API_KEY` | App Store Connect API Key ID (e.g., `ABC123DEFG`) | App Store Connect → Users and Access → Keys |
-| `APPLE_API_ISSUER` | App Store Connect API Key Issuer ID (UUID) | App Store Connect → Users and Access → Keys |
-
-#### Windows Code Signing
-| Secret | Description | How to Obtain |
-|--------|-------------|---------------|
-| `WINDOWS_CERT_FILE` | Base64-encoded `.pfx` EV Code Signing certificate | Export from certificate provider, then `base64 -i certificate.pfx -o -` |
-| `WINDOWS_CERT_PASSWORD` | Password for the `.pfx` file | The password you set when exporting |
-
-#### Linux GPG Signing
-| Secret | Description | How to Obtain |
-|--------|-------------|---------------|
-| `GPG_PRIVATE_KEY` | ASCII-armored private key (`gpg --export-secret-keys --armor <key-id>`) | Your GPG key |
-| `GPG_PASSPHRASE` | Passphrase for the GPG private key | Your GPG key passphrase |
-
-## Creating a Release
-
-### Automated (Recommended)
-
-Push a version tag:
+## 1. Prepare
 
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+cargo +1.91.0 test                       # MSRV build
+cargo +stable test                       # current stable
+cargo +stable clippy --all-targets --all-features -- -D warnings
+cargo +stable clippy --no-default-features --all-targets -- -D warnings
+cargo deny check licenses bans sources
+cargo audit
+cargo publish --dry-run
+scripts/regenerate-release-ci.sh         # only if the release workflow changed
+actionlint
 ```
 
-This triggers the `release.yml` workflow which:
-1. Builds for all 6 targets via `cargo-dist`
-2. Signs macOS binaries (codesign + notarize + staple)
-3. Signs Windows binaries (signtool with timestamp)
-4. Creates detached GPG signatures for Linux artifacts
-5. Generates SBOMs (CycloneDX + SPDX)
-6. Generates SLSA Provenance (Level 3)
-7. Uploads all artifacts to GitHub Releases
+Then:
 
-### Local Test Build
+- bump `version` in `Cargo.toml`,
+- update `CHANGELOG.md`,
+- commit and push to `main`.
+
+`CHANGELOG.md` is what the `announce` job turns into the release body, so a
+missing entry means an empty release description.
+
+## 2. Tag
 
 ```bash
-# Install cargo-dist
-cargo binstall cargo-dist --locked
-
-# Build tarball artifacts locally (no signing)
-cargo dist build --artifacts=tarball
-
-# Artifacts appear in target/dist/
-ls -la target/dist/
+git tag v0.1.0
+git push origin v0.1.0
 ```
 
-Expected output:
-```
-target/dist/
-├── paperscope-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
-├── paperscope-v0.1.0-x86_64-unknown-linux-musl.tar.gz
-├── paperscope-v0.1.0-aarch64-unknown-linux-gnu.tar.gz
-├── paperscope-v0.1.0-x86_64-pc-windows-msvc.zip
-├── paperscope-v0.1.0-x86_64-apple-darwin.tar.gz
-├── paperscope-v0.1.0-aarch64-apple-darwin.tar.gz
-├── paperscope-v0.1.0-x86_64-unknown-linux-gnu.deb
-├── paperscope-v0.1.0-x86_64-unknown-linux-gnu.rpm
-├── paperscope-v0.1.0-x86_64-unknown-linux-gnu.apk
-├── homebrew/
-│   └── paperscope.rb
-├── scoop/
-│   └── paperscope.json
-├── npm/
-│   └── paperscope-v0.1.0.tgz
-├── sbom.json
-├── sbom.spdx.json
-└── *.intoto.jsonl
-```
+The tag must look like `v0.1.0` (the generated workflow matches
+`**[0-9]+.[0-9]+.[0-9]+*`). A tag with a pre-release suffix
+(`v0.1.0-prerelease.1`) is published as a GitHub prerelease.
 
-## Verifying Artifacts
+Pushing the tag starts `.github/workflows/release.yml`:
 
-### macOS
+| Job | What it does |
+| --- | --- |
+| `plan` | Installs the pinned `dist` (0.34.0), computes the build matrix, creates the GitHub Release. |
+| `build-local-artifacts` | Builds each target on its runner and uploads the archives. |
+| `build-global-artifacts` | Builds the shell, PowerShell, Homebrew and npm installers. |
+| `host` | Uploads everything to the release and writes the artifact manifest. |
+| `sbom` | Generates the CycloneDX + SPDX SBOMs and attaches them. |
+| `announce` | Sets the release title and body from the changelog. |
+
+Watch it with:
+
 ```bash
-# Verify code signature
-codesign --verify --deep --strict --verbose=2 paper
-
-# Verify notarization
-spctl --assess --type execute --verbose paper
+gh run watch
+gh release view v0.1.0 --json assets
 ```
 
-### Windows
-```powershell
-# Verify signature
-signtool verify /pa /v paper.exe
-```
+## 3. Verify the release
 
-### Linux (GPG)
 ```bash
-# Verify detached signature
-gpg --verify paperscope-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.asc paperscope-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+gh release download v0.1.0 --dir /tmp/paper-release
+cd /tmp/paper-release && sha256sum -c sha256.sum
 ```
 
-### SBOM
+Spot-check one binary per platform family:
+
 ```bash
-# View CycloneDX SBOM
-jq . target/dist/sbom.json
-
-# View SPDX SBOM
-jq . target/dist/sbom.spdx.json
+./paper-x86_64-unknown-linux-musl.tar.xz   # extract and run `paper --version`
 ```
+
+The archive contains the `paper` binary plus `README.md`, `LICENSE-MIT`,
+`LICENSE-APACHE`, `CHANGELOG.md` and `docs/`.
+
+## 4. Publish to crates.io
+
+This is a manual step and needs the maintainer's token:
+
+```bash
+cargo login
+cargo publish --dry-run     # once more, on the tagged tree
+cargo publish
+```
+
+crates.io may ask for a one-time 2FA code. After publishing:
+
+```bash
+cargo install paperscope --version 0.1.0   # smoke test the published crate
+```
+
+## 5. Publish the Homebrew formula and npm package (optional)
+
+`dist` attaches `paperscope.rb` and `paperscope-npm-package.tar.gz` to the
+release, but no publish job runs. Publishing them is manual:
+
+- **Homebrew:** copy `paperscope.rb` into your tap repository and open a
+  pull request against `homebrew/homebrew-core`.
+- **npm:** `npm publish paperscope-npm-package.tar.gz --access public`.
+
+Until a tap and an npm token exist, `publish-jobs` in `dist-workspace.toml`
+stays empty.
+
+## Signing (not enabled today)
+
+The workflow maps these secrets as environment variables, but no certificate is
+configured, so the artifacts are **unsigned**:
+
+| Secret | Used by | Purpose |
+| --- | --- | --- |
+| `CODESIGN_IDENTITY` | `dist` (macOS) | Developer ID Application identity. |
+| `CODESIGN_CERTIFICATE` | `dist` (macOS) | Base64 `.p12` certificate. |
+| `CODESIGN_CERTIFICATE_PASSWORD` | `dist` (macOS) | Password for that certificate. |
+| `CODESIGN_OPTIONS` | `dist` (macOS) | Extra `codesign` flags, e.g. `--options runtime`. |
+
+To turn macOS signing on: create a Developer ID Application certificate,
+base64 it, store it as `CODESIGN_CERTIFICATE`, and set the other two secrets.
+`dist` then signs (and can notarize) the macOS binaries on the macOS runner.
+Windows signing in `dist` 0.34 goes through the Azure or SSL.com signing
+config rather than a raw `.pfx` secret.
+
+Without signing, users verify the artifacts with `sha256.sum`, which is always
+generated.
+
+## SBOM
+
+The `sbom` job generates:
+
+- `sbom.json` — CycloneDX, from `cargo-cyclonedx`,
+- `sbom.spdx.json` — SPDX 2.3, from `cargo-sbom`.
+
+Both are attached to the GitHub Release. The same job runs on every tag; it
+does not run on pull requests.
 
 ## Troubleshooting
 
-### macOS Notarization Fails
-- Ensure `APPLE_API_KEY` and `APPLE_API_ISSUER` are correct
-- Check that the certificate is "Developer ID Application" (not Mac App Store)
-- Verify the binary has the `--options runtime` flag
+**`dist` refuses to regenerate the workflow**
+`allow-dirty = ["ci"]` is set because the committed workflow carries our
+patch. Use `scripts/regenerate-release-ci.sh`, which lifts the flag for the
+duration of the generation.
 
-### Windows Signtool Fails
-- Ensure the `.pfx` is an EV certificate (required for SmartScreen)
-- Check timestamp server reachability (`http://timestamp.digicert.com`)
+**A build job fails for one target**
+Re-run just that job from the GitHub UI. `fail-fast` is disabled, so the other
+targets still build.
 
-### GPG Signing Fails
-- Ensure `GPG_PRIVATE_KEY` includes the full ASCII-armored key (public + private)
-- Verify `GPG_PASSPHRASE` matches the key
+**`cargo publish` rejects the crate**
+Check the output of `cargo publish --dry-run`: it lists exactly which files
+would ship and compiles them. A missing `docs/readme.md` or a stale
+`Cargo.lock` is the usual cause.
 
-### cargo-dist Build Fails
-- Run `cargo check` and `cargo test` locally first
-- Ensure all targets are installed: `rustup target add x86_64-unknown-linux-musl aarch64-unknown-linux-gnu x86_64-pc-windows-msvc x86_64-apple-darwin aarch64-apple-darwin`
+**The release has no artifacts**
+The `plan` job computes the matrix; if it failed, no build job runs. Read its
+log first.
 
-## Release Checklist
+## Release checklist
 
-- [ ] All tests pass: `cargo test`
-- [ ] No warnings: `cargo check`
-- [ ] Licenses clean: `cargo deny check licenses`
-- [ ] CHANGELOG.md updated
-- [ ] Version bumped in Cargo.toml
-- [ ] Tag pushed: `git push origin vX.Y.Z`
-- [ ] GitHub Release created with all artifacts
-- [ ] Homebrew formula updated (automatic via cargo-dist)
-- [ ] Scoop manifest updated (automatic via cargo-dist)
-- [ ] npm package published (automatic via cargo-dist)
-- [ ] SBOMs attached to release
-- [ ] SLSA provenance attached to release
+- [ ] `cargo test` green on stable and on the MSRV (1.91)
+- [ ] `cargo clippy --all-targets --all-features -- -D warnings` green
+- [ ] `cargo clippy --no-default-features --all-targets -- -D warnings` green
+- [ ] `cargo deny check licenses bans sources` green
+- [ ] `cargo audit` green (only the allow-listed advisories)
+- [ ] `cargo publish --dry-run` green
+- [ ] `actionlint` clean
+- [ ] `version` bumped in `Cargo.toml`
+- [ ] `CHANGELOG.md` updated
+- [ ] Tag pushed (`git push origin vX.Y.Z`)
+- [ ] Release assets present, `sha256sum -c sha256.sum` passes
+- [ ] SBOMs attached
+- [ ] `cargo publish` done and the published crate installs

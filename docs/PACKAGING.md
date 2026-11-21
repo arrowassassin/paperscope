@@ -1,188 +1,126 @@
-# Paper Packaging Guide
+# Paper packaging guide
 
-This document describes how to build and distribute Paper for various platforms.
+This document describes what is actually shipped, how it is built, and what is
+**not** built. It is written against the current pipeline (`dist` 0.34 +
+`dist-workspace.toml`), not against an aspiration.
 
-## Supported Platforms
+## The two distribution channels
 
-- **Linux**: x86_64 (glibc), x86_64 (musl), aarch64
-- **macOS**: x86_64, aarch64 (Apple Silicon)
-- **Windows**: x86_64 (MSVC)
+| Channel | What users get | Built by |
+| --- | --- | --- |
+| crates.io | `cargo install paperscope` → the `paper` binary (and a `paper` library) | `cargo publish` |
+| GitHub Releases | per-platform archives, installers, checksums, SBOMs | `dist` (cargo-dist 0.34) in CI |
 
-## Distribution Formats
+### crates.io
 
-### 1. Cargo-dist (Primary)
+The crate is `paperscope`; the binary and library targets are both named
+`paper`, so `cargo install paperscope` installs a `paper` command.
 
-Paper uses `cargo-dist` for automated cross-platform builds and distribution.
-
-```bash
-# Install cargo-dist
-cargo install cargo-dist
-
-# Build for all targets (runs in CI)
-cargo dist build --artifacts=all
-
-# Build locally for current platform
-cargo dist build
-```
-
-Artifacts produced:
-- `tarball` (`.tar.xz`) - Universal archive
-- `zip` - Windows-friendly archive
-- `deb` - Debian/Ubuntu package
-- `rpm` - Fedora/RHEL package
-- `apk` - Alpine package
-- `shell installer` (`.sh`) - curl | sh installer
-- `Homebrew formula` - For macOS
-- `Scoop manifest` - For Windows
-- `npm package` - For Node.js environments
-
-### 2. Homebrew (macOS)
-
-Formula: `packaging/homebrew/paper.rb`
+- **MSRV:** 1.91 (`rust-version` in `Cargo.toml`).
+- **Runtime dependencies:** none. SQLite is compiled in (`rusqlite` with
+  `bundled`) and `sqlite-vec` is statically linked, so there is no system
+  `libsqlite3` to install. The only dynamic dependency is libc on the glibc
+  targets; the musl build is fully static.
+- **Optional external tools:** `pdftotext`/`pandoc` (feature `shell-accel`) and
+  Tesseract + `pdftoppm` (feature `ocr`). Both are optional accelerators; the
+  pure-Rust extractors work without them.
+- **Package size:** see `docs/implementation-status.md` for the measured
+  `cargo publish --dry-run` numbers.
 
 ```bash
-# Test locally
-brew install --build-from-source packaging/homebrew/paper.rb
-
-# After release, update sha256 in formula and submit to homebrew-core
+cargo publish --dry-run     # verify the crate builds from the packaged tarball
+cargo publish               # needs `cargo login` and a crates.io 2FA token
 ```
 
-### 3. Scoop (Windows)
+### GitHub Releases
 
-Manifest: `packaging/scoop/paper.json`
+`dist` builds one archive per target plus the installers:
+
+| Platform | Archive |
+| --- | --- |
+| Linux x86_64 (glibc) | `paperscope-x86_64-unknown-linux-gnu.tar.xz` |
+| Linux x86_64 (musl, static) | `paperscope-x86_64-unknown-linux-musl.tar.xz` |
+| Linux aarch64 | `paperscope-aarch64-unknown-linux-gnu.tar.xz` |
+| macOS x86_64 | `paperscope-x86_64-apple-darwin.tar.xz` |
+| macOS aarch64 | `paperscope-aarch64-apple-darwin.tar.xz` |
+| Windows x86_64 | `paperscope-x86_64-pc-windows-msvc.zip` |
+
+plus:
+
+- `source.tar.gz` — the crate source.
+- `sha256.sum` and a `.sha256` file per artifact.
+- `paperscope-installer.sh` — POSIX shell installer.
+- `paperscope-installer.ps1` — PowerShell installer.
+- `paperscope.rb` — Homebrew formula.
+- `paperscope-npm-package.tar.gz` — npm package.
+- `sbom.json` (CycloneDX) and `sbom.spdx.json` (SPDX) — attached by the
+  `sbom` job.
+
+## The release pipeline
+
+`dist-workspace.toml` is the source of truth for the release. The workflow file
+is **generated**, so hand edits to `.github/workflows/release.yml` are lost on
+the next regeneration.
 
 ```bash
-# Test locally
-scoop install packaging/scoop/paper.json
-
-# After release, update hash and submit to scoop main bucket
+scripts/regenerate-release-ci.sh
 ```
 
-### 4. Debian/Ubuntu (.deb)
+That script:
 
-Build:
-```bash
-cd packaging/deb
-dpkg-buildpackage -b -us -uc
-```
+1. Temporarily lifts `allow-dirty = ["ci"]` (dist refuses to write while it is
+   set, because the committed workflow differs from the generated one).
+2. Runs `dist generate --mode=ci`.
+3. Re-applies `scripts/patch-release-ci.sh`, which adds back the two things
+   dist cannot know about:
+   - the signing secrets (`CODESIGN_*`) as workflow environment variables, and
+   - the `sbom` job that attaches the two SBOMs to the release.
 
-Install:
-```bash
-sudo dpkg -i ../paper_0.1.0-1_amd64.deb
-sudo apt-get install -f  # Fix any missing dependencies
-```
+The generated workflow has these jobs:
 
-### 5. Fedora/RHEL (.rpm)
+| Job | What it does |
+| --- | --- |
+| `plan` | Installs the pinned `dist` version, computes the build matrix, and (on a tag) creates the GitHub Release. |
+| `build-local-artifacts` | Builds the per-target binaries and archives on the matching runner. |
+| `build-global-artifacts` | Builds the platform-independent installers (shell, PowerShell, Homebrew, npm). |
+| `host` | Uploads the artifacts to the GitHub Release and writes the manifest. |
+| `sbom` | Generates the CycloneDX and SPDX SBOMs and attaches them. (Added by our patch.) |
+| `announce` | Writes the release title and body from the changelog. |
 
-Build:
-```bash
-cd packaging/rpm
-rpmbuild -bb paper.spec
-```
+## What is deliberately not produced
 
-Install:
-```bash
-sudo dnf install ~/rpmbuild/RPMS/x86_64/paper-0.1.0-1.x86_64.rpm
-```
+These are **not** built today, and no documentation should claim otherwise:
 
-### 5. AppImage (Universal Linux)
+- **`.deb`, `.rpm`, `.apk`** — `dist` does not build Linux distribution
+  packages. Use `cargo install paperscope`, the musl tarball, or the shell
+  installer. A distro package would need a separate tool (`cargo-deb`,
+  `cargo-generate-rpm`) and its own CI job.
+- **AppImage** — not built.
+- **MSI / Apple `.pkg`** — not enabled in `installers`.
+- **Code signing and notarization** — the workflow maps the `CODESIGN_*`
+  secrets, but no certificate is configured, so the artifacts are currently
+  **unsigned**. They are checksummed (`sha256.sum`), which is what a user can
+  verify today.
+- **SLSA provenance** — not generated. GitHub's own build attestation is not
+  wired up either.
+- **Homebrew tap and npm publish jobs** — `publish-jobs` is empty. The formula
+  and the npm tarball are attached to the release for manual publishing.
 
-Build:
-```bash
-# Install appimagetool
-wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
-chmod +x appimagetool-x86_64.AppImage
-
-# Build AppImage
-cd packaging/appimage
-mkdir -p AppDir/usr/bin
-cp ../../target/release/paper AppDir/usr/bin/
-cp paper.desktop AppDir/
-cp AppRun AppDir/
-chmod +x AppRun
-../../appimagetool-x86_64.AppImage AppDir paper-x86_64.AppImage
-```
-
-## Release Process
-
-1. **Tag Release**: `git tag v0.1.0 && git push origin v0.1.0`
-2. **CI Builds**: GitHub Actions runs `cargo dist build` on all platforms
-3. **Artifacts Uploaded**: `cargo dist` uploads all artifacts to GitHub Releases
-4. **Verify**: Test each artifact on target platforms
-5. **Homebrew/Scoop**: Submit updated formulas/manifests to respective repositories
-6. **Linux Distros**: Submit .deb/.rpm to respective repositories (optional)
-
-## Binary Naming Convention
-
-| Platform | Architecture | Artifact Name |
-|----------|--------------|---------------|
-| Linux | x86_64 (glibc) | `paperscope-x86_64-unknown-linux-gnu.tar.xz` |
-| Linux | x86_64 (musl) | `paperscope-x86_64-unknown-linux-musl.tar.xz` |
-| Linux | aarch64 | `paperscope-aarch64-unknown-linux-gnu.tar.xz` |
-| macOS | x86_64 | `paperscope-x86_64-apple-darwin.tar.xz` |
-| macOS | aarch64 | `paperscope-aarch64-apple-darwin.tar.xz` |
-| Windows | x86_64 | `paperscope-x86_64-pc-windows-msvc.zip` |
-
-## Checksums
-
-All artifacts include SHA256 checksums in `sha256.sum`.
+## Verifying a download
 
 ```bash
-# Verify
-sha256sum -c sha256.sum
+sha256sum -c sha256.sum          # Linux
+shasum -a 256 -c sha256.sum      # macOS
 ```
 
-## Signing
+On macOS, a freshly downloaded unsigned binary may be quarantined:
 
-### macOS (Notarization)
-```bash
-# Requires Apple Developer ID
-codesign --timestamp --options runtime --sign "Developer ID Application: Name (TEAM_ID)" paper
-xcrun notarytool submit paper --apple-id $APPLE_ID --password $APPLE_PASSWORD --team-id $TEAM_ID --wait
-xcrun stapler staple paper
-```
-
-### Windows (Authenticode)
-```bash
-# Requires code signing certificate
-signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f cert.pfx /p PASSWORD paper.exe
-```
-
-### Linux (GPG)
-```bash
-gpg --detach-sign --armor paper.tar.xz
-```
-
-## Dependencies
-
-### Runtime
-- `libsqlite3` (system library)
-- `libc` (system library)
-
-### Build
-- Rust 1.91+
-- `cargo-dist`
-- Platform-specific toolchains (installed by CI)
-
-## Troubleshooting
-
-### macOS: "damaged app" error
 ```bash
 xattr -d com.apple.quarantine paper
 ```
 
-### Linux: "libsqlite3 not found"
-```bash
-sudo apt-get install libsqlite3-0  # Debian/Ubuntu
-sudo dnf install libsqlite3        # Fedora/RHEL
-```
+## Naming
 
-### Windows: "VCRUNTIME140.dll not found"
-Install Visual C++ Redistributable from Microsoft.
-
-## Security
-
-- All releases are signed and checksummed
-- SBOM (CycloneDX + SPDX) provided for each release
-- SLSA Level 3 provenance available via `cargo dist manifest`
-- Reproducible builds: `cargo dist build --artifacts=local --output-format=json` produces identical binaries
+The crate is `paperscope`; the product, library and binary are `paper`. Release
+artifacts are named after the crate (`paperscope-…`), which is what `dist`
+derives from the package name.

@@ -40,7 +40,7 @@ the tarball.
 
 ## Packaging and release (verified)
 
-- `cargo publish --dry-run` succeeds: **50 files, 70.8 KiB compressed**, and the
+- `cargo publish --dry-run` succeeds: **72 files, 153.5 KiB compressed**, and the
   packaged tarball compiles in `target/package/paperscope-0.1.0`.
 - `rust-version = "1.91"` — the highest MSRV in the tree (`notify-types` 2.3.1;
   `zip` 9.8 and `aes` 0.9 require 1.89, the `icu_*` crates require 1.88).
@@ -52,6 +52,27 @@ the tarball.
   `LICENSE-*` files belong to the unrelated project and are **not** packaged.
 - `repository` and `documentation` metadata are set, so `cargo package` emits no
   metadata warning.
+
+### Release pipeline (as built)
+
+- `dist-workspace.toml` is the source of truth for the release;
+  `.github/workflows/release.yml` is **generated** by `dist generate --mode=ci`
+  and patched by `scripts/patch-release-ci.sh` (signing secrets + the SBOM
+  job). `scripts/regenerate-release-ci.sh` does both in one step.
+- The generated jobs are `plan` → `build-local-artifacts` →
+  `build-global-artifacts` → `host` → `sbom` → `announce`.
+- Artifacts: per-target `tar.xz`/`zip`, source tarball, `sha256.sum`, shell
+  and PowerShell installers, a Homebrew formula, an npm package, and CycloneDX
+  + SPDX SBOMs.
+- **Not** built: `.deb`/`.rpm`/`.apk`, AppImage, MSI/pkg; no code signing or
+  notarization (no certificate is configured, so artifacts are unsigned but
+  checksummed); no SLSA provenance; no Homebrew-tap or npm publish job (the
+  formula and tarball are attached to the release for manual publishing).
+- The stale hand-written `packaging/` templates were removed: they were never
+  built by CI, carried placeholder SHA256 values, declared a system SQLite
+  dependency the binary does not have, and referenced a `paper completion`
+  command that does not exist. `docs/PACKAGING.md` now documents what is
+  really produced.
 
 ## Stack (as built)
 
@@ -237,4 +258,10 @@ citation validation, offline refusal, fallback).
   not wired into the pipeline; FTS5 is the keyword engine on every platform.
 - **Model/index mismatch guard.** Switching embedding models requires a reindex;
   the DB does not yet record which model produced its vectors.
-- **Releases, signing, installers, threat-model document.**
+- **Code signing and notarization.** The workflow maps the `CODESIGN_*`
+  secrets, but no certificate is configured: artifacts are unsigned (and
+  checksummed). No SLSA provenance, no `.deb`/`.rpm`/`.apk`, no Homebrew-tap or
+  npm publish job.
+- **Threat-model document.** The security properties are described in the
+  README and in `docs/implementation-status.md`, but there is no dedicated
+  threat model yet.

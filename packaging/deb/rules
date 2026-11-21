@@ -1,7 +1,0 @@
-#!/usr/bin/make -f
-
-%:
-	dh $@
-
-override_dh_auto_install:
-	install -Dm755 target/release/paper debian/paper/usr/bin/paper

@@ -180,6 +180,19 @@ jobs:
           mkdir -p target
           cargo sbom --output-format spdx_json_2_3 > target/sbom.spdx.json
 
+      # A broken dist-workspace.toml would only be discovered when a tag is
+      # pushed, i.e. when the release is already half-way through. Catch it
+      # here instead. The version is read from the config, so the check cannot
+      # drift away from the release workflow.
+      - name: Validate the release configuration
+        run: |
+          version="$(sed -n 's/^cargo-dist-version = "\(.*\)"/\1/p' dist-workspace.toml)"
+          test -n "$version"
+          curl --proto '=https' --tlsv1.2 -LsSf \
+            "https://github.com/axodotdev/cargo-dist/releases/download/v${version}/cargo-dist-installer.sh" | sh
+          ~/.cargo/bin/dist plan --output-format=json > /dev/null
+          echo "dist ${version}: release configuration is valid"
+
       - name: Upload CycloneDX SBOM
         if: always()
         uses: actions/upload-artifact@v7
