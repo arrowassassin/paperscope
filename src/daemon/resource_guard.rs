@@ -8,7 +8,7 @@
 use anyhow::Result;
 use std::sync::Arc;
 use std::time::Duration;
-use sysinfo::{System, SystemExt, ProcessorExt, BatteryExt, NetworkExt, NetworksExt, BatteryState};
+use sysinfo::{System, SystemExt, ProcessorExt, BatteryExt, NetworkExt, NetworksExt, Battery, BatteryState};
 use tokio::sync::{mpsc, RwLock};
 use tokio::time::interval;
 
@@ -90,9 +90,10 @@ impl ResourceGuard {
         system.refresh_networks();
 
         // Check battery
-        if let Some(battery) = system.battery() {
-            let remaining_percent = if battery.full_capacity() > 0 {
-                (battery.remaining_capacity() * 100 / battery.full_capacity()) as u8
+        // sysinfo 0.33: batteries() returns Vec<&Battery>
+        if let Some(battery) = system.batteries().first() {
+            let remaining_percent = if battery.capacity() > 0 {
+                (battery.remaining_capacity() * 100 / battery.capacity()) as u8
             } else {
                 100
             };
@@ -188,9 +189,9 @@ impl ResourceGuard {
                 let mut reason = None;
 
                 // Check battery
-                if let Some(battery) = system.battery() {
-                    let remaining_percent = if battery.full_capacity() > 0 {
-                        (battery.remaining_capacity() * 100 / battery.full_capacity()) as u8
+                if let Some(battery) = system.batteries().first() {
+                    let remaining_percent = if battery.capacity() > 0 {
+                        (battery.remaining_capacity() * 100 / battery.capacity()) as u8
                     } else {
                         100
                     };

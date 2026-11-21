@@ -126,13 +126,12 @@ impl Scheduler {
 /// Wrapper for running the scheduler with a specific set of roots.
 ///
 /// This variant accepts roots to index, allowing more control over what gets indexed.
-#[derive(Clone)]
 pub struct RootAwareScheduler {
     full_cron: Schedule,
     incremental_interval: Duration,
     sender: mpsc::Sender<DaemonRequest>,
     roots: Arc<tokio::sync::RwLock<Vec<std::path::PathBuf>>>,
-    task_handle: Option<tokio::task::JoinHandle<()>>,
+    task_handle: Arc<tokio::sync::Mutex<Option<tokio::task::JoinHandle<()>>>>,
 }
 
 impl RootAwareScheduler {
@@ -150,7 +149,7 @@ impl RootAwareScheduler {
             incremental_interval,
             sender,
             roots: Arc::new(tokio::sync::RwLock::new(Vec::new())),
-            task_handle: None,
+            task_handle: Arc::new(tokio::sync::Mutex::new(None)),
         })
     }
 
@@ -170,17 +169,19 @@ impl RootAwareScheduler {
     }
 
     /// Start the scheduler.
-    pub fn start(&mut self) {
+    pub fn start(&self) {
         let full_cron = self.full_cron;
         let incremental_interval = self.incremental_interval;
         let sender = self.sender.clone();
         let roots = self.roots.clone();
+        let task_handle = self.task_handle.clone();
 
         let handle = tokio::spawn(async move {
             Self::run_scheduler(full_cron, incremental_interval, sender, roots).await;
         });
 
-        self.task_handle = Some(handle);
+        let mut guard = task_handle.blocking_lock();
+        *guard = Some(handle);
     }
 
     /// Stop the scheduler gracefully.

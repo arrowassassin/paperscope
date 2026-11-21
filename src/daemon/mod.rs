@@ -7,7 +7,7 @@ pub mod scheduler;
 pub mod watcher;
 
 use crate::cli::Workspace;
-use crate::core::index::Indexer;
+use crate::core::index::{Connection, Indexer, init_db};
 use crate::daemon::auto_discover::discover_default_roots;
 use crate::daemon::ipc::{DaemonHandler, DaemonRequest, DaemonResponse, run_ipc_server};
 use crate::daemon::resource_guard::{PauseReason, ResourceGuard};
@@ -68,12 +68,13 @@ pub struct DaemonArgs {
     pub cpu_threshold: Option<u8>,
 }
 
-/// Shared daemon state.
+/// Shared daemon state (does NOT contain Indexer — it's not Send/Sync).
+/// Instead we create fresh connections per request.
 struct DaemonState {
-    indexer: Arc<RwLock<Option<Indexer>>>,
     roots: Arc<RwLock<Vec<PathBuf>>>,
     paused: Arc<RwLock<bool>>,
     workspace: Workspace,
+    embedder: Arc<tokio::sync::RwLock<Option<std::sync::Arc<dyn crate::core::search::QueryEmbedder + Send + Sync>>>>,
 }
 
 /// Daemon request handler.
@@ -109,12 +110,23 @@ impl DaemonHandler for DaemonHandlerImpl {
                     };
                 }
 
-                // Get indexer
-                let indexer = match self.state.indexer.read().await.as_ref() {
-                    Some(idx) => idx.clone(),
-                    None => {
+                // Get embedder
+                let embedder = self.state.embedder.read().await.clone();
+
+                // Create fresh indexer for this request (Indexer is not Send/Sync)
+                let conn = match self.state.workspace.open_index() {
+                    Ok(c) => c,
+                    Err(e) => {
                         return DaemonResponse::Error {
-                            msg: "Indexer not initialized".to_string(),
+                            msg: format!("Failed to open index: {e}"),
+                        };
+                    }
+                };
+                let indexer = match Indexer::new(conn, embedder) {
+                    Ok(i) => i,
+                    Err(e) => {
+                        return DaemonResponse::Error {
+                            msg: format!("Failed to create indexer: {e}"),
                         };
                     }
                 };
@@ -191,24 +203,20 @@ impl DaemonHandler for DaemonHandlerImpl {
 
 impl DaemonHandlerImpl {
     async fn count_indexed_files(&self) -> usize {
-        let indexer = match self.state.indexer.read().await.as_ref() {
-            Some(idx) => idx.clone(),
-            None => return 0,
+        let conn = match self.state.workspace.open_index() {
+            Ok(c) => c,
+            Err(_) => return 0,
         };
-
-        indexer
-            .connection()
-            .query_i64("SELECT COUNT(DISTINCT source_path) FROM chunks")
+        conn.query_i64("SELECT COUNT(DISTINCT source_path) FROM chunks")
             .unwrap_or(0) as usize
     }
 
     async fn get_embedding_model(&self) -> Option<String> {
-        let indexer = match self.state.indexer.read().await.as_ref() {
-            Some(idx) => idx.clone(),
-            None => return None,
+        let conn = match self.state.workspace.open_index() {
+            Ok(c) => c,
+            Err(_) => return None,
         };
-
-        indexer.connection().stored_embedding_model().ok().flatten()
+        conn.stored_embedding_model().ok().flatten()
     }
 }
 
@@ -240,22 +248,19 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
         tracing::info!("Daemon will index: {:?}", roots);
     }
 
-    // Initialize workspace and indexer
+    // Initialize workspace and embedder (but NOT indexer — it's not Send/Sync)
     let workspace = Workspace::new();
-    let conn = workspace.open_index()?;
     let embedder = workspace.embedder();
-    let indexer = Indexer::new(conn, embedder)?;
-    let indexer = Arc::new(RwLock::new(Some(indexer)));
 
     // Create channels
     let (request_tx, mut request_rx) = mpsc::channel::<DaemonRequest>(100);
 
     // Create shared state
     let state = Arc::new(DaemonState {
-        indexer,
         roots: Arc::new(RwLock::new(roots.clone())),
         paused: Arc::new(RwLock::new(false)),
-        workspace: workspace.clone(),
+        workspace,
+        embedder: Arc::new(tokio::sync::RwLock::new(embedder.map(|e| std::sync::Arc::new(e) as std::sync::Arc<dyn crate::core::search::QueryEmbedder + Send + Sync>))),
     });
 
     // Create scheduler
