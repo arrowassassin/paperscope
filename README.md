@@ -1,6 +1,7 @@
 # Paper
 
 [![CI](https://img.shields.io/github/actions/workflow/status/arrowassassin/paperscope/ci.yml?branch=main&label=CI)](https://github.com/arrowassassin/paperscope/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/paperscope.svg)](https://crates.io/crates/paperscope)
 [![Licence](https://img.shields.io/badge/licence-MIT%20OR%20Apache--2.0-blue)](#licence)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-black)](#install)
 
@@ -18,8 +19,15 @@ Every hit carries `path` + `line_start` + `line_end`, so a citation always resol
 ## Install
 
 ```bash
+# Option 1: cargo-dist installer (curl | sh)
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/arrowassassin/paperscope/releases/latest/download/paper-installer.sh | sh
+
+# Option 2: crates.io
 cargo install paperscope      # installs the `paper` binary
-paper models install bge-small-en-v1.5   # optional: 134 MB, enables semantic search
+
+# Option 3: optional embedding model for semantic search
+paper models install bge-small-en-v1.5   # 134 MB, English default
+
 paper index --root ~/Documents
 ```
 
@@ -125,11 +133,11 @@ still works, and `--semantic` explains how to get the full build.
 
 | Model | Size | Default | Purpose |
 |-------|------|---------|---------|
-| `BAAI/bge-small-en-v1.5` | 134 MB | Yes | English semantic search (384 dims) |
-| `intfloat/multilingual-e5-small` | 487 MB | Opt-in | 100 languages (384 dims) |
-| `BAAI/bge-reranker-base` | 1.13 GB | Opt-in | Cross-encoder reranking |
+| `bge-small-en-v1.5` | 134 MB | Yes | English semantic search (384 dims) |
+| `multilingual-e5-small` | 487 MB | Opt-in | 100 languages (384 dims) |
+| `bge-reranker-base` | 1.13 GB | Opt-in | Cross-encoder reranking |
 
-All models are Hugging Face Candle (pure Rust, no ONNX/Python), commit-pinned with per-file SHA256. Downloads come from this repo's GitHub Releases (resumable, SHA256-verified) with the pinned Hugging Face revision as fallback.
+All models are Hugging Face Candle (pure Rust, no ONNX/Python), commit-pinned with per-file SHA256. Downloads come from this repo's GitHub Releases (resumable, SHA256-verified, atomic rename) with the pinned Hugging Face revision as fallback.
 
 ## Answers
 
@@ -165,7 +173,7 @@ Tools: `search_documents`, `read_source`, `list_sources`, `answer_documents`. Ro
 ```bash
 cargo check --all-targets   # must be warning-free
 cargo test                  # 63 tests, offline, no model downloads
-cargo build --release       # ~13 MB single binary
+cargo build --release       # ~15 MB single binary
 cargo deny check licenses bans sources  # no copyleft in shipped tree
 cargo bench --bench eval    # retrieval quality CI gate (recall@10 ≥ 0.75, citation accuracy ≥ 0.95)
 ```
@@ -180,12 +188,10 @@ Always measure performance with `--release`; debug Candle is ~15× slower.
 
 ## Packaging
 
-- `cargo-dist` produces tarballs, .deb, .rpm, .apk, Homebrew formula, Scoop manifest, npm package
-- macOS notarization, Windows Authenticode, Linux GPG signing in CI
-- SBOM (CycloneDX + SPDX) and SLSA Level 3 provenance
-- `cargo vet` supply-chain verification (imports from Mozilla, Google, rust-secure-code)
-
-See `docs/PACKAGING.md` for details.
+- `cargo-dist` produces tarballs, .zip, shell installer, Homebrew formula, PowerShell installer
+- `scripts/fetch-models.sh` + CI stages model assets as unique release assets (`<model-id>-<file>`)
+- SBOM (CycloneDX + SPDX) attached to every release
+- `cargo deny` supply-chain license/bans/sources verification
 
 ## Licence
 
