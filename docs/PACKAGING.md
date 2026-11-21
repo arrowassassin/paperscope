@@ -160,7 +160,7 @@ gpg --detach-sign --armor paper.tar.xz
 - `libc` (system library)
 
 ### Build
-- Rust 1.88+
+- Rust 1.91+
 - `cargo-dist`
 - Platform-specific toolchains (installed by CI)
 

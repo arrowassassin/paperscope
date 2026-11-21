@@ -13,10 +13,13 @@ pub fn serialize_f32_vec(v: &[f32]) -> Vec<u8> {
     buf
 }
 
+/// Deserialise packed little-endian f32 bytes as written by
+/// [`serialize_f32_vec`]. A trailing partial word (corrupt input) is ignored.
 pub fn deserialize_f32_vec(bytes: &[u8]) -> Vec<f32> {
     bytes
-        .chunks_exact(4)
-        .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+        .chunks(4)
+        .filter_map(|c| <[u8; 4]>::try_from(c).ok())
+        .map(f32::from_le_bytes)
         .collect()
 }
 

@@ -42,8 +42,8 @@ the tarball.
 
 - `cargo publish --dry-run` succeeds: **50 files, 70.8 KiB compressed**, and the
   packaged tarball compiles in `target/package/paperscope-0.1.0`.
-- `rust-version = "1.88"` — the highest MSRV in the tree (`icu_*` 2.4.0, pulled
-  in through `url`/`idna`).
+- `rust-version = "1.91"` — the highest MSRV in the tree (`notify-types` 2.3.1;
+  `zip` 9.8 and `aes` 0.9 require 1.89, the `icu_*` crates require 1.88).
 - `cargo deny check licenses bans sources` passes. `deny.toml` allow-lists
   permissive licences and denies wildcard requirements, unknown registries and
   unknown git sources. `MPL-2.0` is permitted only because it enters through
