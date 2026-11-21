@@ -50,7 +50,7 @@ pub struct DaemonArgs {
     #[arg(long)]
     pub no_resource_guard: bool,
 
-    /// Full reindex cron expression (default: "0 3 * * *" = daily 3 AM)
+    /// Full reindex cron expression (default: "0 0 3 * * *" = daily 3 AM)
     #[arg(long)]
     pub full_cron: Option<String>,
 
@@ -88,6 +88,7 @@ struct DaemonHandlerImpl {
     state: Arc<DaemonState>,
     scheduler: Arc<RootAwareScheduler>,
     watcher: Arc<RwLock<Option<Watcher>>>,
+    request_tx: mpsc::Sender<DaemonRequest>,
 }
 
 #[async_trait::async_trait]
@@ -185,7 +186,14 @@ impl DaemonHandler for DaemonHandlerImpl {
                 *self.state.paused.write().await = false;
                 DaemonResponse::Ok
             }
-            DaemonRequest::Shutdown => DaemonResponse::Ok,
+            DaemonRequest::Shutdown => {
+                if self.request_tx.send(DaemonRequest::Shutdown).await.is_err() {
+                    return DaemonResponse::Error {
+                        msg: "Daemon dispatch loop is not running".to_string(),
+                    };
+                }
+                DaemonResponse::Ok
+            }
         }
     }
 }
@@ -250,7 +258,7 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
     });
 
     // Create scheduler
-    let full_cron = args.full_cron.unwrap_or_else(|| "0 3 * * *".to_string());
+    let full_cron = args.full_cron.unwrap_or_else(|| "0 0 3 * * *".to_string());
     let incremental_interval = args
         .incremental_interval
         .map(std::time::Duration::from_secs)
@@ -285,6 +293,7 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
         state: state.clone(),
         scheduler: scheduler.clone(),
         watcher: watcher.clone(),
+        request_tx: request_tx.clone(),
     });
 
     // Start components

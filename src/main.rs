@@ -23,6 +23,8 @@ enum Commands {
     Doctor,
     #[cfg(feature = "daemon")]
     Daemon(paper::daemon::DaemonArgs),
+    #[cfg(feature = "daemon")]
+    DaemonControl(paper::cli::DaemonControlArgs),
 }
 
 #[tokio::main]
@@ -46,6 +48,8 @@ async fn main() -> Result<()> {
         Commands::Doctor => paper::cli::run_doctor().await,
         #[cfg(feature = "daemon")]
         Commands::Daemon(args) => paper::daemon::run_daemon(args).await,
+        #[cfg(feature = "daemon")]
+        Commands::DaemonControl(args) => paper::cli::run_daemon_control(args).await,
     };
 
     match result {

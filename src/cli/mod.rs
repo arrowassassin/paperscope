@@ -1,10 +1,15 @@
 pub mod aggregate;
 pub mod answer;
+#[cfg(feature = "daemon")]
+pub mod daemon;
 pub mod doctor;
 pub mod index;
 pub mod model_downloader;
 pub mod models;
 pub mod search;
+
+#[cfg(feature = "daemon")]
+pub use daemon::{DaemonControlArgs, DaemonControlCommand};
 
 use crate::core::config::Config;
 use crate::core::index::{init_db, Connection};
@@ -230,4 +235,9 @@ pub async fn run_aggregate(args: aggregate::AggregateArgs) -> Result<i32> {
 
 pub async fn run_doctor() -> Result<i32> {
     doctor::run().await
+}
+
+#[cfg(feature = "daemon")]
+pub async fn run_daemon_control(args: DaemonControlArgs) -> Result<i32> {
+    daemon::run(args).await
 }

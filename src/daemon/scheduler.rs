@@ -25,7 +25,7 @@ pub struct RootAwareScheduler {
 impl RootAwareScheduler {
     /// Create a new root-aware scheduler.
     ///
-    /// - `full_cron_expr`: Cron expression for full reindex (e.g. "0 3 * * *" = daily 3 AM)
+    /// - `full_cron_expr`: Cron expression for full reindex (e.g. "0 0 3 * * *" = daily 3 AM)
     /// - `incremental_interval`: Interval for incremental indexing (e.g. 5 minutes)
     /// - `sender`: Channel to send indexing requests to the daemon
     pub fn new(
