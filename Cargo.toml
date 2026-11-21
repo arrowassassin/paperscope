@@ -170,7 +170,7 @@ harness = false
 # Semantic search (Candle) is on by default. `--no-default-features` builds a
 # keyword-only binary without Candle or the tokenizers: smaller, faster to
 # compile, and no inference code in the binary at all.
-default = ["embeddings"]
+default = ["embeddings", "daemon"]
 embeddings = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:tokenizers"]
 jieba-rs = ["dep:jieba-rs"]
 
