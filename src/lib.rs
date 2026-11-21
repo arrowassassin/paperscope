@@ -5,6 +5,7 @@
 
 pub mod cli;
 pub mod core;
+pub mod daemon;
 pub mod mcp;
 pub mod util;
 

@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en" data-brand="kintsugi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Kintsugi — Safety layer for AI coding agents. Intercept dangerous commands, enforce deterministic rules, undo with snapshots, tamper-evident audit log. Local-first, zero telemetry.">
+  <meta name="theme-color" content="#0b0e16">
+  <meta property="og:title" content="Kintsugi — Safety Layer for AI Coding Agents">
+  <meta property="og:description" content="Intercept dangerous commands, enforce deterministic rules, undo with snapshots, tamper-evident audit log. Local-first, zero telemetry.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://kintsugi.tools/">
+  <meta property="og:image" content="https://kintsugi.tools/og-kintsugi.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Kintsugi — Safety Layer for AI Coding Agents">
+  <meta name="twitter:description" content="Intercept dangerous commands, enforce deterministic rules, undo with snapshots, tamper-evident audit log.">
+  <title>Kintsugi — Safety Layer for AI Coding Agents</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter+Variable:wght@100..900&family=Berkeley+Mono:wght@400;600&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Variable:wght@100..900&family=Berkeley+Mono:wght@400;600&display=swap" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Variable:wght@100..900&family=Berkeley+Mono:wght@400;600&display=swap"></noscript>
+  <link rel="stylesheet" href="design-tokens.css">
+  <link rel="stylesheet" href="components.css">
+  <link rel="stylesheet" href="layout.css">
+  <link rel="icon" type="image/svg+xml" href="favicon-kintsugi.svg">
+  <link rel="apple-touch-icon" href="apple-touch-icon-kintsugi.png">
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+
+  <!-- Navigation -->
+  <nav class="nav" role="navigation" aria-label="Main navigation">
+    <div class="nav-inner">
+      <a href="/" class="nav-brand" aria-label="Kintsugi Tools — Home">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+        <span>Kintsugi Tools</span>
+      </a>
+
+      <ul class="nav-links" id="navLinks" role="menubar">
+        <li role="none"><a href="/" class="nav-link active" role="menuitem" aria-current="page">Home</a></li>
+        <li role="none"><a href="/paperscope.html" class="nav-link" role="menuitem">Paperscope</a></li>
+        <li role="none"><a href="/about.html" class="nav-link" role="menuitem">About</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <a href="https://github.com/arrowassassin/kintsugi" class="btn btn-ghost btn-sm" target="_blank" rel="noopener" aria-label="View on GitHub">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
+          </svg>
+          GitHub
+        </a>
+        <button class="nav-toggle" id="navToggle" aria-expanded="false" aria-controls="navLinks" aria-label="Toggle navigation menu">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <main id="main">
+    <!-- Hero Section -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-inner">
+        <div class="hero-content">
+          <span class="hero-badge" aria-label="New Release">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M12 6v6l4 2"></path>
+            </svg>
+            <span>v0.3.0 — Now with Paperscope Integration</span>
+          </span>
+          <h1 id="hero-title" class="display-1 hero-title">Kintsugi — Safety Layer for AI Coding Agents</h1>
+          <p class="lead hero-desc">Intercept dangerous commands before they run. Enforce deterministic rules. Undo with snapshots. Tamper-evident audit log. Local-first. Zero telemetry.</p>
+          <div class="hero-cta">
+            <a href="https://github.com/arrowassassin/kintsugi/releases" class="btn btn-primary btn-lg" target="_blank" rel="noopener">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              Download for macOS/Linux
+            </a>
+            <a href="https://github.com/arrowassassin/kintsugi" class="btn btn-ghost btn-lg" target="_blank" rel="noopener">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
+              </svg>
+              View Source
+            </a>
+          </div>
+        </div>
+
+        <!-- Terminal Demo -->
+        <div class="hero-demo">
+          <div class="terminal" role="img" aria-label="Terminal demo showing Kintsugi intercepting a dangerous command">
+            <div class="terminal-header">
+              <div class="terminal-dots" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+              <span class="terminal-title">kintsugi daemon — session #42</span>
+            </div>
+            <div class="terminal-body" id="terminalDemo">
+              <div class="terminal-line">
+                <span class="terminal-prompt">$</span>
+                <span class="terminal-output"> kintsugi start --policy=strict</span>
+              </div>
+              <div class="terminal-line">
+                <span class="terminal-prompt">$</span>
+                <span class="terminal-output success"> ✓ Kintsugi daemon started (PID 8847)</span>
+              </div>
+              <div class="terminal-line">
+                <span class="terminal-prompt">$</span>
+                <span class="terminal-output"> claude "rm -rf / --no-preserve-root"</span>
+              </div>
+              <div class="terminal-line">
+                <span class="terminal-prompt">⚠</span>
+                <span class="terminal-output warning"> INTERCEPTED: Destructive filesystem command blocked by policy</span>
+              </div>
+              <div class="terminal-line">
+                <span class="terminal-prompt">⚠</span>
+                <span class="terminal-output warning"> Rule matched: deny:rm_recursive_root (severity=critical)</span>
+              </div>
+              <div class="terminal-line">
+                <span class="terminal-prompt">📋</span>
+                <span class="terminal-output dim"> Snapshot created: snap_20261121_143221 (pre-command state)</span>
+              </div>
+              <div class="terminal-line">
+                <span class="terminal-prompt">🔒</span>
+                <span class="terminal-output dim"> Audit entry written: hash=sha256:a7f3... (tamper-evident)</span>
+              </div>
+              <div class="terminal-line">
+                <span class="terminal-prompt">$</span>
+                <span class="terminal-output"> echo "Agent paused. Review required."</span>
+              </div>
+              <span class="terminal-cursor" aria-hidden="true"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Product Cards Section -->
+    <section class="product-section" aria-labelledby="products-title">
+      <div class="container">
+        <header class="section-header">
+          <span class="eyebrow section-eyebrow">Products</span>
+          <h2 id="products-title" class="h1 section-title">Tools for Safer AI Workflows</h2>
+          <p class="section-desc">Two complementary tools: Kintsugi guards your agents. Paperscope searches your knowledge.</p>
+        </header>
+
+        <div class="product-grid">
+          <!-- Kintsugi Product Card -->
+          <article class="card product-card" data-brand="kintsugi">
+            <header class="card-header">
+              <div class="product-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                </svg>
+              </div>
+              <span class="product-tag">Core Product</span>
+            </header>
+            <div class="card-body">
+              <h3 class="product-title">Kintsugi</h3>
+              <p class="product-desc">Safety layer for AI coding agents. Intercepts dangerous commands, enforces deterministic policies, provides undo via snapshots, and maintains a tamper-evident audit log.</p>
+              <ul class="product-features" aria-label="Kintsugi features">
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>Intercepts dangerous commands before execution</li>
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>Deterministic YAML policy rules</li>
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>Undo with filesystem snapshots</li>
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>Tamper-evident audit log (Merkle tree)</li>
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>Local-first, zero telemetry</li>
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>MCP server for agent integration</li>
+              </ul>
+            </div>
+            <footer class="card-footer">
+              <a href="https://github.com/arrowassassin/kintsugi" class="btn btn-primary btn-sm" target="_blank" rel="noopener">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
+                </svg>
+                View on GitHub
+              </a>
+            </footer>
+          </article>
+
+          <!-- Paperscope Product Card -->
+          <article class="card product-card" data-brand="paperscope" style="--color-accent: #1a8a6a; --color-accent-hover: #16a37a; --color-accent-line: rgba(26,138,106,.35); --color-accent-bg: rgba(26,138,106,.1);">
+            <header class="card-header">
+              <div class="product-icon" aria-hidden="true" style="background: rgba(26,138,106,.12); color: #1a8a6a;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                  <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+              </div>
+              <span class="product-tag" style="background: rgba(26,138,106,.12); color: #1a8a6a;">Companion Tool</span>
+            </header>
+            <div class="card-body">
+              <h3 class="product-title">Paperscope</h3>
+              <p class="product-desc">Local-first document search with exact citations. FTS5 + sqlite-vec hybrid search, extractive answers with page references, MCP server, 15+ formats. Runs entirely offline.</p>
+              <ul class="product-features" aria-label="Paperscope features">
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>Hybrid FTS5 + vector search (sqlite-vec)</li>
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>Extractive answers with exact citations</li>
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>15+ formats: PDF, EPUB, DOCX, HTML, MD</li>
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>Multilingual: 100+ languages</li>
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>MCP server for LLM integration</li>
+                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>Zero dependencies, single binary</li>
+              </ul>
+            </div>
+            <footer class="card-footer">
+              <a href="/paperscope.html" class="btn btn-accent-ghost btn-sm" style="--color-accent: #1a8a6a; --color-accent-hover: #16a37a; --color-accent-bg: rgba(26,138,106,.1); --color-accent-bg-hover: rgba(26,138,106,.15);">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                  <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
+                View Paperscope
+              </a>
+            </footer>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="feature-section" aria-labelledby="features-title">
+      <div class="container">
+        <header class="section-header">
+          <span class="eyebrow section-eyebrow">Capabilities</span>
+          <h2 id="features-title" class="h1 section-title">Built for Production AI Workflows</h2>
+          <p class="section-desc">Every feature designed for real-world agent safety, not demos.</p>
+        </header>
+
+        <div class="feature-grid">
+          <article class="card feature-card animate-on-scroll">
+            <div class="feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+                <path d="M8 21h8M12 17v4"></path>
+              </svg>
+            </div>
+            <h3 class="feature-title">Intercept & Block</h3>
+            <p class="feature-desc">Hook into shell execution via LD_PRELOAD. Commands matched against YAML policies before they reach the kernel. Sub-millisecond overhead.</p>
+          </article>
+
+          <article class="card feature-card animate-on-scroll">
+            <div class="feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 11l3 3L22 4"></path>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+              </svg>
+            </div>
+            <h3 class="feature-title">Deterministic Policies</h3>
+            <p class="feature-desc">Rules defined in YAML with glob patterns, regex, allow/deny lists, and severity levels. No ML classifiers, no false positives, fully auditable.</p>
+          </article>
+
+          <article class="card feature-card animate-on-scroll">
+            <div class="feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+            </div>
+            <h3 class="feature-title">Snapshots & Undo</h3>
+            <p class="feature-desc">Copy-on-write filesystem snapshots before every intercepted command. One-click rollback to pre-execution state. No data loss, ever.</p>
+          </article>
+
+          <article class="card feature-card animate-on-scroll">
+            <div class="feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+            </div>
+            <h3 class="feature-title">Tamper-Evident Log</h3>
+            <p class="feature-desc">Merkle-tree audit log with SHA-256 chaining. Every interception, policy match, and snapshot cryptographically linked. Detects any post-hoc modification.</p>
+          </article>
+
+          <article class="card feature-card animate-on-scroll">
+            <div class="feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              </svg>
+            </div>
+            <h3 class="feature-title">Local-First, Zero Telemetry</h3>
+            <p class="feature-desc">Runs entirely on your machine. No network calls, no metrics, no phone home. Your code, your policies, your data — never leaves your control.</p>
+          </article>
+
+          <article class="card feature-card animate-on-scroll">
+            <div class="feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+            </div>
+            <h3 class="feature-title">MCP Server Integration</h3>
+            <p class="feature-desc">Expose Kintsugi as an MCP server. Agents can query policy status, request approvals, and retrieve audit logs through standard protocol.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Stats Bar -->
+    <section class="stats-section" aria-labelledby="stats-title">
+      <div class="container">
+        <div class="stats-bar">
+          <div class="stat-item animate-on-scroll">
+            <div class="stat-value" data-count="0">0</div>
+            <p class="stat-label">Commands Intercepted</p>
+          </div>
+          <div class="stat-item animate-on-scroll">
+            <div class="stat-value" data-count="0">0</div>
+            <p class="stat-label">Policies Enforced</p>
+          </div>
+          <div class="stat-item animate-on-scroll">
+            <div class="stat-value" data-count="0">0</div>
+            <p class="stat-label">Snapshots Created</p>
+          </div>
+          <div class="stat-item animate-on-scroll">
+            <div class="stat-value" data-count="0">0</div>
+            <p class="stat-label">Audit Entries</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section" aria-labelledby="cta-title">
+      <div class="container">
+        <div class="cta-card">
+          <h2 id="cta-title" class="h1">Ready to Secure Your Agents?</h2>
+          <p class="lead cta-desc">Install Kintsugi in under a minute. Protect every AI coding session from day one.</p>
+          <div class="cta-actions">
+            <a href="https://github.com/arrowassassin/kintsugi/releases" class="btn btn-primary btn-lg" target="_blank" rel="noopener">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              Download Latest Release
+            </a>
+            <a href="https://github.com/arrowassassin/kintsugi/blob/main/docs/QUICKSTART.md" class="btn btn-ghost btn-lg" target="_blank" rel="noopener">
+              Read Quickstart Guide
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer" role="contentinfo">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a href="/" class="footer-logo" aria-label="Kintsugi Tools — Home">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+          <span>Kintsugi Tools</span>
+        </a>
+        <p class="footer-tagline">Safety infrastructure for AI coding agents. Local-first. Zero telemetry. Built for production.</p>
+        <div class="footer-social">
+          <a href="https://github.com/arrowassassin" target="_blank" rel="noopener" aria-label="GitHub">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
+            </svg>
+          </a>
+          <a href="https://twitter.com/arrowassassin" target="_blank" rel="noopener" aria-label="Twitter/X">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 9.24-3.308.763-7.849-8.379-8.502 9.24 3.308-.764 7.849 8.379-3.576-3.639L3.587 21.75H.279l8.056-9.023-7.849-8.379 3.308-.763 8.502 9.24 7.227-8.26z"/>
+            </svg>
+          </a>
+          <a href="https://discord.gg/arrowassassin" target="_blank" rel="noopener" aria-label="Discord">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.083.083 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.007-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01 10.003 10.003 0 0 0 .372.292.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.645.776 1.252 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.057c.418-4.481-.429-9.012-3.556-13.66a.061.061 0 0 0-.031-.027zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+
+      <div class="footer-column">
+        <h4>Kintsugi</h4>
+        <ul class="footer-links">
+          <li><a href="https://github.com/arrowassassin/kintsugi" target="_blank" rel="noopener">GitHub Repository</a></li>
+          <li><a href="https://github.com/arrowassassin/kintsugi/releases" target="_blank" rel="noopener">Releases</a></li>
+          <li><a href="https://github.com/arrowassassin/kintsugi/blob/main/docs/QUICKSTART.md" target="_blank" rel="noopener">Quickstart</a></li>
+          <li><a href="https://github.com/arrowassassin/kintsugi/blob/main/docs/POLICIES.md" target="_blank" rel="noopener">Policy Reference</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-column">
+        <h4>Paperscope</h4>
+        <ul class="footer-links">
+          <li><a href="/paperscope.html">Landing Page</a></li>
+          <li><a href="https://github.com/arrowassassin/paperscope" target="_blank" rel="noopener">GitHub Repository</a></li>
+          <li><a href="https://crates.io/crates/paperscope" target="_blank" rel="noopener">crates.io</a></li>
+          <li><a href="https://github.com/arrowassassin/paperscope/blob/main/docs/INSTALL.md" target="_blank" rel="noopener">Installation</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-column">
+        <h4>Company</h4>
+        <ul class="footer-links">
+          <li><a href="/about.html">About Arrowassassin</a></li>
+          <li><a href="https://github.com/arrowassassin" target="_blank" rel="noopener">All Projects</a></li>
+          <li><a href="https://github.com/arrowassassin/kintsugi/blob/main/LICENSE" target="_blank" rel="noopener">License (MIT)</a></li>
+          <li><a href="https://github.com/arrowassassin/kintsugi/blob/main/SECURITY.md" target="_blank" rel="noopener">Security Policy</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <p class="footer-copyright">&copy; 2026 Arrowassassin. All rights reserved.</p>
+      <div class="footer-legal">
+        <a href="https://github.com/arrowassassin/kintsugi/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+        <a href="https://github.com/arrowassassin/kintsugi/blob/main/SECURITY.md" target="_blank" rel="noopener">Security</a>
+        <a href="mailto:security@arrowassassin.dev">Report Vulnerability</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Mobile Navigation Toggle
+    const navToggle = document.getElementById('navToggle');
+    const navLinks = document.getElementById('navLinks');
+
+    if (navToggle && navLinks) {
+      navToggle.addEventListener('click', () => {
+        const isOpen = navLinks.classList.toggle('open');
+        navToggle.setAttribute('aria-expanded', isOpen);
+      });
+
+      // Close on link click
+      navLinks.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', () => {
+          navLinks.classList.remove('open');
+          navToggle.setAttribute('aria-expanded', 'false');
+        });
+      });
+
+      // Close on escape
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && navLinks.classList.contains('open')) {
+          navLinks.classList.remove('open');
+          navToggle.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+
+    // Intersection Observer for Scroll Animations
+    if ('IntersectionObserver' in window) {
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      if (!prefersReducedMotion) {
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('is-visible');
+              observer.unobserve(entry.target);
+            }
+          });
+        }, {
+          rootMargin: '0px 0px -50px 0px',
+          threshold: 0.1
+        });
+
+        document.querySelectorAll('.animate-on-scroll').forEach(el => {
+          observer.observe(el);
+        });
+      } else {
+        // Reduced motion: show immediately
+        document.querySelectorAll('.animate-on-scroll').forEach(el => {
+          el.classList.add('is-visible');
+        });
+      }
+    }
+
+    // Terminal Demo Animation
+    const terminalLines = [
+      { prompt: '$', text: ' kintsugi start --policy=strict', class: '' },
+      { prompt: '$', text: ' ✓ Kintsugi daemon started (PID 8847)', class: 'success' },
+      { prompt: '$', text: ' claude "rm -rf / --no-preserve-root"', class: '' },
+      { prompt: '⚠', text: ' INTERCEPTED: Destructive filesystem command blocked by policy', class: 'warning' },
+      { prompt: '⚠', text: ' Rule matched: deny:rm_recursive_root (severity=critical)', class: 'warning' },
+      { prompt: '📋', text: ' Snapshot created: snap_20261121_143221 (pre-command state)', class: 'dim' },
+      { prompt: '🔒', text: ' Audit entry written: hash=sha256:a7f3... (tamper-evident)', class: 'dim' },
+      { prompt: '$', text: ' echo "Agent paused. Review required."', class: '' }
+    ];
+
+    const terminalBody = document.getElementById('terminalDemo');
+    let lineIndex = 0;
+
+    function typeLine(line, callback) {
+      const lineEl = document.createElement('div');
+      lineEl.className = 'terminal-line';
+      terminalBody.appendChild(lineEl);
+
+      const promptEl = document.createElement('span');
+      promptEl.className = 'terminal-prompt';
+      promptEl.textContent = line.prompt + ' ';
+      lineEl.appendChild(promptEl);
+
+      const outputEl = document.createElement('span');
+      outputEl.className = 'terminal-output' + (line.class ? ' ' + line.class : '');
+      lineEl.appendChild(outputEl);
+
+      const cursorEl = document.createElement('span');
+      cursorEl.className = 'terminal-cursor';
+      cursorEl.setAttribute('aria-hidden', 'true');
+      lineEl.appendChild(cursorEl);
+
+      let charIndex = 0;
+      const text = line.text;
+
+      function typeChar() {
+        if (charIndex < text.length) {
+          outputEl.textContent += text[charIndex];
+          charIndex++;
+          terminalBody.scrollTop = terminalBody.scrollHeight;
+          setTimeout(typeChar, 15 + Math.random() * 30);
+        } else {
+          cursorEl.remove();
+          if (callback) callback();
+        }
+      }
+
+      typeChar();
+    }
+
+    function runTerminalDemo() {
+      terminalBody.innerHTML = '';
+      lineIndex = 0;
+
+      function nextLine() {
+        if (lineIndex < terminalLines.length) {
+          typeLine(terminalLines[lineIndex], () => {
+            lineIndex++;
+            setTimeout(nextLine, 400 + Math.random() * 300);
+          });
+        } else {
+          // Add final cursor
+          const finalLine = document.createElement('div');
+          finalLine.className = 'terminal-line';
+          const cursor = document.createElement('span');
+          cursor.className = 'terminal-cursor';
+          cursor.setAttribute('aria-hidden', 'true');
+          finalLine.appendChild(cursor);
+          terminalBody.appendChild(finalLine);
+
+          // Restart after pause
+          setTimeout(runTerminalDemo, 4000);
+        }
+      }
+
+      nextLine();
+    }
+
+    // Start terminal demo when hero is visible
+    const heroObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          runTerminalDemo();
+          heroObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.5 });
+
+    const heroSection = document.querySelector('.hero');
+    if (heroSection) {
+      heroObserver.observe(heroSection);
+    }
+
+    // Counter Animation for Stats
+    function animateCounters() {
+      const counters = document.querySelectorAll('.stat-value[data-count]');
+      counters.forEach(counter => {
+        const target = parseInt(counter.dataset.count, 10);
+        const duration = 2000;
+        const startTime = performance.now();
+
+        function updateCounter(currentTime) {
+          const elapsed = currentTime - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          const current = Math.floor(eased * target);
+          counter.textContent = current.toLocaleString();
+
+          if (progress < 1) {
+            requestAnimationFrame(updateCounter);
+          }
+        }
+
+        requestAnimationFrame(updateCounter);
+      });
+    }
+
+    const statsObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          animateCounters();
+          statsObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.5 });
+
+    const statsSection = document.querySelector('.stats-section');
+    if (statsSection) {
+      statsObserver.observe(statsSection);
+    }
+  </script>
+</body>
+</html>

@@ -21,6 +21,8 @@ enum Commands {
     Serve(paper::mcp::ServeArgs),
     Models(paper::cli::ModelsArgs),
     Doctor,
+    #[cfg(feature = "daemon")]
+    Daemon(paper::daemon::DaemonArgs),
 }
 
 #[tokio::main]
@@ -42,6 +44,8 @@ async fn main() -> Result<()> {
         Commands::Serve(args) => paper::mcp::run_serve(args).await,
         Commands::Models(args) => paper::cli::run_models(args).await,
         Commands::Doctor => paper::cli::run_doctor().await,
+        #[cfg(feature = "daemon")]
+        Commands::Daemon(args) => paper::daemon::run_daemon(args).await,
     };
 
     match result {

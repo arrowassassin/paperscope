@@ -14,14 +14,29 @@
 //!   bigram-sized units, so each character is emitted as a token.
 //! - **Everything else** is left to `unicode61`.
 //!
-//! Optional dictionary segmenter (Jieba) can be enabled via feature
-//! `jieba-rs` for higher-quality Chinese word-level segmentation. It is opt-in
-//! and default off to keep the binary small and dependency-free.
+//! Optional dictionary segmenters:
+//! - Jieba (feature `jieba-rs`) for Chinese word-level segmentation
+//! - ICU (feature `icu_segmenter`) for word boundaries in CJK, Korean, Thai,
+//!   Lao, Khmer, Myanmar, Arabic, Hebrew, Devanagari, etc.
+//! - Lindera (feature `lindera`) for Japanese with IPADIC dictionary
 //!
-//! No stemming and no language detection: both would be guesses, and a guess
-//! changes the bytes a citation points at.
+//! All optional segmenters are opt-in and default off to keep the binary small
+//! and dependency-free.
+//!
+//! No stemming: it would be a guess, and a guess changes the bytes a citation
+//! points at.
 
 use unicode_normalization::UnicodeNormalization;
+
+#[cfg(feature = "icu_segmenter")]
+mod icu_segmenter;
+#[cfg(feature = "icu_segmenter")]
+use icu_segmenter::icu_segment;
+
+#[cfg(feature = "lindera")]
+mod lindera_segmenter;
+#[cfg(feature = "lindera")]
+use lindera_segmenter::lindera_segment;
 
 /// A segmenter splits text into tokens for FTS5 indexing and querying.
 ///
@@ -231,6 +246,75 @@ fn collect_bigram_first_char(text: &str) -> Vec<String> {
     tokens
 }
 
+/// Detect the primary language/script of the text for ICU segmentation.
+///
+/// Returns an ICU locale code (e.g., "zh", "ja", "ko", "th", "lo", "km", "my",
+/// "ar", "he", "hi") based on the dominant script in the text.
+/// Returns None if no supported dense script is detected.
+pub fn detect_language(text: &str) -> Option<&'static str> {
+    // Count characters per script to find the dominant one
+    let mut script_counts: std::collections::HashMap<&'static str, usize> = std::collections::HashMap::new();
+
+    for c in text.chars() {
+        let script = match c as u32 {
+            // Chinese (Han)
+            0x2E80..=0x2FFF |   // CJK radicals, Kangxi
+            0x3000..=0x303F |   // CJK symbols and punctuation
+            0x3400..=0x4DBF |   // CJK Extension A
+            0x4E00..=0x9FFF |   // CJK Unified Ideographs
+            0xF900..=0xFAFF |   // CJK Compatibility Ideographs
+            0x20000..=0x2FA1F   // CJK Extensions B–F, compatibility supplement
+                => "zh",
+            // Japanese (Hiragana + Katakana)
+            0x3040..=0x30FF
+                => "ja",
+            // Korean (Hangul)
+            0xAC00..=0xD7AF
+                => "ko",
+            // Thai
+            0x0E00..=0x0E7F
+                => "th",
+            // Lao
+            0x0E80..=0x0EFF
+                => "lo",
+            // Myanmar
+            0x1000..=0x109F
+                => "my",
+            // Khmer
+            0x1780..=0x17FF
+                => "km",
+            // Arabic
+            0x0600..=0x06FF |   // Arabic
+            0x0750..=0x077F |   // Arabic Supplement
+            0x08A0..=0x08FF |   // Arabic Extended-A
+            0xFB50..=0xFDFF |   // Arabic Presentation Forms-A
+            0xFE70..=0xFEFF     // Arabic Presentation Forms-B
+                => "ar",
+            // Hebrew
+            0x0590..=0x05FF
+                => "he",
+            // Devanagari
+            0x0900..=0x097F
+                => "hi",
+            _ => continue,
+        };
+        *script_counts.entry(script).or_insert(0) += 1;
+    }
+
+    // Return the script with the highest count
+    script_counts.into_iter().max_by_key(|(_, count)| *count).map(|(script, _)| script)
+}
+
+/// Check if text contains Japanese characters (Hiragana or Katakana).
+#[cfg(feature = "lindera")]
+fn is_japanese(text: &str) -> bool {
+    text.chars().any(|c| {
+        let cp = c as u32;
+        (0x3040..=0x309F).contains(&cp) || // Hiragana
+        (0x30A0..=0x30FF).contains(&cp)    // Katakana
+    })
+}
+
 /// Normalise text and add token boundaries for scripts `unicode61` cannot split.
 /// Uses the configured segmenter (default: bigram+first-char).
 /// For the default segmenter, uses the original logic that only adds boundaries
@@ -241,12 +325,22 @@ pub fn fts_segment(text: &str) -> String {
     let seg = segmenter();
     match seg.name() {
         "bigram-first-char" => {
-            // Use original logic that only segments dense scripts
+            // Try ICU segmenter first (covers most scripts)
+            #[cfg(feature = "icu_segmenter")]
+            if let Some(lang) = detect_language(text) {
+                return icu_segment(text, lang);
+            }
+            // Try Lindera for Japanese
+            #[cfg(feature = "lindera")]
+            if is_japanese(text) {
+                return lindera_segment(text);
+            }
+            // Fallback to original bigram logic
             let tokens = collect_bigram_first_char(text);
             tokens.join(" ")
         }
         _ => {
-            // Use the configured segmenter
+            // Use the configured segmenter (Jieba, etc.)
             let tokens = seg.segment(text);
             tokens.collect::<Vec<_>>().join(" ")
         }

@@ -2,6 +2,7 @@ pub mod aggregate;
 pub mod answer;
 pub mod doctor;
 pub mod index;
+pub mod model_downloader;
 pub mod models;
 pub mod search;
 
