@@ -67,7 +67,7 @@ Test counts: 4/4 daemon_ipc, 5/5 model_downloader, 14/14 segmentation, 38 lib te
 2. Task 6 integration: `tests/e2e.rs`, `scripts/verify-release.sh`, `docs/CLAUDE_PLUGIN.md` (real channels: crates.io + Homebrew + GitHub Releases + `claude_desktop_config.json`; **no official Claude plugin store exists**), README updates, CHANGELOG.
 3. `cargo publish` — needs the owner's `cargo login` (2FA).
 4. `git tag v0.1.0 && git push origin main --tags` — first real release-CI run (unsigned artifacts + model extra-artifacts).
-5. Push → GitHub Pages deploys `site/` to kintsugi.tools.
+5. Push → GitHub Pages deploys `site/` to paperscope.kintsugi.tools.
 
 ## Important Context (do not regress)
 
