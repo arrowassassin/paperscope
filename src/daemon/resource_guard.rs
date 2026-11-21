@@ -126,7 +126,9 @@ fn battery_statuses() -> Option<Vec<BatteryStatus>> {
 /// Whether any battery is below `threshold` and discharging. Multi-battery
 /// safe: pauses if *any* battery is low and not charging (IM).
 fn any_battery_low(batteries: &[BatteryStatus], threshold: u8) -> bool {
-    batteries.iter().any(|b| b.percent < threshold && !b.charging)
+    batteries
+        .iter()
+        .any(|b| b.percent < threshold && !b.charging)
 }
 
 /// Resource guard for monitoring system resources.

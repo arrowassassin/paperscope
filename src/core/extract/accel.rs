@@ -12,6 +12,9 @@ use crate::core::extract::ExtractedDocument;
 
 /// Try all accelerators for a given file extension. Always returns `Ok(None)`:
 /// no external binary is ever spawned.
-pub fn try_accelerators(_path: &Path, _ext: &str) -> anyhow::Result<Option<Vec<ExtractedDocument>>> {
+pub fn try_accelerators(
+    _path: &Path,
+    _ext: &str,
+) -> anyhow::Result<Option<Vec<ExtractedDocument>>> {
     Ok(None)
 }

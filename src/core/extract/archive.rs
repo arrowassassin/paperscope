@@ -71,10 +71,7 @@ fn is_safe_member_name(name: &str) -> bool {
     // Drive-letter prefixes (e.g. `C:\`) on Windows escape the namespace.
     if cfg!(target_os = "windows") {
         let bytes = name.as_bytes();
-        if bytes.len() >= 2
-            && bytes[0].is_ascii_alphabetic()
-            && bytes[1] == b':'
-        {
+        if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
             return false;
         }
     }

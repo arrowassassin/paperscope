@@ -62,69 +62,69 @@ mod tests {
 
     impl IpcClient {
         fn new(stream: UnixStream) -> Self {
-        let (reader, writer) = stream.into_split();
-        Self {
-            reader: BufReader::new(reader),
-            writer,
+            let (reader, writer) = stream.into_split();
+            Self {
+                reader: BufReader::new(reader),
+                writer,
+            }
+        }
+
+        async fn send(&mut self, request: DaemonRequest) -> anyhow::Result<DaemonResponse> {
+            let json = serde_json::to_string(&request)?;
+            self.writer.write_all(json.as_bytes()).await?;
+            self.writer.write_all(b"\n").await?;
+            self.writer.flush().await?;
+
+            let mut line = String::new();
+            self.reader.read_line(&mut line).await?;
+            let response: DaemonResponse = serde_json::from_str(line.trim())?;
+            Ok(response)
         }
     }
 
-    async fn send(&mut self, request: DaemonRequest) -> anyhow::Result<DaemonResponse> {
-        let json = serde_json::to_string(&request)?;
-        self.writer.write_all(json.as_bytes()).await?;
-        self.writer.write_all(b"\n").await?;
-        self.writer.flush().await?;
-
-        let mut line = String::new();
-        self.reader.read_line(&mut line).await?;
-        let response: DaemonResponse = serde_json::from_str(line.trim())?;
-        Ok(response)
+    #[tokio::test]
+    async fn ipc_request_index_roots_returns_ok() {
+        let (_server, mut client) = setup_ipc().await;
+        let resp = client
+            .send(DaemonRequest::IndexRoots { roots: vec![] })
+            .await
+            .unwrap();
+        assert!(matches!(resp, DaemonResponse::IndexRoots { stats: _ }));
     }
-}
 
-#[tokio::test]
-async fn ipc_request_index_roots_returns_ok() {
-    let (_server, mut client) = setup_ipc().await;
-    let resp = client
-        .send(DaemonRequest::IndexRoots { roots: vec![] })
-        .await
-        .unwrap();
-    assert!(matches!(resp, DaemonResponse::IndexRoots { stats: _ }));
-}
+    #[tokio::test]
+    async fn ipc_request_get_status_returns_ok() {
+        let (_server, mut client) = setup_ipc().await;
+        let resp = client.send(DaemonRequest::GetStatus).await.unwrap();
+        assert!(matches!(resp, DaemonResponse::Status { .. }));
+    }
 
-#[tokio::test]
-async fn ipc_request_get_status_returns_ok() {
-    let (_server, mut client) = setup_ipc().await;
-    let resp = client.send(DaemonRequest::GetStatus).await.unwrap();
-    assert!(matches!(resp, DaemonResponse::Status { .. }));
-}
+    #[tokio::test]
+    async fn ipc_request_pause_resume_returns_ok() {
+        let (_server, mut client) = setup_ipc().await;
+        let resp = client.send(DaemonRequest::Pause).await.unwrap();
+        assert!(matches!(resp, DaemonResponse::Ok));
+        let resp = client.send(DaemonRequest::Resume).await.unwrap();
+        assert!(matches!(resp, DaemonResponse::Ok));
+    }
 
-#[tokio::test]
-async fn ipc_request_pause_resume_returns_ok() {
-    let (_server, mut client) = setup_ipc().await;
-    let resp = client.send(DaemonRequest::Pause).await.unwrap();
-    assert!(matches!(resp, DaemonResponse::Ok));
-    let resp = client.send(DaemonRequest::Resume).await.unwrap();
-    assert!(matches!(resp, DaemonResponse::Ok));
-}
+    #[tokio::test]
+    async fn ipc_request_add_remove_root_returns_ok() {
+        let (_server, mut client) = setup_ipc().await;
+        let resp = client
+            .send(DaemonRequest::AddRoot {
+                path: PathBuf::from("/tmp/test"),
+            })
+            .await
+            .unwrap();
+        assert!(matches!(resp, DaemonResponse::Ok));
 
-#[tokio::test]
-async fn ipc_request_add_remove_root_returns_ok() {
-    let (_server, mut client) = setup_ipc().await;
-    let resp = client
-        .send(DaemonRequest::AddRoot {
-            path: PathBuf::from("/tmp/test"),
-        })
-        .await
-        .unwrap();
-    assert!(matches!(resp, DaemonResponse::Ok));
-
-    let resp = client
-        .send(DaemonRequest::RemoveRoot {
-            path: PathBuf::from("/tmp/test"),
-        })
-        .await
-        .unwrap();
-    assert!(matches!(resp, DaemonResponse::Ok));
-}
+        let resp = client
+            .send(DaemonRequest::RemoveRoot {
+                path: PathBuf::from("/tmp/test"),
+            })
+            .await
+            .unwrap();
+        assert!(matches!(resp, DaemonResponse::Ok));
+    }
 }

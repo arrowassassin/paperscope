@@ -71,11 +71,9 @@ fn reap_stuck_parsers() {
 fn ensure_reaper() {
     static REAPER: std::sync::OnceLock<std::thread::JoinHandle<()>> = std::sync::OnceLock::new();
     let _ = REAPER.get_or_init(|| {
-        std::thread::spawn(move || {
-            loop {
-                std::thread::sleep(std::time::Duration::from_secs(5));
-                reap_stuck_parsers();
-            }
+        std::thread::spawn(move || loop {
+            std::thread::sleep(std::time::Duration::from_secs(5));
+            reap_stuck_parsers();
         })
     });
 }

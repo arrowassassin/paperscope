@@ -159,10 +159,7 @@ impl Watcher {
             // events are visible instead of silent (IL).
             let count = relevant_paths.len();
             if event_tx.try_send(relevant_paths).is_err() {
-                tracing::warn!(
-                    "Watcher: event channel full, dropped {} events",
-                    count
-                );
+                tracing::warn!("Watcher: event channel full, dropped {} events", count);
             }
         }
     }

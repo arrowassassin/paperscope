@@ -92,9 +92,7 @@ impl RootAwareScheduler {
     pub async fn trigger_full(&self) {
         let roots = self.roots.read().await.clone();
         if let Err(e) = self.sender.try_send(DaemonRequest::IndexRoots { roots }) {
-            tracing::warn!(
-                "Scheduler: channel full, dropping scheduled full reindex: {e}"
-            );
+            tracing::warn!("Scheduler: channel full, dropping scheduled full reindex: {e}");
         }
     }
 
@@ -102,9 +100,7 @@ impl RootAwareScheduler {
     pub async fn trigger_incremental(&self) {
         let roots = self.roots.read().await.clone();
         if let Err(e) = self.sender.try_send(DaemonRequest::IndexRoots { roots }) {
-            tracing::warn!(
-                "Scheduler: channel full, dropping scheduled incremental reindex: {e}"
-            );
+            tracing::warn!("Scheduler: channel full, dropping scheduled incremental reindex: {e}");
         }
     }
 
