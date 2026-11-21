@@ -8,10 +8,18 @@ struct McpClient {
     stdin: ChildStdin,
     stdout: BufReader<std::process::ChildStdout>,
     next_id: i64,
+    /// The protocol version the server answered the handshake with.
+    negotiated_version: String,
 }
 
 impl McpClient {
     fn spawn(home: &Path, docs: &Path) -> Self {
+        Self::spawn_with_version(home, docs, "2024-11-05")
+    }
+
+    /// Spawn the server and run the `initialize` handshake with the given
+    /// protocol version. The negotiated version is kept for assertions.
+    fn spawn_with_version(home: &Path, docs: &Path, version: &str) -> Self {
         let mut child = Command::new(env!("CARGO_BIN_EXE_paper"))
             .args(["serve", "--mcp", "--root", docs.to_str().unwrap()])
             .env("PAPER_HOME", home)
@@ -27,15 +35,20 @@ impl McpClient {
             stdin,
             stdout,
             next_id: 0,
+            negotiated_version: String::new(),
         };
-        client.request(
+        let result = client.request(
             "initialize",
             json!({
-                "protocolVersion": "2024-11-05",
+                "protocolVersion": version,
                 "capabilities": {},
                 "clientInfo": {"name": "paper-test", "version": "0.0.0"}
             }),
         );
+        client.negotiated_version = result["protocolVersion"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
         client.notify("notifications/initialized", json!({}));
         client
     }
@@ -114,6 +127,24 @@ fn fixture() -> (tempfile::TempDir, PathBuf) {
         .unwrap();
     assert!(out.status.success(), "{out:?}");
     (home, docs)
+}
+
+#[test]
+fn mcp_negotiates_the_protocol_version_of_the_client() {
+    let (home, docs) = fixture();
+
+    // An old client keeps working: the server answers the version it asked
+    // for, so nothing breaks for clients that have not been updated.
+    let old = McpClient::spawn_with_version(home.path(), &docs, "2024-11-05");
+    assert_eq!(old.negotiated_version, "2024-11-05");
+
+    // A current client gets the current revision, not the old one.
+    let mut new = McpClient::spawn_with_version(home.path(), &docs, "2025-11-25");
+    assert_eq!(new.negotiated_version, "2025-11-25");
+
+    // The tools still work after the newer handshake.
+    let hits = new.call_tool("search_documents", json!({"query": "fridge warranty"}));
+    assert!(!hits.as_array().unwrap().is_empty());
 }
 
 #[test]

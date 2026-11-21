@@ -46,6 +46,10 @@ Dependencies under this license:
   Repository: https://github.com/playXE/alloca-rs
   License: MIT
 
+  allocator-api2 v0.2.21
+  Repository: https://github.com/zakarumych/allocator-api2
+  License: MIT OR Apache-2.0
+
   android_system_properties v0.1.6
   Repository: https://github.com/nical/android_system_properties
   License: MIT OR Apache-2.0
@@ -106,18 +110,6 @@ Dependencies under this license:
   Repository: https://github.com/marshallpierce/rust-base64
   License: MIT OR Apache-2.0
 
-  bit-set v0.5.3
-  Repository: https://github.com/contain-rs/bit-set
-  License: MIT/Apache-2.0
-
-  bit-vec v0.6.3
-  Repository: https://github.com/contain-rs/bit-vec
-  License: MIT/Apache-2.0
-
-  bitflags v1.3.2
-  Repository: https://github.com/bitflags/bitflags
-  License: MIT/Apache-2.0
-
   bitflags v2.13.2
   Repository: https://github.com/bitflags/bitflags
   License: MIT OR Apache-2.0
@@ -146,21 +138,25 @@ Dependencies under this license:
   Repository: https://github.com/tafia/calamine
   License: MIT
 
-  candle-core v0.8.4
+  candle-core v0.11.1
   Repository: https://github.com/huggingface/candle
   License: MIT OR Apache-2.0
 
-  candle-nn v0.8.4
+  candle-nn v0.11.1
   Repository: https://github.com/huggingface/candle
   License: MIT OR Apache-2.0
 
-  candle-transformers v0.8.4
+  candle-transformers v0.11.1
   Repository: https://github.com/huggingface/candle
   License: MIT OR Apache-2.0
 
   cast v0.3.0
   Repository: https://github.com/japaric/cast.rs
   License: MIT OR Apache-2.0
+
+  castaway v0.2.4
+  Repository: https://github.com/sagebind/castaway
+  License: MIT
 
   cbc v0.2.1
   Repository: https://github.com/RustCrypto/block-modes
@@ -210,6 +206,10 @@ Dependencies under this license:
   Repository: https://github.com/rust-cli/anstyle.git
   License: MIT OR Apache-2.0
 
+  compact_str v0.9.1
+  Repository: https://github.com/ParkMyCar/compact_str
+  License: MIT
+
   compression-codecs v0.4.47
   Repository: https://github.com/Nullus157/async-compression
   License: MIT OR Apache-2.0
@@ -219,6 +219,10 @@ Dependencies under this license:
   License: MIT OR Apache-2.0
 
   console v0.15.11
+  Repository: https://github.com/console-rs/console
+  License: MIT
+
+  console v0.16.6
   Repository: https://github.com/console-rs/console
   License: MIT
 
@@ -270,7 +274,15 @@ Dependencies under this license:
   Repository: https://github.com/RustCrypto/traits
   License: MIT OR Apache-2.0
 
+  daachorse v3.0.3
+  Repository: https://github.com/daac-tools/daachorse
+  License: MIT OR Apache-2.0
+
   darling v0.20.11
+  Repository: https://github.com/TedDriggs/darling
+  License: MIT
+
+  darling v0.24.1
   Repository: https://github.com/TedDriggs/darling
   License: MIT
 
@@ -278,9 +290,21 @@ Dependencies under this license:
   Repository: https://github.com/TedDriggs/darling
   License: MIT
 
+  darling_core v0.24.1
+  Repository: https://github.com/TedDriggs/darling
+  License: MIT
+
   darling_macro v0.20.11
   Repository: https://github.com/TedDriggs/darling
   License: MIT
+
+  darling_macro v0.24.1
+  Repository: https://github.com/TedDriggs/darling
+  License: MIT
+
+  dary_heap v0.3.9
+  Repository: https://github.com/hanmertens/dary_heap
+  License: MIT OR Apache-2.0
 
   data-encoding v2.11.1
   Repository: https://github.com/ia0/data-encoding
@@ -330,10 +354,6 @@ Dependencies under this license:
   Repository: https://github.com/dtolnay/dyn-clone
   License: MIT OR Apache-2.0
 
-  dyn-stack v0.10.0
-  Repository: https://github.com/kitegi/dynstack/
-  License: MIT
-
   dyn-stack v0.13.2
   Repository: https://codeberg.org/sarah-quinones/dyn-stack
   License: MIT
@@ -366,7 +386,11 @@ Dependencies under this license:
   Repository: https://github.com/sfackler/fallible-streaming-iterator
   License: MIT/Apache-2.0
 
-  fancy-regex v0.13.0
+  fancy-regex v0.17.0
+  Repository: https://github.com/fancy-regex/fancy-regex
+  License: MIT
+
+  fancy-regex v0.19.2
   Repository: https://github.com/fancy-regex/fancy-regex
   License: MIT
 
@@ -385,6 +409,10 @@ Dependencies under this license:
   flate2 v1.1.11
   Repository: https://github.com/rust-lang/flate2-rs
   License: MIT OR Apache-2.0
+
+  float8 v0.7.0
+  Repository: https://github.com/EricLBuehler/float8
+  License: MIT
 
   form_urlencoded v1.2.2
   Repository: https://github.com/servo/rust-url
@@ -426,59 +454,31 @@ Dependencies under this license:
   Repository: https://github.com/rust-lang/futures-rs
   License: MIT OR Apache-2.0
 
-  gemm v0.17.1
+  gemm v0.19.0
   Repository: https://github.com/sarah-ek/gemm/
   License: MIT
 
-  gemm v0.18.2
+  gemm-c32 v0.19.0
   Repository: https://github.com/sarah-ek/gemm/
   License: MIT
 
-  gemm-c32 v0.17.1
+  gemm-c64 v0.19.0
   Repository: https://github.com/sarah-ek/gemm/
   License: MIT
 
-  gemm-c32 v0.18.2
+  gemm-common v0.19.0
   Repository: https://github.com/sarah-ek/gemm/
   License: MIT
 
-  gemm-c64 v0.17.1
+  gemm-f16 v0.19.0
   Repository: https://github.com/sarah-ek/gemm/
   License: MIT
 
-  gemm-c64 v0.18.2
+  gemm-f32 v0.19.0
   Repository: https://github.com/sarah-ek/gemm/
   License: MIT
 
-  gemm-common v0.17.1
-  Repository: https://github.com/sarah-ek/gemm/
-  License: MIT
-
-  gemm-common v0.18.2
-  Repository: https://github.com/sarah-ek/gemm/
-  License: MIT
-
-  gemm-f16 v0.17.1
-  Repository: https://github.com/sarah-ek/gemm/
-  License: MIT
-
-  gemm-f16 v0.18.2
-  Repository: https://github.com/sarah-ek/gemm/
-  License: MIT
-
-  gemm-f32 v0.17.1
-  Repository: https://github.com/sarah-ek/gemm/
-  License: MIT
-
-  gemm-f32 v0.18.2
-  Repository: https://github.com/sarah-ek/gemm/
-  License: MIT
-
-  gemm-f64 v0.17.1
-  Repository: https://github.com/sarah-ek/gemm/
-  License: MIT
-
-  gemm-f64 v0.18.2
+  gemm-f64 v0.19.0
   Repository: https://github.com/sarah-ek/gemm/
   License: MIT
 
@@ -502,7 +502,7 @@ Dependencies under this license:
   Repository: https://github.com/VoidStarKat/half-rs
   License: MIT OR Apache-2.0
 
-  hashbrown v0.14.5
+  hashbrown v0.16.1
   Repository: https://github.com/rust-lang/hashbrown
   License: MIT OR Apache-2.0
 
@@ -510,8 +510,8 @@ Dependencies under this license:
   Repository: https://github.com/rust-lang/hashbrown
   License: MIT OR Apache-2.0
 
-  hashlink v0.9.1
-  Repository: https://github.com/kyren/hashlink
+  hashlink v0.12.2
+  Repository: https://github.com/djc/hashlink
   License: MIT OR Apache-2.0
 
   heck v0.5.0
@@ -582,6 +582,10 @@ Dependencies under this license:
   Repository: https://github.com/console-rs/indicatif
   License: MIT
 
+  indicatif v0.18.6
+  Repository: https://github.com/console-rs/indicatif
+  License: MIT
+
   inout v0.2.6
   Repository: https://github.com/RustCrypto/utils
   License: MIT OR Apache-2.0
@@ -594,15 +598,11 @@ Dependencies under this license:
   Repository: https://github.com/polyfill-rs/is_terminal_polyfill
   License: MIT OR Apache-2.0
 
-  itertools v0.11.0
-  Repository: https://github.com/rust-itertools/itertools
-  License: MIT OR Apache-2.0
-
-  itertools v0.12.1
-  Repository: https://github.com/rust-itertools/itertools
-  License: MIT OR Apache-2.0
-
   itertools v0.13.0
+  Repository: https://github.com/rust-itertools/itertools
+  License: MIT OR Apache-2.0
+
+  itertools v0.14.0
   Repository: https://github.com/rust-itertools/itertools
   License: MIT OR Apache-2.0
 
@@ -646,7 +646,7 @@ Dependencies under this license:
   Repository: https://gitlab.redox-os.org/redox-os/libredox.git
   License: MIT
 
-  libsqlite3-sys v0.30.1
+  libsqlite3-sys v0.40.0
   Repository: https://github.com/rusqlite/rusqlite
   License: MIT
 
@@ -726,28 +726,8 @@ Dependencies under this license:
   Repository: https://github.com/nushell/nu-ansi-term
   License: MIT
 
-  num v0.4.3
-  Repository: https://github.com/rust-num/num
-  License: MIT OR Apache-2.0
-
-  num-bigint v0.4.8
-  Repository: https://github.com/rust-num/num-bigint
-  License: MIT OR Apache-2.0
-
   num-complex v0.4.6
   Repository: https://github.com/rust-num/num-complex
-  License: MIT OR Apache-2.0
-
-  num-integer v0.1.47
-  Repository: https://github.com/rust-num/num-integer
-  License: MIT OR Apache-2.0
-
-  num-iter v0.1.46
-  Repository: https://github.com/rust-num/num-iter
-  License: MIT OR Apache-2.0
-
-  num-rational v0.4.2
-  Repository: https://github.com/rust-num/num-rational
   License: MIT OR Apache-2.0
 
   num-traits v0.2.19
@@ -842,12 +822,12 @@ Dependencies under this license:
   Repository: https://github.com/dtolnay/proc-macro2
   License: MIT OR Apache-2.0
 
-  pulp v0.18.22
-  Repository: https://github.com/sarah-ek/pulp/
+  pulp v0.22.3
+  Repository: https://github.com/sarah-quinones/pulp/
   License: MIT
 
-  pulp v0.21.5
-  Repository: https://github.com/sarah-ek/pulp/
+  pulp-wasm-simd-flag v0.1.1
+  Repository: https://github.com/sarah-quinones/pulp/
   License: MIT
 
   quick-xml v0.42.0
@@ -882,15 +862,7 @@ Dependencies under this license:
   Repository: https://github.com/rust-random/rand
   License: MIT OR Apache-2.0
 
-  rand v0.8.8
-  Repository: https://github.com/rust-random/rand
-  License: MIT OR Apache-2.0
-
   rand v0.9.5
-  Repository: https://github.com/rust-random/rand
-  License: MIT OR Apache-2.0
-
-  rand_chacha v0.3.1
   Repository: https://github.com/rust-random/rand
   License: MIT OR Apache-2.0
 
@@ -900,10 +872,6 @@ Dependencies under this license:
 
   rand_core v0.10.1
   Repository: https://github.com/rust-random/rand_core
-  License: MIT OR Apache-2.0
-
-  rand_core v0.6.4
-  Repository: https://github.com/rust-random/rand
   License: MIT OR Apache-2.0
 
   rand_core v0.9.5
@@ -921,10 +889,6 @@ Dependencies under this license:
   rangemap v1.8.0
   Repository: https://github.com/jeffparsons/rangemap
   License: MIT/Apache-2.0
-
-  raw-cpuid v10.7.0
-  Repository: https://github.com/gz/rust-cpuid
-  License: MIT
 
   raw-cpuid v11.6.0
   Repository: https://github.com/gz/rust-cpuid
@@ -950,6 +914,14 @@ Dependencies under this license:
   Repository: https://gitlab.redox-os.org/redox-os/users
   License: MIT
 
+  ref-cast v1.0.27
+  Repository: https://github.com/dtolnay/ref-cast
+  License: MIT OR Apache-2.0
+
+  ref-cast-impl v1.0.27
+  Repository: https://github.com/dtolnay/ref-cast
+  License: MIT OR Apache-2.0
+
   regex v1.13.2
   Repository: https://github.com/rust-lang/regex
   License: MIT OR Apache-2.0
@@ -966,15 +938,11 @@ Dependencies under this license:
   Repository: https://github.com/seanmonstar/reqwest
   License: MIT OR Apache-2.0
 
-  rmcp v0.2.1
-  Repository: https://github.com/modelcontextprotocol/rust-sdk/
-  License: MIT/Apache-2.0
+  rsqlite-vfs v0.2.0
+  Repository: https://github.com/Spxg/sqlite-wasm-rs
+  License: MIT
 
-  rmcp-macros v0.2.1
-  Repository: https://github.com/modelcontextprotocol/rust-sdk/
-  License: MIT/Apache-2.0
-
-  rusqlite v0.32.1
+  rusqlite v0.43.0
   Repository: https://github.com/rusqlite/rusqlite
   License: MIT
 
@@ -986,11 +954,11 @@ Dependencies under this license:
   Repository: https://github.com/dtolnay/rustversion
   License: MIT OR Apache-2.0
 
-  schemars v0.8.22
+  schemars v1.2.3
   Repository: https://github.com/GREsau/schemars
   License: MIT
 
-  schemars_derive v0.8.22
+  schemars_derive v1.2.3
   Repository: https://github.com/GREsau/schemars
   License: MIT
 
@@ -1014,7 +982,7 @@ Dependencies under this license:
   Repository: https://github.com/serde-rs/serde
   License: MIT OR Apache-2.0
 
-  serde_derive_internals v0.29.1
+  serde_derive_internals v0.30.0
   Repository: https://github.com/serde-rs/serde
   License: MIT OR Apache-2.0
 
@@ -1082,8 +1050,16 @@ Dependencies under this license:
   Repository: https://github.com/asg017/sqlite-vec
   License: MIT/Apache-2.0
 
+  sqlite-wasm-rs v0.6.3
+  Repository: https://github.com/Spxg/sqlite-wasm-rs
+  License: MIT
+
   stable_deref_trait v1.2.1
   Repository: https://github.com/storyyeller/stable_deref_trait
+  License: MIT OR Apache-2.0
+
+  static_assertions v1.1.0
+  Repository: https://github.com/nvzqz/static-assertions-rs
   License: MIT OR Apache-2.0
 
   string_cache v0.11.0
@@ -1110,16 +1086,8 @@ Dependencies under this license:
   Repository: https://github.com/dtolnay/syn
   License: MIT OR Apache-2.0
 
-  synstructure v0.13.2
-  Repository: https://github.com/mystor/synstructure
-  License: MIT
-
   synstructure v0.14.0
   Repository: https://github.com/mystor/synstructure
-  License: MIT
-
-  sysctl v0.5.5
-  Repository: https://github.com/johalun/sysctl-rs
   License: MIT
 
   sysctl v0.6.0
@@ -1238,10 +1206,6 @@ Dependencies under this license:
   Repository: https://github.com/paholg/typenum
   License: MIT OR Apache-2.0
 
-  ug v0.1.0
-  Repository: https://github.com/LaurentMazare/ug
-  License: MIT OR Apache-2.0
-
   unicode-bidi v0.3.18
   Repository: https://github.com/servo/unicode-bidi
   License: MIT OR Apache-2.0
@@ -1273,6 +1237,10 @@ Dependencies under this license:
   unicode_categories v0.1.1
   Repository: https://github.com/swgillespie/unicode-categories
   License: MIT OR Apache-2.0
+
+  unit-prefix v0.5.2
+  Repository: https://codeberg.org/commons-rs/unit-prefix
+  License: MIT
 
   url v2.5.8
   Repository: https://github.com/servo/rust-url
@@ -1346,23 +1314,7 @@ Dependencies under this license:
   Repository: https://github.com/retep998/winapi-rs
   License: MIT/Apache-2.0
 
-  windows v0.61.3
-  Repository: https://github.com/microsoft/windows-rs
-  License: MIT OR Apache-2.0
-
-  windows-collections v0.2.0
-  Repository: https://github.com/microsoft/windows-rs
-  License: MIT OR Apache-2.0
-
-  windows-core v0.61.2
-  Repository: https://github.com/microsoft/windows-rs
-  License: MIT OR Apache-2.0
-
   windows-core v0.62.2
-  Repository: https://github.com/microsoft/windows-rs
-  License: MIT OR Apache-2.0
-
-  windows-future v0.2.1
   Repository: https://github.com/microsoft/windows-rs
   License: MIT OR Apache-2.0
 
@@ -1374,27 +1326,11 @@ Dependencies under this license:
   Repository: https://github.com/microsoft/windows-rs
   License: MIT OR Apache-2.0
 
-  windows-link v0.1.3
-  Repository: https://github.com/microsoft/windows-rs
-  License: MIT OR Apache-2.0
-
   windows-link v0.2.1
   Repository: https://github.com/microsoft/windows-rs
   License: MIT OR Apache-2.0
 
-  windows-numerics v0.2.0
-  Repository: https://github.com/microsoft/windows-rs
-  License: MIT OR Apache-2.0
-
-  windows-result v0.3.4
-  Repository: https://github.com/microsoft/windows-rs
-  License: MIT OR Apache-2.0
-
   windows-result v0.4.1
-  Repository: https://github.com/microsoft/windows-rs
-  License: MIT OR Apache-2.0
-
-  windows-strings v0.4.2
   Repository: https://github.com/microsoft/windows-rs
   License: MIT OR Apache-2.0
 
@@ -1423,10 +1359,6 @@ Dependencies under this license:
   License: MIT OR Apache-2.0
 
   windows-targets v0.52.6
-  Repository: https://github.com/microsoft/windows-rs
-  License: MIT OR Apache-2.0
-
-  windows-threading v0.1.0
   Repository: https://github.com/microsoft/windows-rs
   License: MIT OR Apache-2.0
 
@@ -1497,10 +1429,6 @@ Dependencies under this license:
   xattr v1.7.0
   Repository: https://github.com/Stebalien/xattr
   License: MIT OR Apache-2.0
-
-  zip v1.3.1
-  Repository: https://github.com/zip-rs/zip2.git
-  License: MIT
 
   zip v9.8.0
   Repository: https://github.com/zip-rs/zip2
@@ -1714,6 +1642,14 @@ Dependencies under this license:
   Repository: https://github.com/cuviper/autocfg
   License: Apache-2.0 OR MIT
 
+  bit-set v0.8.0
+  Repository: https://github.com/contain-rs/bit-set
+  License: Apache-2.0 OR MIT
+
+  bit-vec v0.8.0
+  Repository: https://github.com/contain-rs/bit-vec
+  License: Apache-2.0 OR MIT
+
   charset v0.1.5
   Repository: https://github.com/hsivonen/charset
   License: Apache-2.0 OR MIT
@@ -1806,17 +1742,21 @@ Dependencies under this license:
   Repository: https://github.com/taiki-e/portable-atomic
   License: Apache-2.0 OR MIT
 
-  process-wrap v8.2.2
-  Repository: https://github.com/watchexec/process-wrap
-  License: Apache-2.0 OR MIT
-
-  rayon-cond v0.3.0
+  rayon-cond v0.4.0
   Repository: https://github.com/cuviper/rayon-cond
   License: Apache-2.0/MIT
 
   ring v0.17.14
   Repository: https://github.com/briansmith/ring
   License: Apache-2.0 AND ISC
+
+  rmcp v3.11.0
+  Repository: https://github.com/modelcontextprotocol/rust-sdk/
+  License: Apache-2.0
+
+  rmcp-macros v3.11.0
+  Repository: https://github.com/modelcontextprotocol/rust-sdk/
+  License: Apache-2.0
 
   rustc-hash v2.1.3
   Repository: https://github.com/rust-lang/rustc-hash
@@ -1834,7 +1774,7 @@ Dependencies under this license:
   Repository: https://github.com/dtolnay/ryu
   License: Apache-2.0 OR BSL-1.0
 
-  safetensors v0.4.5
+  safetensors v0.8.0
   Repository: https://github.com/huggingface/safetensors
   License: Apache-2.0
 
@@ -1850,8 +1790,12 @@ Dependencies under this license:
   Repository: https://github.com/bheisler/TinyTemplate
   License: Apache-2.0 OR MIT
 
-  tokenizers v0.20.4
+  tokenizers v0.23.2
   Repository: https://github.com/huggingface/tokenizers
+  License: Apache-2.0
+
+  unicode-general-category v1.1.0
+  Repository: https://github.com/yeslogic/unicode-general-category
   License: Apache-2.0
 
   utf8_iter v1.1.0
@@ -1864,6 +1808,10 @@ Dependencies under this license:
 
   utf_types v1.0.0
   Repository: https://github.com/hsivonen/utf_types
+  License: Apache-2.0 OR MIT
+
+  uuid v1.29.3
+  Repository: https://github.com/uuid-rs/uuid
   License: Apache-2.0 OR MIT
 
   wasi v0.11.1+wasi-snapshot-preview1
@@ -2013,10 +1961,6 @@ Dependencies under this license:
 
   inotify-sys v0.1.8
   Repository: https://github.com/hannobraun/inotify-sys
-  License: ISC
-
-  libloading v0.8.9
-  Repository: https://github.com/nagisa/rust_libloading/
   License: ISC
 
   rustls-webpki v0.103.17
@@ -2242,6 +2186,10 @@ Dependencies under this license:
   Repository: https://github.com/Lokathor/bytemuck
   License: Zlib OR Apache-2.0 OR MIT
 
+  foldhash v0.2.0
+  Repository: https://github.com/orlp/foldhash
+  License: Zlib
+
   objc2-core-foundation v0.3.2
   Repository: https://github.com/madsmtm/objc2
   License: Zlib OR Apache-2.0 OR MIT
@@ -2345,15 +2293,7 @@ Dependencies under this license:
   Repository: https://github.com/unicode-org/icu4x
   License: Unicode-3.0
 
-  yoke v0.7.5
-  Repository: https://github.com/unicode-org/icu4x
-  License: Unicode-3.0
-
   yoke v0.8.4
-  Repository: https://github.com/unicode-org/icu4x
-  License: Unicode-3.0
-
-  yoke-derive v0.7.5
   Repository: https://github.com/unicode-org/icu4x
   License: Unicode-3.0
 

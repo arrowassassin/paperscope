@@ -79,10 +79,10 @@ the tarball.
 | Area | Choice | Why |
 | --- | --- | --- |
 | Language | Rust, single crate, `src/lib.rs` + `src/main.rs` | one binary, integration tests import the lib |
-| Storage | `rusqlite` 0.32 (`bundled`) | no system SQLite dependency |
+| Storage | `rusqlite` 0.43 (`bundled`) | no system SQLite dependency |
 | Vectors | `sqlite-vec` 0.1.9, **statically linked** via `sqlite3_auto_extension` | `0.1.10-alpha.4` fails to build (missing `sqlite-vec-diskann.c`); static linking keeps the single-binary promise, no runtime `.dylib` |
-| Inference | Hugging Face **Candle** 0.8 (`candle-transformers`) | pure Rust, no ONNX Runtime, no Python |
-| MCP | `rmcp` 0.2 (`server`, `transport-io`) | official Rust MCP SDK, stdio only |
+| Inference | Hugging Face **Candle** 0.11 (`candle-transformers`), `tokenizers` 0.23 | pure Rust, no ONNX Runtime, no Python |
+| MCP | `rmcp` 3.11 (`server`, `transport-io`) | official Rust MCP SDK, stdio only |
 
 ### Cargo features
 
@@ -200,6 +200,11 @@ Connections are opened per request (a `rusqlite::Connection` is not `Sync`, and
 fresh handles see newly indexed chunks). `read_source` takes a chunk id, never a
 path, and rejects anything outside the server roots.
 
+The protocol version is negotiated: a client that asks for `2024-11-05` gets
+`2024-11-05`, a current client gets `2025-11-25` (the newest revision that
+still has the `initialize` handshake the server implements). Both are covered
+by the integration test, which speaks real JSON-RPC over stdio.
+
 Answers are **extractive**: a verbatim quote plus `path:line_start-line_end`
 citations. No generative model is bundled, so an answer cannot state a fact that
 is not on disk.
@@ -234,7 +239,7 @@ is not on disk.
 
 ## Tests
 
-`cargo test` — 99 tests, no network access, no model downloads.
+`cargo test` — 100 tests, no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 
 ```
