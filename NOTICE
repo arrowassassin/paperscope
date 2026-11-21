@@ -222,14 +222,6 @@ Dependencies under this license:
   Repository: https://github.com/console-rs/console
   License: MIT
 
-  core-foundation v0.10.1
-  Repository: https://github.com/servo/core-foundation-rs
-  License: MIT OR Apache-2.0
-
-  core-foundation v0.9.4
-  Repository: https://github.com/servo/core-foundation-rs
-  License: MIT OR Apache-2.0
-
   core-foundation-sys v0.8.7
   Repository: https://github.com/servo/core-foundation-rs
   License: MIT OR Apache-2.0
@@ -393,14 +385,6 @@ Dependencies under this license:
   flate2 v1.1.11
   Repository: https://github.com/rust-lang/flate2-rs
   License: MIT OR Apache-2.0
-
-  foreign-types v0.3.2
-  Repository: https://github.com/sfackler/foreign-types
-  License: MIT/Apache-2.0
-
-  foreign-types-shared v0.1.1
-  Repository: https://github.com/sfackler/foreign-types
-  License: MIT/Apache-2.0
 
   form_urlencoded v1.2.2
   Repository: https://github.com/servo/rust-url
@@ -718,10 +702,6 @@ Dependencies under this license:
   Repository: https://github.com/dtolnay/monostate
   License: MIT OR Apache-2.0
 
-  native-tls v0.2.18
-  Repository: https://github.com/rust-native-tls/rust-native-tls
-  License: MIT OR Apache-2.0
-
   new_debug_unreachable v1.0.6
   Repository: https://github.com/mbrubeck/rust-debug-unreachable
   License: MIT
@@ -800,17 +780,6 @@ Dependencies under this license:
 
   oorandom v11.1.5
   Repository: https://hg.sr.ht/~icefox/oorandom
-  License: MIT
-
-  openssl-macros v0.1.1
-  License: MIT/Apache-2.0
-
-  openssl-probe v0.2.2
-  Repository: https://github.com/rustls/openssl-probe
-  License: MIT OR Apache-2.0
-
-  openssl-sys v0.9.118
-  Repository: https://github.com/rust-openssl/rust-openssl
   License: MIT
 
   ordered-float v4.6.0
@@ -1017,10 +986,6 @@ Dependencies under this license:
   Repository: https://github.com/dtolnay/rustversion
   License: MIT OR Apache-2.0
 
-  schannel v0.1.30
-  Repository: https://github.com/steffengy/schannel-rs
-  License: MIT
-
   schemars v0.8.22
   Repository: https://github.com/GREsau/schemars
   License: MIT
@@ -1031,14 +996,6 @@ Dependencies under this license:
 
   scopeguard v1.2.0
   Repository: https://github.com/bluss/scopeguard
-  License: MIT OR Apache-2.0
-
-  security-framework v3.7.0
-  Repository: https://github.com/kornelski/rust-security-framework
-  License: MIT OR Apache-2.0
-
-  security-framework-sys v2.17.0
-  Repository: https://github.com/kornelski/rust-security-framework
   License: MIT OR Apache-2.0
 
   seq-macro v0.3.6
@@ -1315,10 +1272,6 @@ Dependencies under this license:
 
   unicode_categories v0.1.1
   Repository: https://github.com/swgillespie/unicode-categories
-  License: MIT OR Apache-2.0
-
-  ureq v2.12.1
-  Repository: https://github.com/algesten/ureq
   License: MIT OR Apache-2.0
 
   url v2.5.8
@@ -1817,10 +1770,6 @@ Dependencies under this license:
   Repository: https://github.com/servo/rust-fnv
   License: Apache-2.0 / MIT
 
-  hf-hub v0.3.2
-  Repository: https://github.com/huggingface/hf-hub
-  License: Apache-2.0
-
   hyper-rustls v0.27.10
   Repository: https://github.com/rustls/hyper-rustls
   License: Apache-2.0 OR ISC OR MIT
@@ -1848,10 +1797,6 @@ Dependencies under this license:
   multiversion_no_op v1.0.0
   Repository: https://github.com/hsivonen/multiversion_no_op
   License: Apache-2.0 OR MIT
-
-  openssl v0.10.82
-  Repository: https://github.com/rust-openssl/rust-openssl
-  License: Apache-2.0
 
   pin-project-lite v0.2.17
   Repository: https://github.com/taiki-e/pin-project-lite
@@ -1890,10 +1835,6 @@ Dependencies under this license:
   License: Apache-2.0 OR BSL-1.0
 
   safetensors v0.4.5
-  Repository: https://github.com/huggingface/safetensors
-  License: Apache-2.0
-
-  safetensors v0.5.3
   Repository: https://github.com/huggingface/safetensors
   License: Apache-2.0
 
@@ -2509,10 +2450,6 @@ conflict of law principles.
 
 Dependencies under this license:
 ----------------------------------------
-
-  webpki-roots v0.26.11
-  Repository: https://github.com/rustls/webpki-roots
-  License: CDLA-Permissive-2.0
 
   webpki-roots v1.0.12
   Repository: https://github.com/rustls/webpki-roots
