@@ -4,11 +4,14 @@
 //! [`DaemonRequest`] or [`DaemonResponse`].
 
 use crate::core::index::IndexStats;
-use anyhow::{Context, Result};
+use anyhow::Result;
+#[cfg(unix)]
+use anyhow::Context;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+#[cfg(unix)]
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 /// Requests sent from clients to the daemon.
