@@ -17,6 +17,9 @@ description = "Paper: local-first document search with exact page and line citat
 license = "MIT OR Apache-2.0"
 readme = "docs/readme.md"
 repository = "https://github.com/arrowassassin/paperscope"
+# `dist` needs an explicit homepage for the Homebrew formula it generates. Cargo
+# calls it redundant (the repository URL serves the same purpose), so the
+# manifest lint is silenced on purpose rather than dropping the formula.
 homepage = "https://github.com/arrowassassin/paperscope"
 documentation = "https://docs.rs/paperscope"
 categories = ["command-line-utilities", "database", "text-processing"]
@@ -143,3 +146,9 @@ embeddings = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "de
 jieba-rs = ["dep:jieba-rs"]
 shell-accel = ["dep:which"]
 ocr = ["dep:which"]
+
+# `homepage` is kept on purpose: `dist` needs it for the Homebrew formula, and
+# cargo's `redundant_homepage` lint only says the repository URL would do the
+# same job. The lint is about redundancy, not about an error.
+[lints.cargo]
+redundant_homepage = "allow"

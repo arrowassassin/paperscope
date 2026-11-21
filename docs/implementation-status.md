@@ -40,7 +40,7 @@ the tarball.
 
 ## Packaging and release (verified)
 
-- `cargo publish --dry-run` succeeds: **72 files, 153.5 KiB compressed**, and the
+- `cargo publish --dry-run` succeeds: **72 files, ~154 KiB compressed**, and the
   packaged tarball compiles in `target/package/paperscope-0.1.0`.
 - `rust-version = "1.91"` — the highest MSRV in the tree (`notify-types` 2.3.1;
   `zip` 9.8 and `aes` 0.9 require 1.89, the `icu_*` crates require 1.88).
