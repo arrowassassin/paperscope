@@ -148,6 +148,16 @@ jobs:
       - name: Install dependencies
         run: |
           ${{ matrix.packages_install }}
+
+      # patched-by: scripts/patch-release-ci.sh (musl target)
+      # The musl target isn't installed by default on GitHub runners; add it
+      # plus the musl system headers so static musl builds can link.
+      - name: Install musl target and system headers
+        if: ${{ matrix.targets && contains(matrix.targets, 'x86_64-unknown-linux-musl') }}
+        run: |
+          rustup target add x86_64-unknown-linux-musl
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq musl-tools musl-dev
       - name: Build artifacts
         run: |
           # Actually do builds and make zips and whatnot

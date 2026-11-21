@@ -33,6 +33,7 @@ with open(path) as handle:
 
 marker = "# patched-by: scripts/patch-release-ci.sh"
 model_marker = "# patched-by: scripts/patch-release-ci.sh (model assets)"
+musl_marker = "# patched-by: scripts/patch-release-ci.sh (musl target)"
 changed = False
 
 signing = """
@@ -143,6 +144,36 @@ if model_marker not in text:
             break
     else:
         raise SystemExit("could not find the global `dist build` command")
+    text = "".join(lines)
+    changed = True
+
+# 4. The `x86_64-unknown-linux-musl` target needs the Rust target and musl
+# system headers installed before building. Cargo-dist doesn't add the Rust
+# target automatically, so we add a step before every platform build.
+musl_step = """
+      # patched-by: scripts/patch-release-ci.sh (musl target)
+      # The musl target isn't installed by default on GitHub runners; add it
+      # plus the musl system headers so static musl builds can link.
+      - name: Install musl target and system headers
+        if: ${{ matrix.targets && contains(matrix.targets, 'x86_64-unknown-linux-musl') }}
+        run: |
+          rustup target add x86_64-unknown-linux-musl
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq musl-tools musl-dev
+"""
+if musl_marker not in text:
+    lines = text.splitlines(keepends=True)
+    for index, line in enumerate(lines):
+        if "      - name: Build artifacts" in line:
+            insertion = index
+            while insertion >= 0 and not lines[insertion].startswith("      - name:"):
+                insertion -= 1
+            if insertion < 0:
+                raise SystemExit("could not find the Build artifacts step")
+            lines.insert(insertion, musl_step)
+            break
+    else:
+        raise SystemExit("could not find the `Build artifacts` step")
     text = "".join(lines)
     changed = True
 
