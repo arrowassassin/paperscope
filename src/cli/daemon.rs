@@ -463,6 +463,13 @@ fn current_uid() -> Result<String> {
 
 #[cfg(target_os = "macos")]
 fn load_launchd_service(domain: &str, path: &Path) -> Result<()> {
+    // Boot out any already-loaded copy first. `bootstrap` refuses to replace an
+    // existing job, so without this a reinstall that changes the binary path
+    // leaves launchd running the old, possibly deleted, executable forever
+    // (spawning it fails and the job exits 78, EX_CONFIG).
+    let service = format!("{domain}/{LAUNCHD_LABEL}");
+    let _ = run_checked(Command::new("launchctl").args(["bootout", &service]));
+
     let bootstrap = run_checked(
         Command::new("launchctl")
             .args(["bootstrap", domain])
