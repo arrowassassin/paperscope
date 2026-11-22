@@ -190,7 +190,7 @@ Dependencies under this license:
   Repository: https://github.com/RustCrypto/block-modes
   License: MIT OR Apache-2.0
 
-  cc v1.11.2
+  cc v1.11.3
   Repository: https://github.com/rust-lang/cc-rs
   License: MIT OR Apache-2.0
 
@@ -214,7 +214,7 @@ Dependencies under this license:
   Repository: https://github.com/RustCrypto/traits
   License: MIT OR Apache-2.0
 
-  clap v4.6.8
+  clap v4.6.9
   Repository: https://github.com/clap-rs/clap
   License: MIT OR Apache-2.0
 
@@ -222,7 +222,7 @@ Dependencies under this license:
   Repository: https://github.com/clap-rs/clap
   License: MIT OR Apache-2.0
 
-  clap_derive v4.6.8
+  clap_derive v4.6.9
   Repository: https://github.com/clap-rs/clap
   License: MIT OR Apache-2.0
 
@@ -238,7 +238,7 @@ Dependencies under this license:
   Repository: https://github.com/ParkMyCar/compact_str
   License: MIT
 
-  compression-codecs v0.4.47
+  compression-codecs v0.4.48
   Repository: https://github.com/Nullus157/async-compression
   License: MIT OR Apache-2.0
 
@@ -470,7 +470,7 @@ Dependencies under this license:
   Repository: https://github.com/EricLBuehler/float8
   License: MIT
 
-  form_urlencoded v1.2.2
+  form_urlencoded v1.2.3
   Repository: https://github.com/servo/rust-url
   License: MIT OR Apache-2.0
 
@@ -814,7 +814,7 @@ Dependencies under this license:
   Repository: https://github.com/mbrubeck/rust-debug-unreachable
   License: MIT
 
-  nix v0.30.1
+  nix v0.32.0
   Repository: https://github.com/nix-rust/nix
   License: MIT
 
@@ -1413,7 +1413,7 @@ Dependencies under this license:
   Repository: https://codeberg.org/commons-rs/unit-prefix
   License: MIT
 
-  url v2.5.8
+  url v2.5.9
   Repository: https://github.com/servo/rust-url
   License: MIT OR Apache-2.0
 
@@ -1621,7 +1621,7 @@ Dependencies under this license:
   Repository: https://github.com/Stebalien/xattr
   License: MIT OR Apache-2.0
 
-  zip v9.8.0
+  zip v9.8.1
   Repository: https://github.com/zip-rs/zip2
   License: MIT
 
@@ -2017,7 +2017,7 @@ Dependencies under this license:
   Repository: https://github.com/taiki-e/pin-project
   License: Apache-2.0 OR MIT
 
-  pin-project-lite v0.2.17
+  pin-project-lite v0.2.18
   Repository: https://github.com/taiki-e/pin-project-lite
   License: Apache-2.0 OR MIT
 
@@ -2170,11 +2170,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Dependencies under this license:
 ----------------------------------------
 
-  zerocopy v0.8.63
+  zerocopy v0.8.64
   Repository: https://github.com/google/zerocopy
   License: BSD-2-Clause OR Apache-2.0 OR MIT
 
-  zerocopy-derive v0.8.63
+  zerocopy-derive v0.8.64
   Repository: https://github.com/google/zerocopy
   License: BSD-2-Clause OR Apache-2.0 OR MIT
 
@@ -2442,7 +2442,7 @@ Dependencies under this license:
   Repository: https://github.com/BurntSushi/same-file
   License: Unlicense/MIT
 
-  walkdir v2.5.0
+  walkdir v2.5.1
   Repository: https://github.com/BurntSushi/walkdir
   License: Unlicense/MIT
 

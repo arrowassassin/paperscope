@@ -48,7 +48,7 @@ impl OcrEngine for TesseractEngine {
         // Run tesseract
         let output = std::process::Command::new("tesseract")
             .arg(&image_path)
-            .arg(output_prefix)
+            .arg(&output_prefix)
             .arg("-l")
             .arg("eng")
             .output()?;
