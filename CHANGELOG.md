@@ -4,6 +4,20 @@ All notable changes to this project are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html); while the version is
 `0.x`, minor releases may change behaviour.
 
+## [0.2.8] — 2026-11-22
+
+### Added
+- `paper update` installs the newest release, and `paper update --check` reports
+  whether one exists without changing anything. It runs the same installer a
+  fresh install uses, so updates and first installs cannot drift apart.
+- `paper doctor` and `paper update` warn when another `paper` earlier in `PATH`
+  shadows the one you are running — the usual cause of "I upgraded but the
+  version did not change".
+
+### Changed
+- Every subcommand now has a plain-language description and a runnable example
+  in `paper --help` and `paper help <command>`.
+
 ## [0.2.7] — 2026-11-22
 
 ### Added

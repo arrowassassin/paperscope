@@ -84,6 +84,8 @@ or two sentences, and "not found" when the evidence is weak.
 ```bash
 paper models list
 paper models install multilingual-e5-small
+paper update --check        # is there a newer release?
+paper update                # install it
 ```
 
 ## Links

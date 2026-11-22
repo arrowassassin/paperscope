@@ -45,6 +45,17 @@ connection or tight disk, `PAPER_NO_RERANKER=1` skips the 1.13 GB second model.
 Prefer to drive it yourself? `PAPER_NO_AUTOSTART=1 paper index --root ~/Documents`,
 or undo everything with `paper daemon-control uninstall`.
 
+### Keeping it current
+
+```bash
+paper update --check   # is there a newer release?
+paper update           # install it, using the same installer as a fresh install
+```
+
+If the version does not change after updating, two copies are installed and
+another one comes first in `PATH`. `paper update` and `paper doctor` name the
+copy that is shadowing you and how to fix it.
+
 ## Try it
 
 ```bash

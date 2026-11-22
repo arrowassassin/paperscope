@@ -72,6 +72,7 @@ pub async fn run() -> Result<i32> {
     println!("  ocr:        not compiled into this build");
 
     println!("  telemetry:  disabled (there is no telemetry code in this binary)");
+    crate::cli::update::warn_if_shadowed();
 
     println!();
     println!("{}", NOTICE);

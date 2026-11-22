@@ -7,9 +7,11 @@ pub mod index;
 pub mod model_downloader;
 pub mod models;
 pub mod search;
+pub mod update;
 
 #[cfg(feature = "daemon")]
 pub use daemon::{DaemonControlArgs, DaemonControlCommand};
+pub use update::UpdateArgs;
 
 use crate::core::config::Config;
 use crate::core::index::{init_db, Connection};
