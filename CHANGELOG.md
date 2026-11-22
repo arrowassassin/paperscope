@@ -4,6 +4,22 @@ All notable changes to this project are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html); while the version is
 `0.x`, minor releases may change behaviour.
 
+## [0.2.5] — 2026-11-22
+
+### Fixed
+- `cargo install paperscope` no longer needs a C++ compiler: `tokenizers` is
+  built without its `esaxx` suffix-array trainer (Paper only loads pretrained
+  tokenizers). This also unblocks the static `x86_64-unknown-linux-musl` build.
+- Static Linux builds point `CC`/`AR`/linker at `musl-gcc` (Ubuntu's
+  `musl-tools` name) and define the BSD integer aliases `sqlite-vec` expects.
+
+### Changed
+- crates.io metadata now leads with AI/LLM discovery terms
+  (`ai`, `llm`, `mcp`, `search`, `rag`) and the homepage points at
+  <https://kintsugi.tools/paperscope.html>.
+- README rewritten around a one-minute start, with an animated terminal demo,
+  a lighter install section, and a separate crates.io landing page.
+
 ## [0.2.4] — 2026-11-22
 
 ### Added

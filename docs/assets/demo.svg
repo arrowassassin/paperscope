@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="300" viewBox="0 0 880 300" role="img" aria-label="Animated terminal: paper search returns a citation">
+  <defs>
+    <linearGradient id="tbg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#11161f"/>
+      <stop offset="1" stop-color="#0b0e16"/>
+    </linearGradient>
+    <style>
+      text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .cmd  { clip-path: inset(0 100% 0 0); animation: type 9s infinite; }
+      .l1   { opacity: 0; animation: show1 9s infinite; }
+      .l2   { opacity: 0; animation: show2 9s infinite; }
+      .l3   { opacity: 0; animation: show3 9s infinite; }
+      .l4   { opacity: 0; animation: show4 9s infinite; }
+      @keyframes type {
+        0%   { clip-path: inset(0 100% 0 0); }
+        24%  { clip-path: inset(0 0 0 0); }
+        94%  { clip-path: inset(0 0 0 0); }
+        100% { clip-path: inset(0 100% 0 0); }
+      }
+      @keyframes show1 { 0%,26% { opacity: 0 } 32%,94% { opacity: 1 } 100% { opacity: 0 } }
+      @keyframes show2 { 0%,34% { opacity: 0 } 40%,94% { opacity: 1 } 100% { opacity: 0 } }
+      @keyframes show3 { 0%,42% { opacity: 0 } 48%,94% { opacity: 1 } 100% { opacity: 0 } }
+      @keyframes show4 { 0%,50% { opacity: 0 } 56%,94% { opacity: 1 } 100% { opacity: 0 } }
+      @media (prefers-reduced-motion: reduce) {
+        .cmd, .l1, .l2, .l3, .l4 { animation: none; clip-path: none; opacity: 1; }
+      }
+    </style>
+  </defs>
+
+  <rect width="880" height="300" rx="18" fill="url(#tbg)"/>
+  <rect x="1" y="1" width="878" height="298" rx="17" fill="none" stroke="#283557"/>
+
+  <rect x="1" y="1" width="878" height="42" rx="17" fill="#151d29"/>
+  <rect x="1" y="30" width="878" height="13" fill="#151d29"/>
+  <circle cx="26" cy="22" r="6" fill="#ff5f57"/>
+  <circle cx="48" cy="22" r="6" fill="#febc2e"/>
+  <circle cx="70" cy="22" r="6" fill="#28c840"/>
+  <text x="440" y="27" font-size="13" fill="#7d8ba3" text-anchor="middle">paper — local-first search</text>
+
+  <text class="cmd" x="28" y="86" font-size="17" fill="#5eead4">$ paper search "when does the fridge warranty expire"</text>
+
+  <g class="l1">
+    <text x="28" y="130" font-size="15" fill="#e8ecf5">/Users/you/Documents/fridge-warranty.txt:1-4</text>
+  </g>
+  <g class="l2">
+    <text x="28" y="160" font-size="14" fill="#9fb0c9">  Samsung refrigerator warranty certificate …</text>
+  </g>
+  <g class="l3">
+    <text x="28" y="184" font-size="14" fill="#9fb0c9">  Coverage ends on 2027-01-15.</text>
+  </g>
+  <g class="l4">
+    <text x="28" y="216" font-size="14" fill="#0ea587">  1.000 · matched by keyword + vector</text>
+    <rect x="28" y="236" width="120" height="6" rx="3" fill="#0ea587" opacity="0.35"/>
+    <rect x="28" y="236" width="120" height="6" rx="3" fill="#5eead4"/>
+  </g>
+
+  <text x="852" y="276" font-size="11" fill="#46536b" text-anchor="end">page + line citation · no cloud</text>
+</svg>

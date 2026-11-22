@@ -1,7 +1,7 @@
 {
   "name": "paperscope",
   "displayName": "PaperScope",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Local-first document search with exact page and line citations. Search your own documents offline via the paper CLI and its built-in MCP server.",
   "author": {
     "name": "arrowassassin",
@@ -10,7 +10,13 @@
   "homepage": "https://github.com/arrowassassin/paperscope",
   "repository": "https://github.com/arrowassassin/paperscope",
   "license": "MIT OR Apache-2.0",
-  "keywords": ["search", "rag", "mcp", "documents", "local-first"],
+  "keywords": [
+    "search",
+    "rag",
+    "mcp",
+    "documents",
+    "local-first"
+  ],
   "defaultEnabled": true,
   "skills": "./skills",
   "userConfig": {
@@ -36,7 +42,10 @@
   "mcpServers": {
     "paper": {
       "command": "${user_config.paper_binary}",
-      "args": ["serve", "--mcp"],
+      "args": [
+        "serve",
+        "--mcp"
+      ],
       "env": {
         "PAPER_OFFLINE": "0"
       }

@@ -1,253 +1,134 @@
 # Paper
 
+![Paper — local-first AI document search with exact citations](docs/assets/banner.svg)
+
 [![CI](https://img.shields.io/github/actions/workflow/status/arrowassassin/paperscope/ci.yml?branch=main&label=CI)](https://github.com/arrowassassin/paperscope/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/paperscope.svg)](https://crates.io/crates/paperscope)
+[![downloads](https://img.shields.io/crates/d/paperscope.svg)](https://crates.io/crates/paperscope)
 [![Licence](https://img.shields.io/badge/licence-MIT%20OR%20Apache--2.0-blue)](#licence)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-black)](#install)
 
-Local-first document search with exact citations. One Rust binary (`paper`), two front-ends: a CLI and an MCP stdio server. No telemetry, no account, no cloud unless explicitly opted in.
+**Your documents, searchable — with receipts.** Paper is a local-first AI
+document search engine: ask a question in plain language, get the answer *and*
+the exact file, page and line it came from. One Rust binary. No account, no
+API keys, no telemetry, no cloud.
 
-```
-$ paper search "when does the fridge warranty expire"
-/Users/you/Documents/fridge-warranty.txt:1-4
-  Samsung refrigerator warranty certificate ... Coverage ends on 2027-01-15.
-  1.000 · matched by keyword search
-```
+![Animated demo: paper search returns a citation](docs/assets/demo.svg)
 
-Every hit carries `path` + `line_start` + `line_end`, so a citation always resolves to the exact lines it quotes.
+> 15+ formats · 100+ languages · hybrid keyword + vector search · MCP server for
+> Claude and other agents · runs fully offline.
 
 ## Install
 
-Pick one; all three are equivalent afterwards:
-
 ```bash
-# Option 1: curl installer (recommended - picks your platform automatically)
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/arrowassassin/paperscope/releases/latest/download/paper-installer.sh | sh
-
-# Option 2: crates.io
-cargo install paperscope
-
-# Option 3: Homebrew
-brew install arrowassassin/tap/paper
+# macOS / Linux (recommended)
+curl --proto '=https' --tlsv1.2 -LsSf \
+  https://github.com/arrowassassin/paperscope/releases/latest/download/paperscope-installer.sh | sh
 ```
 
-**That is the whole setup.** The next time you run any `paper` command (or
-Claude calls its MCP tools), Paper sets itself up once:
-
-1. registers the background indexer as a user service (launchd on macOS,
-   systemd on Linux), so it keeps running after a reboot;
-2. downloads the default embedding model (`bge-small-en-v1.5`, 134 MB) in the
-   background;
-3. recursively indexes `~/Documents`, `~/Downloads` and `~/Desktop` — the first
-   pass starts immediately, then a five-minute incremental pass and a 3 AM full
-   pass keep it current.
-
-Keyword search works from the first second; semantic results appear once the
-model lands. Nothing leaves the machine.
-
 ```bash
-paper search "warranty expiry"          # works before indexing finishes
-paper daemon-control status             # what is indexed, queue, model, pause state
+brew install arrowassassin/tap/paper   # macOS / Linux, Homebrew
+cargo install paperscope               # any platform with Rust 1.94+
 ```
 
-Prefer explicit control? Turn the automation off and drive it yourself:
+**That is the whole setup.** The first time you run any `paper` command it:
 
-```bash
-PAPER_NO_AUTOSTART=1 paper index --root ~/Documents
-paper models install bge-small-en-v1.5     # 134 MB, English (default)
-paper models install multilingual-e5-small # 487 MB, 100 languages
-paper daemon-control uninstall             # stop and remove the background service
-```
+1. registers a background indexer as a user service (launchd / systemd), so it
+   survives reboots;
+2. downloads the default embedding model (134 MB) in the background;
+3. indexes `~/Documents`, `~/Downloads` and `~/Desktop`, then keeps them current
+   with a five-minute incremental pass and a 3 AM full pass.
 
-You're done — search works immediately:
+Keyword search works immediately; semantic results appear as soon as the model
+lands. Prefer to drive it yourself? `PAPER_NO_AUTOSTART=1 paper index --root ~/Documents`,
+or undo everything with `paper daemon-control uninstall`.
+
+## Try it
 
 ```bash
 $ paper search "when does the fridge warranty expire"
 /Users/you/Documents/fridge-warranty.txt:1-4
-  Samsung refrigerator warranty certificate ... Coverage ends on 2027-01-15.
+  Samsung refrigerator warranty certificate … Coverage ends on 2027-01-15.
+  1.000 · matched by keyword search
 ```
-
-Keyword search always works, including offline. Semantic results appear as soon
-as the embedding model finishes downloading; `PAPER_OFFLINE=1` forbids all
-network access (models must then be installed by hand).
-
-## Commands
-
-```
-paper index  --root <dir> [--embeddings] [--file <path>] [--ocr]
-paper search <query> [--root <dir>] [--limit N] [--json] [--semantic] [--after DATE] [--before DATE] [--ext pdf,docx] [--path substr]
-paper answer <question> [--json] [--polish [--engine local|openrouter]]
-paper aggregate --field date|amount --op min|max|sum|avg|count [--filter kind=warranty|receipt|invoice|contract]
-paper models list|install <id>|remove <id>
-paper serve  --mcp [--root <dir>]
-paper daemon [--foreground] [--root <dir>]...
-paper daemon-control status|pause|resume|index|add-root|remove-root|stop|install|uninstall|start|restart
-paper doctor
-```
-
-Exit codes: `0` found, `1` not found, `2` error, `3` model missing.
-
-## Background indexing (daemon)
-
-`paper daemon` auto-discovers `~/Documents`, `~/Downloads` and `~/Desktop`,
-watches for changes (250 ms debounce), reindexes daily at 3 AM plus every
-5 minutes incrementally, and pauses on battery <20% or sustained CPU >80%.
-Control it over IPC with `paper daemon-control status|pause|resume|stop`, or
-install it as a systemd user service (Linux) / launchd agent (macOS):
 
 ```bash
-paper daemon-control install   # writes + starts the OS service
-paper daemon-control status    # indexed files, paused state, model
+paper search "invoice from Acme in March" --after 2026-03-01 --ext pdf
+paper answer "what did we agree about the deposit?"        # quotes, then answers
+paper aggregate --field amount --op sum --filter kind=invoice
+paper daemon-control status                                # what is indexed right now
 ```
 
-Windows daemon support is not implemented yet.
+Every hit carries `path` + `line_start` + `line_end`, so a citation always
+resolves to the lines it quotes. `paper answer` is extractive: it shows the
+source first, then a short answer, and never invents one.
 
-## Using with agents (MCP)
+## Why Paper
 
-Any MCP client (Claude Desktop, Claude Code, Codex CLI, OpenCode) can search
-your documents through `paper serve --mcp`. Setup instructions for each client
-are in [docs/CLAUDE_PLUGIN.md](docs/CLAUDE_PLUGIN.md). Website:
-[kintsugi Tools](https://kintsugi.tools) (portfolio homepage) + the
-[Paper landing page](https://kintsugi.tools/paperscope.html).
+- **Citations, not vibes.** Hybrid FTS5 + `sqlite-vec` retrieval with rank
+  fusion; low-confidence matches are dropped instead of answered.
+- **Private by construction.** Embeddings and the index live in `~/Library` /
+  `~/.local/share`; nothing leaves the machine. `PAPER_OFFLINE=1` blocks the
+  network entirely.
+- **Agent-ready.** Ships with an MCP server. Claude (or any MCP client) can
+  search, read, index new folders and report index status — with path vetting so
+  a prompt injection cannot reach `.ssh` or `.aws`.
+- **Honest about its limits.** If the answer is not in your files, it says so
+  instead of hallucinating. Exit code `1` means "not found", `3` means "model
+  missing".
 
-**Claude plugin:** Paperscope is also available as a Claude Code plugin.
-Download
-[`paperscope-plugin.zip`](https://github.com/arrowassassin/paperscope/releases/latest/download/paperscope-plugin.zip)
-and upload it at Customize > Plugins > Add > Upload plugin, or load a checkout
-with `claude --plugin-dir ./paperscope-plugin`. The bundled `paper` binary is
-the same 0.2.4 build, so the zero-touch setup applies here too.
+## Use it with Claude and other agents
 
-| Variable | Effect |
-| --- | --- |
-| `PAPER_HOME` | Overrides the data directory entirely (tests and sandboxes). |
-| `PAPER_OFFLINE=1` | Forbids all network access. |
-
-## How it searches
-
-1. **FTS5** keyword search, terms combined with `OR` and ranked by `bm25` (an `AND` of every word makes natural-language questions match nothing).
-2. **Early exit** if keyword evidence is already sufficient — no model loads. Skips only when the top hit has full lexical coverage, not merely "≥10 hits".
-3. **sqlite-vec KNN** for semantic search when the embedder is present (never downloaded at query time).
-4. **RRF(k=60)** fusion: rank-based, avoids score-incompatibility between unbounded BM25 and bounded cosine.
-5. **Abstention**: `Confidence::Low` hits are excluded from answers — a plausible-looking quote from a weak match is worse than "not found".
-
-## Formats
-
-| Format | Anchor | Extractor |
-|--------|--------|-----------|
-| PDF | `page N` | `lopdf` (per page, exact) |
-| DOCX | `para N-M` | OOXML XML (paragraph ranges, heading hierarchy) |
-| XLSX/XLSM/XLSB/ODS | `Sheet1!A4:H4` | `calamine` (per row, cell ranges) |
-| PPTX | `slide N` | OOXML XML (per slide) |
-| EPUB | `spine N: chapter.xhtml` | OPF manifest + spine |
-| Email | `message <id>` | `mailparse` (headers + body) |
-| HTML | heading hierarchy | `quick-xml` (text nodes, source line numbers) |
-| Markdown | `#` headings | built-in (exact line ranges) |
-| Archives | `outer.zip!/inner/path` | `zip`/`tar` (one document per member) |
-| Plain text | line ranges | built-in |
-
-Scanned PDFs return empty pages with a warning. OCR is opt-in via `paper index --ocr` (requires Tesseract + `pdftoppm`).
-
-## Multilingual
-
-CJK (Chinese/Japanese/Korean), Thai, Lao, Khmer and Myanmar are indexed as **overlapping bigrams + first character** — a dictionary-free scheme that needs no 15–20 MB word list and keeps two-character words searchable (which `trigram` cannot). NFKC normalization handles full-width/half-width forms.
-
-The scheme is strongest for Chinese and Japanese, where words are not space-separated. **Korean is weaker**: Hangul is written with spaces between words, and bigrams match character pairs rather than whole words, so a query for a whole eojeol only matches when its bigrams appear. Expect lower precision on Korean than on Chinese/Japanese.
-
-Optional dictionary segmenters behind features: `jieba-rs` (Chinese), `icu_segmenter` (ICU4X word boundaries for CJK, Korean, Thai, Lao, Khmer, Myanmar, Arabic, Hebrew, Devanagari and more), and `lindera` (Japanese IPADIC morphological analysis in search mode, dictionary embedded in the binary). All are default off to keep the binary small.
-
-## Build options
-
-| Feature | Default | Effect |
-|---------|---------|--------|
-| `embeddings` | on | Candle + tokenizers: semantic search and reranking. |
-| `daemon` | on | `paper daemon` background indexer + `paper daemon-control` (systemd/launchd service). |
-| `jieba-rs` | off | Chinese word segmentation instead of bigrams. |
-| `icu_segmenter` | off | ICU4X word segmentation for all major scripts. |
-| `lindera` | off | Japanese IPADIC segmentation (embedded dictionary, no network). |
-| `shell-accel` | off | Use `pdftotext`/`pandoc` when present, pure Rust otherwise. |
-| `ocr` | off | Tesseract OCR for scanned pages. |
-
-```bash
-cargo install paperscope --no-default-features   # keyword-only: 11.8 MB vs 15.1 MB
+```json
+{
+  "mcpServers": {
+    "paper": { "command": "paper", "args": ["serve", "--mcp"] }
+  }
+}
 ```
 
-A keyword-only build has no inference code in the binary at all; `paper search`
-still works, and `--semantic` explains how to get the full build.
+Then just ask: *"Search my documents for the lease renewal date and cite the
+page."* Install it as a Claude Code plugin from
+[`paperscope-plugin.zip`](https://github.com/arrowassassin/paperscope/releases/latest/download/paperscope-plugin.zip),
+or point `claude --plugin-dir ./paperscope-plugin` at a checkout.
+
+MCP tools: `search_documents`, `read_source`, `list_sources`,
+`answer_documents`, `index_documents`, `index_status`, `add_index_root`,
+`remove_index_root`.
+
+## What it reads
+
+PDF (exact page), DOCX (paragraph ranges), Markdown, TXT, HTML, CSV, JSON, EPUB,
+RTF, ODT, XLSX, PPTX, and images/PDF scans through optional OCR. English by
+default; `multilingual-e5-small` adds 100 languages, including cross-lingual
+search (ask in English, find the Japanese contract).
 
 ## Models
 
-| Model | Size | Default | Purpose |
-|-------|------|---------|---------|
-| `bge-small-en-v1.5` | 134 MB | Yes | English semantic search (384 dims) |
-| `multilingual-e5-small` | 487 MB | Opt-in | 100 languages (384 dims) |
-| `bge-reranker-base` | 1.13 GB | Opt-in | Cross-encoder reranking |
-
-All models are Hugging Face Candle (pure Rust, no ONNX/Python), commit-pinned with per-file SHA256. Downloads come from this repo's GitHub Releases (resumable, SHA256-verified, atomic rename) with the pinned Hugging Face revision as fallback.
-
-## Answers
-
-Answers are **extractive**: a verbatim quote from a local document plus exact citations. Without `--polish` nothing generative is ever involved.
-
-`--polish` optionally rewrites that extract through an engine you configure:
-
-```toml
-# $PAPER_HOME/config.toml
-[local_engine]
-base_url = "http://localhost:11434"   # Ollama, LM Studio, vLLM, llama.cpp
-model = "llama3.1"
-```
+| Model | Size | Use |
+|---|---|---|
+| `bge-small-en-v1.5` | 134 MB | default English embeddings (auto-downloaded) |
+| `multilingual-e5-small` | 487 MB | 100 languages |
+| `bge-reranker-base` | 1.13 GB | optional precision boost |
 
 ```bash
-paper answer "when does the fridge warranty expire" --polish --engine local
+paper models list
+paper models install multilingual-e5-small
 ```
 
-The rewrite is **grounded and checked**: the extracts are wrapped in delimiters (delimiters inside the text are escaped), the engine must cite every claim as `[doc:N]`, and a reply that cites an extract that does not exist — or cites nothing — is rejected and the verbatim extract is used instead. The local citations always stay attached, so generated prose can be checked against the source.
+## Documentation
 
-`--engine openrouter` sends the extracts to OpenRouter. It is opt-in: it needs `--polish --engine openrouter` **and** an API key (`OPENROUTER_API_KEY` or `[openrouter] api_key`). `PAPER_OFFLINE=1` refuses to contact any engine.
+- [Architecture and retrieval design](docs/paper-architecture.md)
+- [MCP setup per client](docs/CLAUDE_PLUGIN.md)
+- [Website](https://kintsugi.tools/paperscope.html) · [Changelog](CHANGELOG.md)
 
-## MCP Server
-
-```
-paper serve --mcp --root ~/Documents
-```
-
-Tools: `search_documents`, `read_source`, `list_sources`, `answer_documents`. Root allow-list enforced per request.
-
-## Build & Test
+## Build from source
 
 ```bash
-cargo check --all-targets   # must be warning-free
-cargo test                  # 63 tests, offline, no model downloads
-cargo build --release       # ~15 MB single binary
-cargo deny check licenses bans sources  # no copyleft in shipped tree
-cargo bench --bench eval    # retrieval quality CI gate (recall@10 ≥ 0.75, citation accuracy ≥ 0.95)
+cargo build --release          # single ~15 MB binary
+cargo test                     # offline, no model downloads
+./scripts/install-hooks.sh     # pre-commit: fmt + clippy
 ```
-
-Model integration tests download real weights and are `#[ignore]`d:
-
-```bash
-cargo test --test models -- --ignored   # 134 MB / 487 MB / 1.13 GB
-```
-
-Always measure performance with `--release`; debug Candle is ~15× slower.
-
-Enable the pre-commit lint once per clone — it runs `cargo fmt --all --check`
-and `cargo clippy --all-targets -- -D warnings` when a commit touches Rust
-sources or manifests, and skips itself otherwise:
-
-```bash
-./scripts/install-hooks.sh
-```
-
-Feature-gated builds (`--all-features`, `--no-default-features`) stay in CI;
-they pull the full Candle/tokenizers tree and are too slow for a commit hook.
-
-## Packaging
-
-- `cargo-dist` produces tarballs, .zip, shell installer, Homebrew formula, PowerShell installer
-- `scripts/fetch-models.sh` + CI stages model assets as unique release assets (`<model-id>-<file>`)
-- SBOM (CycloneDX + SPDX) attached to every release
-- `cargo deny` supply-chain license/bans/sources verification
 
 ## Licence
 

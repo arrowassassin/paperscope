@@ -8,7 +8,7 @@ members = ["."]
 # terminal editor), and every evocative one-word alternative was already a
 # competing product. See docs/implementation-status.md#naming.
 name = "paperscope"
-version = "0.2.4"
+version = "0.2.5"
 edition = "2021"
 # Highest MSRV in the dependency tree. `candle-core` 0.11.1 needs 1.94 on
 # x86_64: it calls `__cpuid_count` from safe code, and that intrinsic only
@@ -16,17 +16,19 @@ edition = "2021"
 # the declared MSRV is the maximum across platforms). `notify-types` 2.3.1
 # requires 1.91; `zip` 9.8 / `aes` 0.9 require 1.89; the `icu_*` crates 1.88.
 rust-version = "1.94"
-description = "Paper: local-first document search with exact page and line citations. CLI + MCP server in one binary."
+description = "Local-first AI document search with exact page and line citations. One binary: CLI + MCP server for LLMs. PDF, DOCX and 15+ formats, no cloud, no telemetry."
 license = "MIT OR Apache-2.0"
 readme = "docs/readme.md"
 repository = "https://github.com/arrowassassin/paperscope"
 # `dist` needs an explicit homepage for the Homebrew formula it generates. Cargo
 # calls it redundant (the repository URL serves the same purpose), so the
 # manifest lint is silenced on purpose rather than dropping the formula.
-homepage = "https://github.com/arrowassassin/paperscope"
+homepage = "https://kintsugi.tools/paperscope.html"
 documentation = "https://docs.rs/paperscope"
-categories = ["command-line-utilities", "database", "text-processing"]
-keywords = ["rag", "search", "sqlite", "mcp", "local-first"]
+categories = ["command-line-utilities", "text-processing", "science"]
+# crates.io allows five keywords; lead with what people search for (ai, llm,
+# mcp) and keep the retrieval terms that describe the technique.
+keywords = ["ai", "llm", "mcp", "search", "rag"]
 # Explicit allow-list: this repository also holds unrelated work, and its README
 # is not this project's. Never widen this without checking what ships.
 include = [
@@ -192,5 +194,5 @@ daemon = []
 # `homepage` is kept on purpose: `dist` needs it for the Homebrew formula, and
 # cargo's `redundant_homepage` lint only says the repository URL would do the
 # same job. The lint is about redundancy, not about an error.
-[lints.cargo]
-redundant_homepage = "allow"
+# [lints.cargo]
+# redundant_homepage = "allow"
