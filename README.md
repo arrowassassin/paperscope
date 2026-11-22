@@ -110,9 +110,12 @@ are in [docs/CLAUDE_PLUGIN.md](docs/CLAUDE_PLUGIN.md). Website:
 [kintsugi Tools](https://kintsugi.tools) (portfolio homepage) + the
 [Paper landing page](https://kintsugi.tools/paperscope.html).
 
-**Claude plugin:** Paperscope is also available as a Claude Code plugin. Upload
-`paperscope-plugin.zip` at Customize > Plugins > Add > Upload plugin, or load
-with `claude --plugin-dir ./paperscope-plugin`.
+**Claude plugin:** Paperscope is also available as a Claude Code plugin.
+Download
+[`paperscope-plugin.zip`](https://github.com/arrowassassin/paperscope/releases/latest/download/paperscope-plugin.zip)
+and upload it at Customize > Plugins > Add > Upload plugin, or load a checkout
+with `claude --plugin-dir ./paperscope-plugin`. The bundled `paper` binary is
+the same 0.2.4 build, so the zero-touch setup applies here too.
 
 | Variable | Effect |
 | --- | --- |
