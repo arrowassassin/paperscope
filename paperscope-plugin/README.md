@@ -12,9 +12,19 @@ PaperScope reads only the directories you configure. It stores its index locally
 
 ## Install
 
-- **Claude plugin:** Upload `paperscope-plugin.zip` at Customize > Plugins > Add > Upload plugin
-- **Direct:** `cargo install paperscope` then `paper models install bge-small-en-v1.5`
-- **Homebrew:** `brew install arrowassassin/tap/paper`
+1. Install the `paper` binary once (it is not bundled inside the plugin):
+
+```sh
+curl -fsSL https://kintsugi.tools/paper.sh | sh
+# or: brew install arrowassassin/tap/paper
+# or: cargo install paperscope
+```
+
+2. Upload `paperscope-plugin.zip` at Customize > Plugins > Add > Upload plugin,
+   or from Claude Code: `/plugin install paperscope --marketplace arrowassassin/paperscope`.
+
+The plugin starts `paper serve --mcp` from your `PATH`, so run `paper --version`
+first if the tools do not appear.
 
 ## License
 

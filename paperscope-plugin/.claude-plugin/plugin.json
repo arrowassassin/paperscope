@@ -2,7 +2,7 @@
   "name": "paperscope",
   "displayName": "PaperScope",
   "version": "0.2.8",
-  "description": "Local-first document search with exact page and line citations. Search your own documents offline via the paper CLI and its built-in MCP server.",
+  "description": "Local-first document search with exact page and line citations. Search your own documents offline through the paper CLI's built-in MCP server.",
   "author": {
     "name": "arrowassassin",
     "url": "https://github.com/arrowassassin/paperscope"
@@ -19,36 +19,13 @@
   ],
   "defaultEnabled": true,
   "skills": "./skills",
-  "userConfig": {
-    "paper_binary": {
-      "type": "string",
-      "title": "paper binary path",
-      "description": "Path to the paper binary. Leave blank to use `paper` from PATH, or set to ${CLAUDE_PLUGIN_ROOT}/bin/paper to use the bundled binary.",
-      "default": "paper"
-    },
-    "search_roots": {
-      "type": "string",
-      "title": "Search roots",
-      "description": "Comma-separated directories paper should index and search. Empty means the configured Paper roots.",
-      "default": ""
-    },
-    "semantic_search": {
-      "type": "boolean",
-      "title": "Enable semantic search",
-      "description": "Use embedding-based semantic search when model weights are available. Falls back to keyword-only search otherwise.",
-      "default": true
-    }
-  },
   "mcpServers": {
     "paper": {
-      "command": "${user_config.paper_binary}",
+      "command": "paper",
       "args": [
         "serve",
         "--mcp"
-      ],
-      "env": {
-        "PAPER_OFFLINE": "0"
-      }
+      ]
     }
   }
 }
