@@ -101,6 +101,18 @@ pub struct Capabilities {
     pub requires_external: bool,
 }
 
+/// Per-run switches a caller can pass to extraction.
+///
+/// Options are separate from [`Capabilities`] because capabilities describe an
+/// extractor, while options describe what this call is allowed to do. A format
+/// that ignores an option inherits the trait's default method, so adding a knob
+/// never forces every extractor to change.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ExtractOptions {
+    /// Attempt OCR on textless pages and standalone images.
+    pub ocr_enabled: bool,
+}
+
 impl Default for Capabilities {
     fn default() -> Self {
         Self {
@@ -194,10 +206,24 @@ pub trait Extractor: Send + Sync {
     }
 
     fn extract(&self, name: &str, bytes: &[u8]) -> Result<Option<Vec<ExtractedDocument>>>;
+
+    /// `extract` with caller-supplied options.
+    ///
+    /// Extractors that honour an option override this; the rest keep the
+    /// default body and are unaffected by new options.
+    fn extract_with_options(
+        &self,
+        name: &str,
+        bytes: &[u8],
+        _options: &ExtractOptions,
+    ) -> Result<Option<Vec<ExtractedDocument>>> {
+        self.extract(name, bytes)
+    }
 }
 
 fn builtin() -> Vec<Arc<dyn Extractor>> {
-    vec![
+    #[allow(unused_mut)]
+    let mut formats: Vec<Arc<dyn Extractor>> = vec![
         Arc::new(pdf::Pdf),
         Arc::new(ooxml::Docx),
         Arc::new(ooxml::Pptx),
@@ -208,7 +234,15 @@ fn builtin() -> Vec<Arc<dyn Extractor>> {
         Arc::new(textfmt::Html),
         // Last: only claims extensions it declares or unambiguous text markers.
         Arc::new(textfmt::Plain),
-    ]
+    ];
+    // Images are only claimed once OCR weights are on disk, so a build (or a
+    // machine) without them reports `unsupported` instead of indexing silence.
+    #[cfg(feature = "ocr")]
+    if ocr::models_present() {
+        // Before `Plain`: a PNG is never text, so it must win the extension.
+        formats.insert(8, Arc::new(ocr::ImageOcr));
+    }
+    formats
 }
 
 fn custom() -> &'static Mutex<Vec<Arc<dyn Extractor>>> {
@@ -291,8 +325,10 @@ pub fn extract_path(path: &Path) -> Result<Option<Vec<ExtractedDocument>>> {
 pub fn extract_named(
     name: &str,
     bytes: &[u8],
-    _ocr_enabled: bool,
+    ocr_enabled: bool,
 ) -> Result<Option<Vec<ExtractedDocument>>> {
+    let options = ExtractOptions { ocr_enabled };
+
     // Try shell-out accelerators first (feature-gated)
     #[cfg(feature = "shell-accel")]
     {
@@ -358,9 +394,18 @@ pub fn extract_named(
         let bytes_owned = bytes.to_vec();
         let (tx, rx) = std::sync::mpsc::channel();
         let handle = std::thread::spawn(move || {
-            let _ = tx.send(extractor_clone.extract(&name_owned, &bytes_owned));
+            let _ =
+                tx.send(extractor_clone.extract_with_options(&name_owned, &bytes_owned, &options));
         });
-        let result = rx.recv_timeout(std::time::Duration::from_secs(5));
+        // OCR is CPU-bound on a 960x960 network per page, so a scanned document
+        // legitimately needs minutes. Everything else keeps the tight deadline
+        // that protects the index run from a parser that never returns.
+        let deadline = if options.ocr_enabled {
+            std::time::Duration::from_secs(180)
+        } else {
+            std::time::Duration::from_secs(5)
+        };
+        let result = rx.recv_timeout(deadline);
 
         let mut docs = match result {
             Ok(Ok(Some(docs))) => {

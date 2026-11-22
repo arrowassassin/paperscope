@@ -25,7 +25,8 @@ pub async fn run(args: IndexArgs) -> Result<i32> {
         eprintln!("indexing without embeddings (keyword search only); install {DEFAULT_EMBEDDING} for semantic search");
     }
 
-    let indexer = Indexer::with_ocr(conn, embedder, args.ocr)?;
+    let ocr_active = ocr_requested(args.ocr, args.no_ocr);
+    let indexer = Indexer::with_ocr(conn, embedder, ocr_active)?;
 
     // One pass over the requested scope: new files are added, changed files are
     // replaced, unchanged files are skipped by mtime+size and then by hash.
@@ -36,7 +37,7 @@ pub async fn run(args: IndexArgs) -> Result<i32> {
         indexer.index_roots(&roots)?
     };
     let pruned = indexer.prune_missing()?;
-    report(&stats, pruned);
+    report(&stats, pruned, ocr_active);
 
     if args.watch {
         watch(&indexer, &args)?;
@@ -51,16 +52,39 @@ pub async fn run(args: IndexArgs) -> Result<i32> {
     Ok(EXIT_FOUND)
 }
 
-fn report(stats: &IndexStats, pruned: usize) {
+fn report(stats: &IndexStats, pruned: usize, ocr_active: bool) {
     println!(
         "indexed {} file(s) ({} chunks), {} unchanged, {} skipped, {} removed",
         stats.indexed, stats.chunks, stats.unchanged, stats.skipped, pruned
     );
     if stats.warnings > 0 {
-        eprintln!(
-            "{} extraction warning(s): some pages or sheets had no readable text (scans need OCR, which is opt-in)",
-            stats.warnings
-        );
+        let hint = if ocr_active {
+            "pages without a text layer or a decodable image were skipped"
+        } else {
+            "scans need OCR; drop --no-ocr (or unset PAPER_NO_OCR) to enable it"
+        };
+        eprintln!("{} extraction warning(s): {hint}", stats.warnings);
+    }
+}
+
+/// Resolve whether this run should OCR.
+///
+/// OCR is on by default once the weights exist, because a user who installs
+/// Paper should not have to discover a flag before scanned PDFs work.
+/// `--no-ocr` always wins; `--ocr` forces the attempt even when the models are
+/// missing so the failure is visible instead of silently skipping scans.
+fn ocr_requested(explicit: bool, disabled: bool) -> bool {
+    if disabled {
+        return false;
+    }
+    #[cfg(feature = "ocr")]
+    {
+        crate::core::extract::ocr::enabled(explicit)
+    }
+    #[cfg(not(feature = "ocr"))]
+    {
+        let _ = explicit;
+        false
     }
 }
 
@@ -122,7 +146,8 @@ fn watch(indexer: &Indexer, args: &IndexArgs) -> Result<()> {
             }
         }
         if stats.scanned > 0 || pruned > 0 {
-            report(&stats, pruned);
+            let ocr_active = indexer.ocr_enabled();
+            report(&stats, pruned, ocr_active);
         }
     }
 }

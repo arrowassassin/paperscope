@@ -101,7 +101,7 @@ the tarball.
 | `daemon` | on | Background indexing daemon, Unix-socket control CLI, and Linux/macOS user-service integration. |
 | `jieba-rs` | off | Chinese word segmentation instead of the dictionary-free bigrams. |
 | `shell-accel` | off | Prefer `pdftotext`/`pandoc` when present; pure Rust otherwise. |
-| `ocr` | off | Tesseract OCR for scanned pages. |
+| `ocr` | on | PP-OCRv4 via pure-Rust tract for scanned pages and images; weights auto-downloaded. |
 
 `icu-segmenter` and `lindera` are **not** implemented — only `jieba-rs` exists.
 The dictionary-free default (overlapping bigrams + first character) is the

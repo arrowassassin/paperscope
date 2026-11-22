@@ -4,6 +4,31 @@ All notable changes to this project are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html); while the version is
 `0.x`, minor releases may change behaviour.
 
+## [0.2.7] — 2026-11-22
+
+### Added
+- **OCR for scans and images, on by default.** Scanned PDF pages and standalone
+  PNG/JPEG/TIFF/WebP/BMP/GIF images are now searchable. Text found this way is
+  cited as `page 12 (OCR)` or `image (OCR)` so a citation never pretends to come
+  from a text layer.
+- OCR runs on PaddleOCR **PP-OCRv4** models executed by pure-Rust `tract-onnx`.
+  No Tesseract, no ONNX Runtime, no C/C++ toolchain, no system binaries — the
+  static musl build stays static.
+- The ~16 MB OCR weights download on first run with SHA-256 verification, like
+  the embedding models. `--no-ocr` or `PAPER_NO_OCR=1` turns OCR off;
+  `paper doctor` reports engine and model state.
+
+### Changed
+- Scanned PDFs are read by pulling the page bitmap out of the PDF object graph
+  (`DCTDecode` JPEG or `FlateDecode` RGB/gray), so no rasteriser is required.
+- A page counts as scanned when it has fewer than 32 non-whitespace characters.
+- The per-file extraction deadline rises from 5 s to 180 s when OCR is enabled.
+- `--ocr` now forces OCR; `--no-ocr` is new and skips it.
+
+### Fixed
+- `--ocr` was parsed but ignored: the extraction pipeline passed a hardcoded
+  `false`, and no image format was registered. Both paths are now wired.
+
 ## [0.2.6] — 2026-11-22
 
 ### Changed

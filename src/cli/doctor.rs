@@ -47,7 +47,32 @@ pub async fn run() -> Result<i32> {
             model.size_mb
         );
     }
+
+    #[cfg(feature = "ocr")]
+    {
+        let present = crate::core::extract::ocr::models_present();
+        let state = if crate::core::extract::ocr::available() {
+            "enabled"
+        } else if std::env::var_os("PAPER_NO_OCR").is_some() {
+            "disabled by PAPER_NO_OCR"
+        } else {
+            "waiting for models"
+        };
+        println!(
+            "  ocr:        {state} (paddleocr det+rec, {}); models at {}",
+            if present {
+                "installed"
+            } else {
+                "not installed"
+            },
+            crate::core::extract::ocr::model_dir().display()
+        );
+    }
+    #[cfg(not(feature = "ocr"))]
+    println!("  ocr:        not compiled into this build");
+
     println!("  telemetry:  disabled (there is no telemetry code in this binary)");
+
     println!();
     println!("{}", NOTICE);
     Ok(EXIT_FOUND)

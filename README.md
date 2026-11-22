@@ -101,9 +101,14 @@ MCP tools: `search_documents`, `read_source`, `list_sources`,
 ## What it reads
 
 PDF (exact page), DOCX (paragraph ranges), Markdown, TXT, HTML, CSV, JSON, EPUB,
-RTF, ODT, XLSX, PPTX, and images/PDF scans through optional OCR. English by
-default; `multilingual-e5-small` adds 100 languages, including cross-lingual
-search (ask in English, find the Japanese contract).
+RTF, ODT, XLSX, PPTX, plus PNG, JPEG, TIFF, WebP, BMP and GIF images.
+
+**Scans are searchable.** OCR runs automatically on pages with no text layer,
+pulling the page bitmap straight out of the PDF, and on standalone images. Text
+found this way is cited as `page 12 (OCR)`, so you always know it came from a
+picture, not a text layer. English by default; `multilingual-e5-small` adds 100
+languages, including cross-lingual search (ask in English, find the Japanese
+contract).
 
 ## Models
 
@@ -112,6 +117,7 @@ search (ask in English, find the Japanese contract).
 | `bge-small-en-v1.5` | 134 MB | default English embeddings (auto-downloaded) |
 | `multilingual-e5-small` | 487 MB | 100 languages |
 | `bge-reranker-base` | 1.13 GB | reranks top hits (auto-downloaded; `PAPER_NO_RERANKER=1` to skip) |
+| PP-OCRv4 det + rec | 16 MB | reads scans and images (auto-downloaded; `--no-ocr` to skip) |
 
 ```bash
 paper models list
@@ -127,7 +133,8 @@ paper models install multilingual-e5-small
 ## Build from source
 
 ```bash
-cargo build --release          # single ~15 MB binary
+cargo build --release          # single ~30 MB binary, OCR and embeddings included
+cargo build --release --no-default-features   # keyword-only, no Candle/tract
 cargo test                     # offline, no model downloads
 ./scripts/install-hooks.sh     # pre-commit: fmt + clippy
 ```

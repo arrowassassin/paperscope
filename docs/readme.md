@@ -64,7 +64,11 @@ or two sentences, and "not found" when the evidence is weak.
   Path vetting keeps prompt injections away from `.ssh`, `.aws`, `.kube` and
   similar directories.
 - **Broad input.** PDF (exact page), DOCX (paragraph ranges), Markdown, TXT,
-  HTML, CSV, JSON, EPUB, RTF, ODT, XLSX, PPTX; optional OCR for scans and images.
+  HTML, CSV, JSON, EPUB, RTF, ODT, XLSX, PPTX, and PNG/JPEG/TIFF/WebP/BMP/GIF
+  images.
+- **Scans are searchable.** OCR runs automatically on pages with no text layer
+  and on standalone images — no Tesseract, no system tools, no setup. Text from
+  a scan is cited as `page 12 (OCR)` so a citation never hides its origin.
 - **100+ languages** with `multilingual-e5-small`, including cross-lingual
   search.
 
@@ -75,6 +79,7 @@ or two sentences, and "not found" when the evidence is weak.
 | `bge-small-en-v1.5` | 134 MB | default English embeddings (auto-downloaded) |
 | `multilingual-e5-small` | 487 MB | 100 languages |
 | `bge-reranker-base` | 1.13 GB | reranks top hits (auto-downloaded; `PAPER_NO_RERANKER=1` to skip) |
+| PP-OCRv4 det + rec | 16 MB | reads scans and images (auto-downloaded; `--no-ocr` to skip) |
 
 ```bash
 paper models list

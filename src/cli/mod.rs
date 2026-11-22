@@ -199,9 +199,13 @@ pub struct IndexArgs {
     /// Also load the embedding model so semantic search covers new chunks.
     #[arg(long)]
     pub embeddings: bool,
-    /// Enable OCR for scanned PDF pages (requires `ocr` feature and tesseract/pdftoppm).
+    /// Force OCR for scanned pages and images (on by default when the OCR
+    /// models are installed).
     #[arg(long)]
     pub ocr: bool,
+    /// Skip OCR even when the models are installed.
+    #[arg(long)]
+    pub no_ocr: bool,
 }
 
 #[derive(Args)]

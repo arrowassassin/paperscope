@@ -281,12 +281,12 @@ pub async fn maybe_autostart(command: &str) {
 /// download costs accuracy, never functionality. `PAPER_NO_RERANKER=1` keeps
 /// the ~1.1 GB reranker off disk entirely (small disk, metered connection).
 pub async fn ensure_models(workspace: &crate::cli::Workspace) {
+    let switches = Switches::from_process();
+    if switches.offline || switches.no_autostart {
+        return;
+    }
     #[cfg(feature = "embeddings")]
     {
-        let switches = Switches::from_process();
-        if switches.offline || switches.no_autostart {
-            return;
-        }
         if !workspace.embedding_model_installed() {
             tracing::info!("downloading the default embedding model in the background");
             if let Err(error) = workspace
@@ -299,12 +299,10 @@ pub async fn ensure_models(workspace: &crate::cli::Workspace) {
                 );
             }
         }
-        if std::env::var_os("PAPER_NO_RERANKER").is_some() {
-            return;
-        }
-        if !workspace
-            .model_manager
-            .is_installed(crate::core::models::OPTIONAL_RERANKER)
+        if std::env::var_os("PAPER_NO_RERANKER").is_none()
+            && !workspace
+                .model_manager
+                .is_installed(crate::core::models::OPTIONAL_RERANKER)
         {
             tracing::info!("downloading the optional reranker in the background");
             if let Err(error) = workspace
@@ -318,6 +316,17 @@ pub async fn ensure_models(workspace: &crate::cli::Workspace) {
     }
     #[cfg(not(feature = "embeddings"))]
     let _ = workspace;
+
+    // OCR weights are small (~16 MB) and independent of the embedding stack, so
+    // they are fetched even in a keyword-only build. A failure only disables
+    // OCR; indexing still proceeds with whatever text layers exist.
+    #[cfg(feature = "ocr")]
+    if std::env::var_os("PAPER_NO_OCR").is_none() && !crate::core::extract::ocr::models_present() {
+        tracing::info!("downloading OCR models in the background");
+        if let Err(error) = crate::core::extract::ocr::ensure_models().await {
+            tracing::warn!("OCR model download failed ({error:#}); scanned pages stay unindexed");
+        }
+    }
 }
 
 /// True when the index holds no chunks yet, which is the moment to index

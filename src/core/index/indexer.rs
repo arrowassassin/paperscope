@@ -64,6 +64,11 @@ impl Indexer {
         Self::with_ocr(conn, embedder, false)
     }
 
+    /// Whether extraction in this indexer may run OCR.
+    pub fn ocr_enabled(&self) -> bool {
+        self.ocr_enabled
+    }
+
     pub fn with_ocr(
         conn: Connection,
         embedder: Option<SharedEmbedder>,

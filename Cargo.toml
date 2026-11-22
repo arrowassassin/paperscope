@@ -8,7 +8,7 @@ members = ["."]
 # terminal editor), and every evocative one-word alternative was already a
 # competing product. See docs/implementation-status.md#naming.
 name = "paperscope"
-version = "0.2.6"
+version = "0.2.7"
 edition = "2021"
 # Highest MSRV in the dependency tree. `candle-core` 0.11.1 needs 1.94 on
 # x86_64: it calls `__cpuid_count` from safe code, and that intrinsic only
@@ -115,8 +115,13 @@ writeable = { version = "0.5", optional = true }
 # violated offline builds).
 lindera = { version = "6", optional = true, features = ["embed-ipadic"] }
 
-# Optional shell-out accelerators and OCR (feature-gated)
+# Optional shell-out accelerators (feature-gated)
 which = { version = "6.0", optional = true }
+
+# OCR: PaddleOCR PP-OCRv4 weights executed by tract (pure Rust ONNX). No C/C++
+# toolchain, no system libraries, so the static musl build stays static.
+tract-onnx = { version = "0.23", optional = true }
+image = { version = "0.25", optional = true, default-features = false, features = ["jpeg", "png", "tiff", "webp", "bmp", "gif"] }
 
 # Temp files with random suffixes (used by OCR engine to avoid symlink attacks).
 tempfile = "3.8"
@@ -176,7 +181,7 @@ harness = false
 # Semantic search (Candle) is on by default. `--no-default-features` builds a
 # keyword-only binary without Candle or the tokenizers: smaller, faster to
 # compile, and no inference code in the binary at all.
-default = ["embeddings", "daemon"]
+default = ["embeddings", "daemon", "ocr"]
 embeddings = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:tokenizers"]
 jieba-rs = ["dep:jieba-rs"]
 
@@ -188,7 +193,7 @@ icu_segmenter = ["dep:icu_segmenter", "dep:icu_provider", "dep:icu_provider_adap
 lindera = ["dep:lindera"]
 
 shell-accel = ["dep:which"]
-ocr = ["dep:which"]
+ocr = ["dep:tract-onnx", "dep:image"]
 daemon = []
 
 # `homepage` is kept on purpose: `dist` needs it for the Homebrew formula, and
