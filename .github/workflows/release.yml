@@ -95,6 +95,7 @@ jobs:
         run: |
           jq 'del(.ci.github.artifacts_matrix.include[] | select(.targets | index("x86_64-unknown-linux-musl")))' plan-dist-manifest.json > plan-dist-manifest-filtered.json
           echo "manifest=$(jq -c "." plan-dist-manifest-filtered.json)" >> "$GITHUB_OUTPUT"
+          echo "val=$(jq -c "." plan-dist-manifest-filtered.json)" >> "$GITHUB_OUTPUT"
       - name: "Upload dist-manifest.json"
         uses: actions/upload-artifact@v7
         with:
