@@ -14,8 +14,7 @@ cloud service involved.
 
 ```sh
 # Prebuilt binary (macOS/Linux; SHA256-verified)
-curl --proto '=https' --tlsv1.2 -LsSf \
-  https://github.com/arrowassassin/paperscope/releases/latest/download/paper-installer.sh | sh
+curl -fsSL https://kintsugi.tools/paper.sh | sh
 
 # …or from source
 cargo install paperscope
@@ -24,8 +23,8 @@ cargo install paperscope
 brew install arrowassassin/tap/paper
 ```
 
-Install an embedding model (one-time, downloads from the GitHub Release with
-Hugging Face as fallback; SHA256-verified, resumable):
+The models download on their own on first run. To fetch one explicitly
+(GitHub Release first, Hugging Face fallback; SHA256-verified, resumable):
 
 ```sh
 paper models install bge-small-en-v1.5      # 134 MB, English default
