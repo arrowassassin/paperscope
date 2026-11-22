@@ -4,6 +4,38 @@ All notable changes to this project are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html); while the version is
 `0.x`, minor releases may change behaviour.
 
+## [0.2.4] — 2026-11-22
+
+### Added
+- Zero-touch first-run bootstrap: the first `paper` command installs the
+  background service (launchd / systemd), downloads the default embedding model,
+  and indexes `~/Documents`, `~/Downloads`, `~/Desktop` immediately — no manual
+  steps required. Escape hatches: `PAPER_NO_AUTOSTART=1`, `PAPER_OFFLINE=1`,
+  `PAPER_HOME` (tests/portable), `CI=1`, `paper daemon-control uninstall`.
+- Agent-facing indexing control via MCP: `index_documents` (recursive),
+  `add_index_root` (persisted + daemon watcher), `remove_index_root`,
+  `index_status` (files, chunks, model, roots, daemon reachability). Path
+  vetting prevents prompt-injection escapes (absolute paths only, canonicalised,
+  inside home/configured roots, sensitive dirs blocked: `.ssh`, `.aws`,
+  `.gnupg`, `.kube`, `.password-store`, `Library`, `.Trash`).
+- CLI persistence: `paper daemon-control add-root|remove-root` now writes
+  `config.toml` so roots survive daemon restarts and reboots.
+- Native pre-commit hook (`scripts/install-hooks.sh`) running `cargo fmt
+  --all --check` + `cargo clippy --all-targets -- -D warnings` on Rust changes.
+
+### Fixed
+- `clippy::empty_line_after_doc_comments` lint in `accel.rs` (converted
+  explanatory block to line comments).
+- Borrow-after-move in OCR feature (`ocr.rs`).
+- NOTICE file regenerated for updated dependency tree.
+
+### Changed
+- Daemon unions config roots with auto-discovery instead of replacing them.
+- Immediate first index pass instead of waiting for the five-minute scheduler
+  tick.
+- Embedding model downloaded at daemon startup (background) so the first index
+  pass already has vectors.
+
 ## [0.1.0] — 2026-11-21
 
 First published release.
