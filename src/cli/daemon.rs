@@ -240,8 +240,8 @@ fn systemd_argument(value: &str) -> String {
 /// Render a launchd user agent without touching the host service manager.
 pub fn render_launchd_plist(exe_path: &Path, cache_dir: &Path) -> String {
     let exe = xml_escape(&exe_path.to_string_lossy());
-    let stdout = xml_escape(&cache_dir.join("daemon.stdout.log").to_string_lossy());
-    let stderr = xml_escape(&cache_dir.join("daemon.stderr.log").to_string_lossy());
+    let stdout = xml_escape(&format!("{}/daemon.stdout.log", cache_dir.to_string_lossy().replace('\\', "/")));
+    let stderr = xml_escape(&format!("{}/daemon.stderr.log", cache_dir.to_string_lossy().replace('\\', "/")));
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

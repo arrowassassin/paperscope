@@ -177,6 +177,13 @@ if musl_marker not in text:
     text = "".join(lines)
     changed = True
 
+# 5. Ensure consistent artifact action versions: cargo-dist generates the plan
+# job with upload-artifact@v7 while build jobs use download-artifact@v8, which
+# causes digest-mismatch on artifacts-plan-dist-manifest. Normalize both to v8.
+if "upload-artifact@v7" in text:
+    text = text.replace("upload-artifact@v7", "upload-artifact@v8")
+    changed = True
+
 if not changed:
     print(f"{path} is already patched")
     raise SystemExit(0)
