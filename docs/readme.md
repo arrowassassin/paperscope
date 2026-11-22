@@ -94,6 +94,8 @@ paper update                # install it
 - [Website](https://kintsugi.tools/paperscope.html)
 - [Architecture notes](https://github.com/arrowassassin/paperscope/blob/main/docs/paper-architecture.md)
 - [MCP setup](https://github.com/arrowassassin/paperscope/blob/main/docs/CLAUDE_PLUGIN.md)
+- Claude Code: `/plugin marketplace add arrowassassin/paperscope` then
+  `/plugin install paperscope@paperscope`
 
 ## Licence
 

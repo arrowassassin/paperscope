@@ -92,6 +92,19 @@ source first, then a short answer, and never invents one.
 
 ## Use it with Claude and other agents
 
+**Claude Code, one line each:**
+
+```
+/plugin marketplace add arrowassassin/paperscope
+/plugin install paperscope@paperscope
+```
+
+The plugin adds a skill and starts `paper serve --mcp` from your `PATH`; install
+the CLI first with the one-liner above. On claude.ai, upload
+`paperscope-plugin.zip` from the release page instead.
+
+**Any MCP client:**
+
 ```json
 {
   "mcpServers": {
