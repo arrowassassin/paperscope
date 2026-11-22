@@ -4,6 +4,25 @@ All notable changes to this project are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html); while the version is
 `0.x`, minor releases may change behaviour.
 
+## [0.2.9] — 2026-11-22
+
+### Fixed
+- **The background service no longer runs a deleted binary.** On macOS,
+  `launchctl bootstrap` refuses to replace an already-loaded job, so reinstalling
+  after the install path changed (for example, removing a Homebrew copy) left
+  launchd spawning the old executable forever. It exited `78: EX_CONFIG` and the
+  daemon socket never appeared, which silently disabled automatic indexing.
+  `daemon-control install` now boots the loaded job out before bootstrapping the
+  new one.
+- The release workflow locates `cargo-cyclonedx`'s output instead of assuming
+  `target/sbom.json` (the tool names it after the package), and attaching SBOMs
+  no longer fails the release when one format is missing.
+
+### Changed
+- Claude Code plugin is distributed through a repository marketplace
+  (`/plugin marketplace add arrowassassin/paperscope`) and no longer bundles an
+  executable, which the hosted plugin validator rejects.
+
 ## [0.2.8] — 2026-11-22
 
 ### Added
