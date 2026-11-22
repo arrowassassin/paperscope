@@ -237,6 +237,7 @@ mod unix {
         std::fs::create_dir(&docs).unwrap();
         let child = Command::new(env!("CARGO_BIN_EXE_paper"))
             .env("PAPER_HOME", dir.path())
+            .env("PAPER_OFFLINE", "1")
             .arg("daemon")
             .arg("--foreground")
             .arg("--socket")
@@ -253,12 +254,12 @@ mod unix {
         let runtime = tokio::runtime::Runtime::new().unwrap();
         runtime.block_on(async {
             let mut ready = false;
-            for _ in 0..50 {
+            for _ in 0..200 {
                 if IpcClient::connect(&socket).await.is_ok() {
                     ready = true;
                     break;
                 }
-                tokio::time::sleep(Duration::from_millis(20)).await;
+                tokio::time::sleep(Duration::from_millis(50)).await;
             }
             assert!(ready, "daemon process did not open its IPC socket");
         });

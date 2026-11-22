@@ -3,6 +3,8 @@
 //! One binary, two front-ends: a CLI and an MCP stdio server, both driven by
 //! the same `core` library.
 
+#[cfg(feature = "daemon")]
+pub mod bootstrap;
 pub mod cli;
 pub mod core;
 pub mod daemon;

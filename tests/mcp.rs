@@ -162,9 +162,13 @@ fn mcp_exposes_exactly_the_four_document_tools() {
     assert_eq!(
         names,
         vec![
+            "add_index_root",
             "answer_documents",
+            "index_documents",
+            "index_status",
             "list_sources",
             "read_source",
+            "remove_index_root",
             "search_documents"
         ]
     );

@@ -109,12 +109,16 @@ pub async fn run(args: DaemonControlArgs) -> Result<i32> {
             }
         }
         DaemonControlCommand::AddRoot { path } => {
+            let path = canonical_or_original(&path);
+            persist_root(Some(&path), None)?;
             expect_ok(
                 send_request(&socket_path, DaemonRequest::AddRoot { path: path.clone() }).await?,
             )?;
             println!("Added indexing root: {}", path.display());
         }
         DaemonControlCommand::RemoveRoot { path } => {
+            let path = canonical_or_original(&path);
+            persist_root(None, Some(&path))?;
             expect_ok(
                 send_request(
                     &socket_path,
@@ -549,4 +553,39 @@ fn start_service() -> Result<()> {
 #[cfg(not(any(target_os = "linux", target_os = "macos")))]
 fn restart_service() -> Result<()> {
     bail!("OS service management is not yet supported on Windows; use Linux or macOS")
+}
+
+/// Install the background service, or start it when its file already exists
+/// (for example after a binary upgrade). Used by first-run automation, so it
+/// must be idempotent and must not fail because the service was already
+/// registered.
+pub(crate) fn ensure_service() -> Result<()> {
+    match install_service(false) {
+        Ok(_) => Ok(()),
+        Err(install_error) => start_service().map_err(|start_error| {
+            anyhow::anyhow!("install failed ({install_error:#}); start failed ({start_error:#})")
+        }),
+    }
+}
+
+fn canonical_or_original(path: &Path) -> PathBuf {
+    path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
+}
+
+/// Persist a root change in the config so it survives daemon restarts and
+/// reboots. Without this, `add-root` only lived until the daemon exited.
+fn persist_root(add: Option<&Path>, remove: Option<&Path>) -> Result<()> {
+    let mut config = crate::core::config::Config::load().unwrap_or_default();
+    if let Some(add) = add {
+        if !add.exists() {
+            bail!("{} does not exist", add.display());
+        }
+        if !config.roots.iter().any(|root| root == add) {
+            config.roots.push(add.to_path_buf());
+        }
+    }
+    if let Some(remove) = remove {
+        config.roots.retain(|root| root != remove);
+    }
+    config.save()
 }

@@ -230,9 +230,18 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
         tokio::fs::create_dir_all(parent).await?;
     }
 
-    // Determine roots to index
+    // Determine roots to index. Explicit `--root` wins; otherwise the
+    // auto-discovered user directories are combined with any roots persisted in
+    // the config (by `daemon-control add-root` or the MCP add_index_root tool),
+    // so a root added once survives a reboot.
     let roots = if args.root.is_empty() {
-        discover_default_roots()
+        let mut roots = discover_default_roots();
+        for root in &workspace.config.roots {
+            if !roots.contains(root) {
+                roots.push(root.clone());
+            }
+        }
+        roots
     } else {
         args.root.clone()
     };
@@ -243,7 +252,14 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
         tracing::info!("Daemon will index: {:?}", roots);
     }
 
-    // Load the embedder once (only if already on disk — never download here).
+    // Download the default embedding model if this is a fresh install. Doing it
+    // here (rather than in the installer) covers every install channel, and
+    // doing it before the embedder is loaded means the first index pass already
+    // gets vectors instead of needing a reindex later.
+    #[cfg(feature = "daemon")]
+    crate::bootstrap::ensure_models(&workspace).await;
+
+    // Load the embedder once, after the download step above.
     let embedder = workspace.embedder();
     let db_path = workspace.paths.db_path();
 
@@ -301,6 +317,14 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
     // Start components
     if !args.no_schedule {
         scheduler.start().await;
+
+        // First install: index now rather than waiting for the first
+        // incremental tick (the scheduler skips its immediate tick on start).
+        #[cfg(feature = "daemon")]
+        if crate::bootstrap::index_is_empty(&workspace.paths) {
+            tracing::info!("empty index — starting the first indexing pass");
+            scheduler.trigger_incremental().await;
+        }
     }
 
     if !args.no_watch {

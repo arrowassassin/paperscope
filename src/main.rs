@@ -27,6 +27,27 @@ enum Commands {
     DaemonControl(paper::cli::DaemonControlArgs),
 }
 
+impl Commands {
+    /// Subcommand name, used by first-run automation to decide whether it should
+    /// run (it must not interfere with daemon management or diagnostics).
+    #[cfg_attr(not(feature = "daemon"), allow(dead_code))]
+    fn name(&self) -> &'static str {
+        match self {
+            Commands::Search(_) => "search",
+            Commands::Answer(_) => "answer",
+            Commands::Index(_) => "index",
+            Commands::Aggregate(_) => "aggregate",
+            Commands::Serve(_) => "serve",
+            Commands::Models(_) => "models",
+            Commands::Doctor => "doctor",
+            #[cfg(feature = "daemon")]
+            Commands::Daemon(_) => "daemon",
+            #[cfg(feature = "daemon")]
+            Commands::DaemonControl(_) => "daemon-control",
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
@@ -38,6 +59,13 @@ async fn main() -> Result<()> {
         .init();
 
     let cli = Cli::parse();
+
+    // Install-once, never-configure: the first ordinary command registers the
+    // background indexer. It never fails the command and never waits on the
+    // network (the daemon downloads models and indexes).
+    #[cfg(feature = "daemon")]
+    paper::bootstrap::maybe_autostart(cli.command.name()).await;
+
     let result = match cli.command {
         Commands::Search(args) => paper::cli::run_search(args).await,
         Commands::Answer(args) => paper::cli::run_answer(args).await,
