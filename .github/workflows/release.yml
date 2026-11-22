@@ -89,18 +89,15 @@ jobs:
           dist ${{ (!github.event.pull_request && format('host --steps=create --tag={0}', github.ref_name)) || 'plan' }} --output-format=json > plan-dist-manifest.json
           echo "dist ran successfully"
           cat plan-dist-manifest.json
-          echo "manifest=$(jq -c "." plan-dist-manifest.json)" >> "$GITHUB_OUTPUT"
-      # Filter out musl target from the artifacts matrix (needs x86_64-linux-musl-g++)
-      - name: Filter musl target from matrix
-        run: |
+          # Filter out musl target from artifacts matrix (needs x86_64-linux-musl-g++)
           jq 'del(.ci.github.artifacts_matrix.include[] | select(.targets | index("x86_64-unknown-linux-musl")))' plan-dist-manifest.json > plan-dist-manifest-filtered.json
           echo "manifest=$(jq -c "." plan-dist-manifest-filtered.json)" >> "$GITHUB_OUTPUT"
-          echo "val=$(jq -c "." plan-dist-manifest-filtered.json)" >> "$GITHUB_OUTPUT"
       - name: "Upload dist-manifest.json"
         uses: actions/upload-artifact@v7
         with:
           name: artifacts-plan-dist-manifest
           path: plan-dist-manifest-filtered.json
+        # This file is created by the plan step above
 
   # Build and packages all the platform-specific things
   build-local-artifacts:
