@@ -22,16 +22,17 @@ cargo install paperscope        # installs the `paper` binary (Rust 1.94+)
 Or the prebuilt binary:
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf \
-  https://github.com/arrowassassin/paperscope/releases/latest/download/paperscope-installer.sh | sh
+curl -fsSL https://kintsugi.tools/paper.sh | sh
 brew install arrowassassin/tap/paper
 ```
 
 The first `paper` command finishes setup by itself: it registers a background
-indexer (launchd / systemd), downloads the 134 MB default embedding model, and
-indexes `~/Documents`, `~/Downloads`, `~/Desktop`. Keyword search works from the
-first second; semantic results appear when the model lands. Opt out with
-`PAPER_NO_AUTOSTART=1`, and remove it with `paper daemon-control uninstall`.
+indexer (launchd / systemd), downloads the 134 MB embedding model and then the
+1.13 GB reranker, and indexes `~/Documents`, `~/Downloads`, `~/Desktop`.
+Keyword search works from the first second, semantic results appear when the
+embedder lands, and ranking sharpens once the reranker finishes. Opt out with
+`PAPER_NO_AUTOSTART=1`, skip the reranker with `PAPER_NO_RERANKER=1`, and remove
+the service with `paper daemon-control uninstall`.
 
 ## Try it
 
@@ -73,7 +74,7 @@ or two sentences, and "not found" when the evidence is weak.
 |---|---|---|
 | `bge-small-en-v1.5` | 134 MB | default English embeddings (auto-downloaded) |
 | `multilingual-e5-small` | 487 MB | 100 languages |
-| `bge-reranker-base` | 1.13 GB | optional precision boost |
+| `bge-reranker-base` | 1.13 GB | reranks top hits (auto-downloaded; `PAPER_NO_RERANKER=1` to skip) |
 
 ```bash
 paper models list

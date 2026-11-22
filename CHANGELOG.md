@@ -4,6 +4,17 @@ All notable changes to this project are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html); while the version is
 `0.x`, minor releases may change behaviour.
 
+## [0.2.6] — 2026-11-22
+
+### Changed
+- First-run setup now downloads **both** default models in the background: the
+  134 MB `bge-small-en-v1.5` embedder first, then the 1.13 GB
+  `bge-reranker-base`. Ranking sharpens on its own once the reranker lands.
+  `PAPER_NO_RERANKER=1` skips the second download (metered connections, small
+  disks); searches keep working with dense + keyword results.
+- README, crates.io README and the website document the full first-run model
+  set instead of calling the reranker "optional".
+
 ## [0.2.5] — 2026-11-22
 
 ### Fixed

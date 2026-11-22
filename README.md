@@ -22,8 +22,7 @@ API keys, no telemetry, no cloud.
 
 ```bash
 # macOS / Linux (recommended)
-curl --proto '=https' --tlsv1.2 -LsSf \
-  https://github.com/arrowassassin/paperscope/releases/latest/download/paperscope-installer.sh | sh
+curl -fsSL https://kintsugi.tools/paper.sh | sh
 ```
 
 ```bash
@@ -35,12 +34,15 @@ cargo install paperscope               # any platform with Rust 1.94+
 
 1. registers a background indexer as a user service (launchd / systemd), so it
    survives reboots;
-2. downloads the default embedding model (134 MB) in the background;
+2. downloads the default models in the background — embeddings (134 MB) first,
+   then the reranker (1.13 GB);
 3. indexes `~/Documents`, `~/Downloads` and `~/Desktop`, then keeps them current
    with a five-minute incremental pass and a 3 AM full pass.
 
-Keyword search works immediately; semantic results appear as soon as the model
-lands. Prefer to drive it yourself? `PAPER_NO_AUTOSTART=1 paper index --root ~/Documents`,
+Keyword search works immediately, semantic results appear as soon as the
+embedder lands, and ranking sharpens once the reranker finishes. On a metered
+connection or tight disk, `PAPER_NO_RERANKER=1` skips the 1.13 GB second model.
+Prefer to drive it yourself? `PAPER_NO_AUTOSTART=1 paper index --root ~/Documents`,
 or undo everything with `paper daemon-control uninstall`.
 
 ## Try it
@@ -109,7 +111,7 @@ search (ask in English, find the Japanese contract).
 |---|---|---|
 | `bge-small-en-v1.5` | 134 MB | default English embeddings (auto-downloaded) |
 | `multilingual-e5-small` | 487 MB | 100 languages |
-| `bge-reranker-base` | 1.13 GB | optional precision boost |
+| `bge-reranker-base` | 1.13 GB | reranks top hits (auto-downloaded; `PAPER_NO_RERANKER=1` to skip) |
 
 ```bash
 paper models list

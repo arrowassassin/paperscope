@@ -83,6 +83,7 @@ sbom_job = """
           find . -maxdepth 2 -name 'sbom.json' -exec mv -f {} target/sbom.json \;
       - name: Generate SPDX SBOM
         run: |
+          mkdir -p target
           cargo sbom --output-format spdx_json_2_3 > target/sbom.spdx.json
       - name: Attach the SBOMs to the release
         env:

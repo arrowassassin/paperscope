@@ -8,7 +8,8 @@
 //! Effects, in order:
 //!   1. register the background indexer as a user service (launchd/systemd), or
 //!      fall back to a detached daemon for this login session;
-//!   2. the daemon downloads the default embedding model in the background;
+//!   2. the daemon downloads the default models in the background (the
+//!      embedding model first, then the optional reranker);
 //!   3. the daemon indexes the auto-discovered roots immediately (instead of
 //!      waiting for the first five-minute scheduler tick).
 //!
@@ -271,9 +272,14 @@ pub async fn maybe_autostart(command: &str) {
     let _ = next.save(&state_path);
 }
 
-/// Download the default embedding model if it is missing. Runs inside the
-/// daemon, so the user's command has already returned. Failure is not fatal:
-/// keyword search keeps working and the next daemon start tries again.
+/// Download the default models if they are missing. Runs inside the daemon, so
+/// the user's command has already returned. Failure is not fatal: keyword
+/// search keeps working and the next daemon start tries again.
+///
+/// The embedding model comes first because indexing needs it. The reranker is
+/// best-effort and second: it only improves ordering, so a failed or skipped
+/// download costs accuracy, never functionality. `PAPER_NO_RERANKER=1` keeps
+/// the ~1.1 GB reranker off disk entirely (small disk, metered connection).
 pub async fn ensure_models(workspace: &crate::cli::Workspace) {
     #[cfg(feature = "embeddings")]
     {
@@ -281,18 +287,33 @@ pub async fn ensure_models(workspace: &crate::cli::Workspace) {
         if switches.offline || switches.no_autostart {
             return;
         }
-        if workspace.embedding_model_installed() {
+        if !workspace.embedding_model_installed() {
+            tracing::info!("downloading the default embedding model in the background");
+            if let Err(error) = workspace
+                .model_manager
+                .ensure(crate::core::models::DEFAULT_EMBEDDING)
+                .await
+            {
+                tracing::warn!(
+                    "embedding model download failed ({error:#}); continuing with keyword search"
+                );
+            }
+        }
+        if std::env::var_os("PAPER_NO_RERANKER").is_some() {
             return;
         }
-        tracing::info!("downloading the default embedding model in the background");
-        if let Err(error) = workspace
+        if !workspace
             .model_manager
-            .ensure(crate::core::models::DEFAULT_EMBEDDING)
-            .await
+            .is_installed(crate::core::models::OPTIONAL_RERANKER)
         {
-            tracing::warn!(
-                "embedding model download failed ({error:#}); continuing with keyword search"
-            );
+            tracing::info!("downloading the optional reranker in the background");
+            if let Err(error) = workspace
+                .model_manager
+                .ensure(crate::core::models::OPTIONAL_RERANKER)
+                .await
+            {
+                tracing::warn!("reranker download failed ({error:#}); results stay dense+keyword");
+            }
         }
     }
     #[cfg(not(feature = "embeddings"))]
