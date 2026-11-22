@@ -60,8 +60,12 @@ pub struct Indexer {
 }
 
 impl Indexer {
+    /// Indexer with the default OCR policy.
+    ///
+    /// OCR is on when its weights are present, so the daemon and the MCP tools
+    /// pick it up without each caller having to remember the flag.
     pub fn new(conn: Connection, embedder: Option<SharedEmbedder>) -> Result<Self> {
-        Self::with_ocr(conn, embedder, false)
+        Self::with_ocr(conn, embedder, ocr_by_default())
     }
 
     /// Whether extraction in this indexer may run OCR.
@@ -566,4 +570,16 @@ fn atomic_replace(src: &Path, dst: &Path) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// Whether OCR should run when the caller did not ask explicitly.
+fn ocr_by_default() -> bool {
+    #[cfg(feature = "ocr")]
+    {
+        crate::core::extract::ocr::enabled(false)
+    }
+    #[cfg(not(feature = "ocr"))]
+    {
+        false
+    }
 }
