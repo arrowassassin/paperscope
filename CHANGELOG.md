@@ -4,6 +4,13 @@ All notable changes to this project are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html); while the version is
 `0.x`, minor releases may change behaviour.
 
+## [0.2.10] — 2026-11-22
+
+### Fixed
+- `paper update` failed immediately with `write installer: No such file or
+  directory`: it built a path inside a per-process temporary directory without
+  creating that directory. The directory is now created before the installer is
+  written and removed afterwards.
 ## [0.2.9] — 2026-11-22
 
 ### Fixed
