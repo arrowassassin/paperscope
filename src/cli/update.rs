@@ -11,8 +11,8 @@ use clap::Args;
 
 use super::{EXIT_FOUND, EXIT_NOT_FOUND};
 
-const REPO: &str = "arrowassassin/paperscope";
-const API_LATEST: &str = "https://api.github.com/repos/arrowassassin/paperscope/releases/latest";
+const REPO: &str = "kintsugi-tools/paperscope";
+const API_LATEST: &str = "https://api.github.com/repos/kintsugi-tools/paperscope/releases/latest";
 
 #[derive(Args)]
 pub struct UpdateArgs {

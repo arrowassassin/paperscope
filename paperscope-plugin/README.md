@@ -16,12 +16,12 @@ PaperScope reads only the directories you configure. It stores its index locally
 
 ```sh
 curl -fsSL https://kintsugi.tools/paper.sh | sh
-# or: brew install arrowassassin/tap/paper
+# or: brew install kintsugi-tools/tap/paper
 # or: cargo install paperscope
 ```
 
 2. Upload `paperscope-plugin.zip` at Customize > Plugins > Add > Upload plugin,
-   or from Claude Code: `/plugin install paperscope --marketplace arrowassassin/paperscope`.
+   or from Claude Code: `/plugin install paperscope --marketplace kintsugi-tools/paperscope`.
 
 The plugin starts `paper serve --mcp` from your `PATH`, so run `paper --version`
 first if the tools do not appear.

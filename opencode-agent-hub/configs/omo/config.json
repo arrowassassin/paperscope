@@ -1,0 +1,44 @@
+{
+  "$schema": "https://ohmyopenagent.com/schema.json",
+  "orchestrator": "opencode-go/glm-5.3",
+  "profiles": {
+    "default": "capable",
+    "capable": "opencode-go/glm-5.3",
+    "fast": "opencode-go/deepseek-v4.1-flash",
+    "heavy": "opencode-go/deepseek-v4-pro"
+  },
+  "agents": {
+    "intent_gate": {
+      "model": "opencode-go/qwen3.8-flash",
+      "description": "Rapid intent categorization"
+    },
+    "prometheus": {
+      "model": "opencode-go/glm-5.3",
+      "description": "Architectural planner and requirements surveyor"
+    },
+    "sisyphus": {
+      "model": "opencode-go/glm-5.3",
+      "description": "Main task loop manager and delegation orchestrator"
+    },
+    "librarian": {
+      "model": "opencode-go/qwen3.8-flash",
+      "description": "AST-grep and codebase symbol retriever"
+    },
+    "hephaestus": {
+      "model": "opencode-go/deepseek-v4-pro",
+      "description": "Lead coding and refactoring engine"
+    },
+    "fast_worker": {
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "description": "Fast unit tests and boilerplate generator"
+    },
+    "debugger": {
+      "model": "opencode-go/qwen3.8-max",
+      "description": "Stack trace analyzer and bug reproducer"
+    },
+    "argus": {
+      "model": "opencode-go/kimi-k3.1-pro",
+      "description": "Security, diff validation and regression auditor"
+    }
+  }
+}

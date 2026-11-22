@@ -1,0 +1,8 @@
+{
+  "$schema": "https://opencode.ai/tui.json",
+  "sidebar_width": 46,
+  "sidebar_default_visible": true,
+  "keybinds": {
+    "sidebar_toggle": "ctrl+b"
+  }
+}

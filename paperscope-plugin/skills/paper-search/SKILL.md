@@ -30,7 +30,7 @@ Invoke this skill when the user wants to find information in their own documents
 
 1. Ask the user which directories to index, or confirm the configured search roots.
 2. Ensure the `paper` binary is installed and on PATH:
-   `curl -fsSL https://kintsugi.tools/paper.sh | sh` (or `brew install arrowassassin/tap/paper`,
+   `curl -fsSL https://kintsugi.tools/paper.sh | sh` (or `brew install kintsugi-tools/tap/paper`,
    or `cargo install paperscope`). The plugin deliberately bundles no executable.
 3. Call `search_documents` with the user's query. Truncate results as needed.
 4. For a specific hit, call `read_source` with its `source_id` to read surrounding context.

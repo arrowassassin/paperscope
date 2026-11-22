@@ -60,7 +60,7 @@ impl ModelSpec {
     pub fn download_urls(&self, file_name: &str) -> Vec<String> {
         vec![
             format!(
-                "https://github.com/arrowassassin/paperscope/releases/download/v{}/{}-{}",
+                "https://github.com/kintsugi-tools/paperscope/releases/download/v{}/{}-{}",
                 env!("CARGO_PKG_VERSION"),
                 self.id,
                 file_name
@@ -203,7 +203,7 @@ mod tests {
         assert_eq!(
             urls[0],
             format!(
-                "https://github.com/arrowassassin/paperscope/releases/download/v{}/bge-small-en-v1.5-model.safetensors",
+                "https://github.com/kintsugi-tools/paperscope/releases/download/v{}/bge-small-en-v1.5-model.safetensors",
                 env!("CARGO_PKG_VERSION")
             )
         );

@@ -1,6 +1,6 @@
 # Paper
 
-![Paper — local-first AI document search with exact citations](https://raw.githubusercontent.com/arrowassassin/paperscope/main/docs/assets/banner.svg)
+![Paper — local-first AI document search with exact citations](https://raw.githubusercontent.com/kintsugi-tools/paperscope/main/docs/assets/banner.svg)
 
 [![crates.io](https://img.shields.io/crates/v/paperscope.svg)](https://crates.io/crates/paperscope)
 [![downloads](https://img.shields.io/crates/d/paperscope.svg)](https://crates.io/crates/paperscope)
@@ -11,7 +11,7 @@ plain language, get the answer *and* the file, page and line it came from. One
 binary: a CLI and an MCP server for Claude and other agents. No account, no API
 keys, no telemetry — and it works offline.
 
-![Animated demo](https://raw.githubusercontent.com/arrowassassin/paperscope/main/docs/assets/demo.svg)
+![Animated demo](https://raw.githubusercontent.com/kintsugi-tools/paperscope/main/docs/assets/demo.svg)
 
 ## Install
 
@@ -23,7 +23,7 @@ Or the prebuilt binary:
 
 ```bash
 curl -fsSL https://kintsugi.tools/paper.sh | sh
-brew install arrowassassin/tap/paper
+brew install kintsugi-tools/tap/paper
 ```
 
 The first `paper` command finishes setup by itself: it registers a background
@@ -90,11 +90,11 @@ paper update                # install it
 
 ## Links
 
-- [GitHub repository](https://github.com/arrowassassin/paperscope)
+- [GitHub repository](https://github.com/kintsugi-tools/paperscope)
 - [Website](https://kintsugi.tools/paperscope.html)
-- [Architecture notes](https://github.com/arrowassassin/paperscope/blob/main/docs/paper-architecture.md)
-- [MCP setup](https://github.com/arrowassassin/paperscope/blob/main/docs/CLAUDE_PLUGIN.md)
-- Claude Code: `/plugin marketplace add arrowassassin/paperscope` then
+- [Architecture notes](https://github.com/kintsugi-tools/paperscope/blob/main/docs/paper-architecture.md)
+- [MCP setup](https://github.com/kintsugi-tools/paperscope/blob/main/docs/CLAUDE_PLUGIN.md)
+- Claude Code: `/plugin marketplace add kintsugi-tools/paperscope` then
   `/plugin install paperscope@paperscope`
 
 ## Licence

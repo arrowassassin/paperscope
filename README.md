@@ -2,7 +2,7 @@
 
 ![Paper — local-first AI document search with exact citations](docs/assets/banner.svg)
 
-[![CI](https://img.shields.io/github/actions/workflow/status/arrowassassin/paperscope/ci.yml?branch=main&label=CI)](https://github.com/arrowassassin/paperscope/actions/workflows/ci.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/kintsugi-tools/paperscope/ci.yml?branch=main&label=CI)](https://github.com/kintsugi-tools/paperscope/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/paperscope.svg)](https://crates.io/crates/paperscope)
 [![downloads](https://img.shields.io/crates/d/paperscope.svg)](https://crates.io/crates/paperscope)
 [![Licence](https://img.shields.io/badge/licence-MIT%20OR%20Apache--2.0-blue)](#licence)
@@ -26,7 +26,7 @@ curl -fsSL https://kintsugi.tools/paper.sh | sh
 ```
 
 ```bash
-brew install arrowassassin/tap/paper   # macOS / Linux, Homebrew
+brew install kintsugi-tools/tap/paper   # macOS / Linux, Homebrew
 cargo install paperscope               # any platform with Rust 1.94+
 ```
 
@@ -95,7 +95,7 @@ source first, then a short answer, and never invents one.
 **Claude Code, one line each:**
 
 ```
-/plugin marketplace add arrowassassin/paperscope
+/plugin marketplace add kintsugi-tools/paperscope
 /plugin install paperscope@paperscope
 ```
 
@@ -115,7 +115,7 @@ the CLI first with the one-liner above. On claude.ai, upload
 
 Then just ask: *"Search my documents for the lease renewal date and cite the
 page."* Install it as a Claude Code plugin from
-[`paperscope-plugin.zip`](https://github.com/arrowassassin/paperscope/releases/latest/download/paperscope-plugin.zip),
+[`paperscope-plugin.zip`](https://github.com/kintsugi-tools/paperscope/releases/latest/download/paperscope-plugin.zip),
 or point `claude --plugin-dir ./paperscope-plugin` at a checkout.
 
 MCP tools: `search_documents`, `read_source`, `list_sources`,

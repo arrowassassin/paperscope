@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenCode Go — Multi-Agent Live Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: rgba(18, 24, 38, 0.7);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --primary: #38bdf8;
+      --primary-glow: rgba(56, 189, 248, 0.35);
+      --secondary: #818cf8;
+      --accent: #f43f5e;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --text: #f1f5f9;
+      --text-dim: #94a3b8;
+      --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(129, 140, 248, 0.08) 0%, transparent 40%);
+      color: var(--text);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+      padding: 24px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 24px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo-badge {
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 20px;
+      color: #0b0f19;
+      box-shadow: 0 0 20px var(--primary-glow);
+    }
+
+    .brand-title h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-title p {
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      color: var(--success);
+      font-weight: 600;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.9); }
+    }
+
+    .grid-layout {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 24px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(16px);
+      border-radius: 16px;
+      padding: 22px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      position: relative;
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--primary);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Interactive Router Box */
+    .router-box {
+      margin-bottom: 24px;
+      background: linear-gradient(180deg, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.8));
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 14px;
+      padding: 18px;
+    }
+
+    .input-wrapper {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .input-wrapper input {
+      flex: 1;
+      background: rgba(11, 15, 25, 0.8);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .input-wrapper input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 15px var(--primary-glow);
+    }
+
+    .btn {
+      background: linear-gradient(135deg, #38bdf8, #2563eb);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 0 20px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 15px var(--primary-glow);
+    }
+
+    .quick-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 12px;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .chip:hover {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--primary);
+      border-color: var(--primary);
+    }
+
+    /* Agent Roster Grid */
+    .agent-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .agent-card {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .agent-card.active {
+      border-color: var(--primary);
+      box-shadow: 0 0 25px var(--primary-glow);
+      transform: translateY(-2px);
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    .agent-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+
+    .agent-name {
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--text);
+    }
+
+    .agent-badge {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .agent-model {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--primary);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .agent-role {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+      min-height: 32px;
+    }
+
+    .agent-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-dim);
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* Quota Sidebar */
+    .quota-item {
+      margin-bottom: 18px;
+    }
+
+    .quota-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .quota-bar-bg {
+      height: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .quota-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+
+    /* Logs stream */
+    .logs-container {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      height: 340px;
+      overflow-y: auto;
+      background: rgba(11, 15, 25, 0.6);
+      border-radius: 10px;
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .log-entry {
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      line-height: 1.5;
+    }
+
+    .log-time { color: var(--text-dim); margin-right: 6px; }
+    .log-tag { font-weight: 600; margin-right: 6px; }
+    .log-tag.ROUTED { color: var(--primary); }
+    .log-tag.SYSTEM { color: var(--success); }
+    .log-tag.OVERRIDE { color: var(--warning); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="logo-badge">⚡</div>
+      <div class="brand-title">
+        <h1>OpenCode Go — Multi-Agent Live Hub</h1>
+        <p>Dynamic Model Routing & Rate-Limit Orchestrator</p>
+      </div>
+    </div>
+    <div class="status-pill">
+      <div class="status-dot"></div>
+      <span id="conn-status">Connected to OpenCode Hub</span>
+    </div>
+  </header>
+
+  <div class="grid-layout">
+    <div class="left-col">
+      
+      <!-- Interactive Task Router -->
+      <div class="card router-box">
+        <div class="card-title">
+          <span>Live Auto-Router Test Console</span>
+          <span style="font-size: 12px; color: var(--text-dim);">Test instant intent classification</span>
+        </div>
+        <div class="input-wrapper">
+          <input type="text" id="task-input" placeholder="Type a task: e.g., 'Check security vulnerabilities in JWT handler' or 'Write unit tests'..." />
+          <button class="btn" id="btn-route">Route Task</button>
+        </div>
+        <div class="quick-chips">
+          <div class="chip" onclick="testChip('Fix intermittent crash in websocket connection pool')">🐛 Fix WebSocket Crash</div>
+          <div class="chip" onclick="testChip('Review git diff for security and concurrency issues')">🛡️ Audit Git Diff</div>
+          <div class="chip" onclick="testChip('Write unit tests for date utility functions')">⚡ Fast Unit Tests</div>
+          <div class="chip" onclick="testChip('Design multi-tenant database schema with sharding')">📐 Design Schema</div>
+          <div class="chip" onclick="testChip('Find all references to authenticateUser across the codebase')">🔍 Search Symbols</div>
+          <div class="chip" onclick="testChip('Generate README documentation for public REST APIs')">📝 Write API Docs</div>
+        </div>
+      </div>
+
+      <!-- Agent Cards -->
+      <div class="card">
+        <div class="card-title">
+          <span>Active Agent Roster</span>
+          <span style="font-size: 12px; color: var(--text-dim);" id="agent-count">7 Specialized Agents</span>
+        </div>
+        <div class="agent-grid" id="agents-container">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+    </div>
+
+    <div class="right-col">
+      
+      <!-- Model Quotas -->
+      <div class="card" style="margin-bottom: 24px;">
+        <div class="card-title">
+          <span>5-Hour Rolling Quotas</span>
+          <span style="font-size: 11px; color: var(--text-dim);">Auto-Balanced</span>
+        </div>
+        <div id="quotas-container">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- Live Stream -->
+      <div class="card">
+        <div class="card-title">
+          <span>Live Telemetry & Logs</span>
+        </div>
+        <div class="logs-container" id="logs-container">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let state = {};
+
+    function getQuotaColor(val) {
+      if (val > 80) return '#f43f5e';
+      if (val > 60) return '#f59e0b';
+      return '#38bdf8';
+    }
+
+    function renderAgents() {
+      const container = document.getElementById('agents-container');
+      if (!state.agents) return;
+      container.innerHTML = state.agents.map(agent => `
+        <div class="agent-card ${agent.status === 'working' ? 'active' : ''}" id="card-${agent.id}">
+          <div class="agent-header">
+            <span class="agent-name">${agent.name}</span>
+            <span class="agent-badge" style="color: ${agent.status === 'working' ? '#f59e0b' : '#10b981'}">
+              ${agent.status === 'working' ? '● WORKING' : '○ IDLE'}
+            </span>
+          </div>
+          <div class="agent-model">🤖 ${agent.model}</div>
+          <div class="agent-role">${agent.role}</div>
+          <div class="agent-meta">
+            <span>Ctx: ${agent.contextLimit}</span>
+            <span>⚡ ${agent.latency}</span>
+            <span>Load: ${agent.quotaUsed}%</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderQuotas() {
+      const container = document.getElementById('quotas-container');
+      if (!state.quotas) return;
+      container.innerHTML = Object.entries(state.quotas).map(([family, q]) => `
+        <div class="quota-item">
+          <div class="quota-header">
+            <span style="font-weight: 600;">${family}</span>
+            <span style="color: var(--text-dim); font-size: 11px;">Resets in ${q.resetIn}</span>
+          </div>
+          <div class="quota-bar-bg">
+            <div class="quota-bar-fill" style="width: ${q.used}%; background: ${getQuotaColor(q.used)};"></div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderLogs() {
+      const container = document.getElementById('logs-container');
+      if (!state.logs) return;
+      container.innerHTML = state.logs.map(log => {
+        if (log.type === 'ROUTED') {
+          return `
+            <div class="log-entry">
+              <span class="log-time">${log.timestamp}</span>
+              <span class="log-tag ROUTED">[ROUTE]</span>
+              <strong>${log.agent}</strong> (${log.model})<br>
+              <span style="color: var(--text-dim); font-size: 11px;">"${log.prompt}"</span>
+            </div>
+          `;
+        }
+        return `
+          <div class="log-entry">
+            <span class="log-time">${log.timestamp}</span>
+            <span class="log-tag ${log.type}">[${log.type}]</span>
+            <span>${log.message}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function routeTask(prompt) {
+      if (!prompt) return;
+      try {
+        const res = await fetch('/api/route', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt })
+        });
+        const data = await res.json();
+        
+        // Highlight active card
+        const card = document.getElementById(`card-${data.decision.agentId}`);
+        if (card) {
+          card.classList.add('active');
+          setTimeout(() => card.classList.remove('active'), 3500);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function testChip(text) {
+      document.getElementById('task-input').value = text;
+      routeTask(text);
+    }
+
+    document.getElementById('btn-route').addEventListener('click', () => {
+      const input = document.getElementById('task-input');
+      routeTask(input.value);
+    });
+
+    document.getElementById('task-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        routeTask(e.target.value);
+      }
+    });
+
+    // Connect SSE
+    const evtSource = new EventSource('/api/events');
+    evtSource.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'SYNC' || msg.state) {
+        state = msg.state || msg;
+        renderAgents();
+        renderQuotas();
+        renderLogs();
+      }
+    };
+  </script>
+</body>
+</html>

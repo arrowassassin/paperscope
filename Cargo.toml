@@ -19,7 +19,7 @@ rust-version = "1.94"
 description = "Local-first AI document search with exact page and line citations. One binary: CLI + MCP server for LLMs. PDF, DOCX and 15+ formats, no cloud, no telemetry."
 license = "MIT OR Apache-2.0"
 readme = "docs/readme.md"
-repository = "https://github.com/arrowassassin/paperscope"
+repository = "https://github.com/kintsugi-tools/paperscope"
 # `dist` needs an explicit homepage for the Homebrew formula it generates. Cargo
 # calls it redundant (the repository URL serves the same purpose), so the
 # manifest lint is silenced on purpose rather than dropping the formula.

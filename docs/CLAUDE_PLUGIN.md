@@ -20,7 +20,7 @@ curl -fsSL https://kintsugi.tools/paper.sh | sh
 cargo install paperscope
 
 # …or Homebrew
-brew install arrowassassin/tap/paper
+brew install kintsugi-tools/tap/paper
 ```
 
 The models download on their own on first run. To fetch one explicitly
