@@ -1,0 +1,4 @@
+[env]
+# sqlite-vec 0.1.9 uses BSD integer names without including sys/types.h.
+# Use the equivalent stdint.h names when compiling C for the musl release.
+CFLAGS_x86_64_unknown_linux_musl = "-Du_int8_t=uint8_t -Du_int16_t=uint16_t -Du_int64_t=uint64_t"
