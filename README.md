@@ -18,10 +18,10 @@ Every hit carries `path` + `line_start` + `line_end`, so a citation always resol
 
 ## Install
 
-Choose one installation method:
+Pick one; all three are equivalent afterwards:
 
 ```bash
-# Option 1: curl installer (recommended - handles your platform automatically)
+# Option 1: curl installer (recommended - picks your platform automatically)
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/arrowassassin/paperscope/releases/latest/download/paper-installer.sh | sh
 
 # Option 2: crates.io
@@ -31,18 +31,32 @@ cargo install paperscope
 brew install arrowassassin/tap/paper
 ```
 
-Then install at least one embedding model for semantic search:
+**That is the whole setup.** The next time you run any `paper` command (or
+Claude calls its MCP tools), Paper sets itself up once:
+
+1. registers the background indexer as a user service (launchd on macOS,
+   systemd on Linux), so it keeps running after a reboot;
+2. downloads the default embedding model (`bge-small-en-v1.5`, 134 MB) in the
+   background;
+3. recursively indexes `~/Documents`, `~/Downloads` and `~/Desktop` — the first
+   pass starts immediately, then a five-minute incremental pass and a 3 AM full
+   pass keep it current.
+
+Keyword search works from the first second; semantic results appear once the
+model lands. Nothing leaves the machine.
 
 ```bash
-paper models install bge-small-en-v1.5   # 134 MB, English default (recommended)
-# or:
-paper models install multilingual-e5-small   # 487 MB, 100 languages
+paper search "warranty expiry"          # works before indexing finishes
+paper daemon-control status             # what is indexed, queue, model, pause state
 ```
 
-Then index your documents:
+Prefer explicit control? Turn the automation off and drive it yourself:
 
 ```bash
-paper index --root ~/Documents
+PAPER_NO_AUTOSTART=1 paper index --root ~/Documents
+paper models install bge-small-en-v1.5     # 134 MB, English (default)
+paper models install multilingual-e5-small # 487 MB, 100 languages
+paper daemon-control uninstall             # stop and remove the background service
 ```
 
 You're done — search works immediately:
@@ -53,7 +67,9 @@ $ paper search "when does the fridge warranty expire"
   Samsung refrigerator warranty certificate ... Coverage ends on 2027-01-15.
 ```
 
-Searching **never** downloads a model. Without weights you get keyword-only search plus a hint; `--semantic` turns a missing model into a hard error (exit code 3) instead of a silent download.
+Keyword search always works, including offline. Semantic results appear as soon
+as the embedding model finishes downloading; `PAPER_OFFLINE=1` forbids all
+network access (models must then be installed by hand).
 
 ## Commands
 

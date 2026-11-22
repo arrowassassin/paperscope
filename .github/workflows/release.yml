@@ -150,14 +150,19 @@ jobs:
           ${{ matrix.packages_install }}
 
       # patched-by: scripts/patch-release-ci.sh (musl target)
-      # The musl target isn't installed by default on GitHub runners; add it
-      # plus the musl system headers so static musl builds can link.
-      - name: Install musl target and system headers
+      # The musl target isn't installed by default on GitHub runners. Ubuntu's
+      # musl-tools package provides the compiler as `musl-gcc`, but cc-rs looks
+      # for the triple-prefixed name (`x86_64-linux-musl-gcc`), so point CC and
+      # the linker at musl-gcc explicitly.
+      - name: Install musl target and toolchain
         if: ${{ matrix.targets && contains(matrix.targets, 'x86_64-unknown-linux-musl') }}
         run: |
           rustup target add x86_64-unknown-linux-musl
           sudo apt-get update -qq
           sudo apt-get install -y -qq musl-tools musl-dev
+          echo "CC_x86_64_unknown_linux_musl=musl-gcc" >> "$GITHUB_ENV"
+          echo "AR_x86_64_unknown_linux_musl=ar" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=musl-gcc" >> "$GITHUB_ENV"
       - name: Build artifacts
         run: |
           # Actually do builds and make zips and whatnot
