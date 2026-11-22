@@ -1,0 +1,28 @@
+{
+  "name": "paperscope",
+  "owner": {
+    "name": "arrowassassin",
+    "url": "https://github.com/arrowassassin/paperscope"
+  },
+  "metadata": {
+    "description": "Local-first document search for Claude: exact file, page and line citations from your own files, with no cloud and no API keys.",
+    "version": "0.2.8"
+  },
+  "plugins": [
+    {
+      "name": "paperscope",
+      "source": "./paperscope-plugin",
+      "description": "Search your documents and get the exact page and line each answer came from. Runs the paper MCP server locally; requires the paper CLI on PATH (curl -fsSL https://kintsugi.tools/paper.sh | sh).",
+      "version": "0.2.8",
+      "author": {
+        "name": "arrowassassin",
+        "url": "https://github.com/arrowassassin/paperscope"
+      },
+      "homepage": "https://kintsugi.tools/paperscope.html",
+      "repository": "https://github.com/arrowassassin/paperscope",
+      "license": "MIT OR Apache-2.0",
+      "keywords": ["search", "rag", "mcp", "documents", "local-first", "citations"],
+      "category": "productivity"
+    }
+  ]
+}
