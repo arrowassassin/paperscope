@@ -4,6 +4,16 @@ All notable changes to this project are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html); while the version is
 `0.x`, minor releases may change behaviour.
 
+## [0.2.11] — 2026-11-22
+
+### Changed
+- The repository now lives at `github.com/kintsugi-tools/paperscope` (GitHub
+  redirects every old URL, so nothing breaks). This release carries the move
+  into the package index: crates.io metadata, the Claude plugin marketplace
+  entry, the Homebrew tap path (`kintsugi-tools/tap/paper`), and the binary's
+  built-in URLs — the `paper update` self-updater and the model-download
+  release URLs — are org-owned. No feature changes.
+
 ## [0.2.10] — 2026-11-22
 
 ### Fixed
