@@ -154,28 +154,7 @@ jobs:
         run: |
           ${{ matrix.packages_install }}
 
-      # patched-by: scripts/patch-release-ci.sh (musl target)
-      # The musl target isn't installed by default on GitHub runners; add it
-      # plus the musl NATIVE toolchain from musl.cc (provides x86_64-linux-musl-gcc/g++
-      # that run on x86_64 and produce musl binaries).
-      - name: Install musl target and native toolchain
-        if: ${{ matrix.targets && contains(matrix.targets, 'x86_64-unknown-linux-musl') }}
-        run: |
-          rustup target add x86_64-unknown-linux-musl
-          # Install musl.cc native toolchain (runs on x86_64, targets musl)
-          curl -fsSL https://musl.cc/x86_64-linux-musl-native.tgz | sudo tar -xzC /opt
-          echo "/opt/x86_64-linux-musl-native/bin" >> $GITHUB_PATH
-          # Set linker and compiler env vars for cargo
-          echo "CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=x86_64-linux-musl-gcc" >> $GITHUB_ENV
-          echo "CC_x86_64_unknown_linux_musl=x86_64-linux-musl-gcc" >> $GITHUB_ENV
-          echo "CXX_x86_64_unknown_linux_musl=x86_64-linux-musl-g++" >> $GITHUB_ENV
       - name: Build artifacts
-        # Ensure musl toolchain PATH and env vars are available for dist build
-        env:
-          PATH: /opt/x86_64-linux-musl-native/bin:${{ runner.os == 'Linux' && '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' || '' }}
-          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: x86_64-linux-musl-gcc
-          CC_x86_64_unknown_linux_musl: x86_64-linux-musl-gcc
-          CXX_x86_64_unknown_linux_musl: x86_64-linux-musl-g++
         run: |
           # Actually do builds and make zips and whatnot
           dist build ${{ needs.plan.outputs.tag-flag }} --print=linkage --output-format=json ${{ matrix.dist_args }} > dist-manifest.json
