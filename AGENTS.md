@@ -16,6 +16,14 @@ cargo deny check licenses bans sources   # no copyleft in the shipped tree
 cargo publish --dry-run                  # packaging must succeed warning-free
 ```
 
+Enable the pre-commit lint once per clone (runs `cargo fmt --all --check` and
+`cargo clippy --all-targets -- -D warnings` whenever a commit touches Rust
+sources or manifests; bypass with `git commit --no-verify`):
+
+```bash
+./scripts/install-hooks.sh
+```
+
 `Cargo.toml` has an `include` allow-list because this repository holds unrelated
 work. Its paths are rooted (`/Cargo.toml`, `/docs/...`): unanchored patterns
 match inside `site/node_modules` and leak files into the crate.

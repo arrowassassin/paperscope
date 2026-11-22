@@ -1,0 +1,54 @@
+#!/bin/sh
+# Pre-commit lint gate for the Rust crate.
+#
+# Installed by scripts/install-hooks.sh (sets core.hooksPath=.githooks).
+# Mirrors the fast half of .github/workflows/ci.yml:
+#   - cargo fmt --all --check          (rustfmt)
+#   - cargo clippy --all-targets -- -D warnings
+#
+# Skip for one commit:   git commit --no-verify
+# Skip via env:          PAPER_SKIP_HOOKS=1 git commit ...
+#
+# Feature-gated builds (--all-features, --no-default-features) are left to CI:
+# they need the Candle/tokenizers tree and are too slow for a commit hook.
+
+set -eu
+
+if [ "${PAPER_SKIP_HOOKS:-0}" != "0" ]; then
+    echo "pre-commit: skipped (PAPER_SKIP_HOOKS set)"
+    exit 0
+fi
+
+# Only lint commits that actually touch Rust sources or build manifests.
+CHANGED=$(git diff --cached --name-only --diff-filter=ACMR -- \
+    '*.rs' 'Cargo.toml' 'Cargo.lock' 'rust-toolchain.toml' 'build.rs')
+
+if [ -z "$CHANGED" ]; then
+    exit 0
+fi
+
+if ! command -v cargo >/dev/null 2>&1; then
+    echo "pre-commit: cargo not found; install Rust to enable linting" >&2
+    exit 1
+fi
+
+# CI uses a pinned toolchain for fmt; use whatever rustup resolves locally but
+# ensure the components exist rather than silently skipping the checks.
+if command -v rustup >/dev/null 2>&1; then
+    rustup component add rustfmt clippy >/dev/null 2>&1 || true
+fi
+
+fail() {
+    echo "" >&2
+    echo "pre-commit: $1" >&2
+    exit 1
+}
+
+echo "pre-commit: checking formatting"
+cargo fmt --all --check || fail "formatting is off — run 'cargo fmt --all' and re-stage"
+
+echo "pre-commit: running clippy (default features)"
+cargo clippy --all-targets -- -D warnings \
+    || fail "clippy reported warnings — fix them, or use --no-verify to bypass once"
+
+echo "pre-commit: ok"

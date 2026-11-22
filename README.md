@@ -212,6 +212,17 @@ cargo test --test models -- --ignored   # 134 MB / 487 MB / 1.13 GB
 
 Always measure performance with `--release`; debug Candle is ~15× slower.
 
+Enable the pre-commit lint once per clone — it runs `cargo fmt --all --check`
+and `cargo clippy --all-targets -- -D warnings` when a commit touches Rust
+sources or manifests, and skips itself otherwise:
+
+```bash
+./scripts/install-hooks.sh
+```
+
+Feature-gated builds (`--all-features`, `--no-default-features`) stay in CI;
+they pull the full Candle/tokenizers tree and are too slow for a commit hook.
+
 ## Packaging
 
 - `cargo-dist` produces tarballs, .zip, shell installer, Homebrew formula, PowerShell installer
