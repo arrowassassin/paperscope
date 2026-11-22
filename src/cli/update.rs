@@ -122,7 +122,8 @@ async fn install_latest() -> Result<()> {
         .context("read installer")?;
 
     let path = temp_script_path()?;
-    std::fs::write(&path, script).context("write installer")?;
+    std::fs::write(&path, script)
+        .with_context(|| format!("write installer to {}", path.display()))?;
     let mut command = std::process::Command::new(program);
     if !flag.is_empty() {
         command.arg(flag);
@@ -130,6 +131,9 @@ async fn install_latest() -> Result<()> {
     command.arg(&path);
     let status = command.status().context("run installer")?;
     let _ = std::fs::remove_file(&path);
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::remove_dir(dir);
+    }
     if !status.success() {
         bail!("installer exited with {status}; nothing was changed");
     }
@@ -142,9 +146,10 @@ fn temp_script_path() -> Result<PathBuf> {
     } else {
         "paperscope-installer.sh"
     };
-    Ok(std::env::temp_dir()
-        .join(format!("paper-update-{}", std::process::id()))
-        .join(name))
+    let dir = std::env::temp_dir().join(format!("paper-update-{}", std::process::id()));
+    std::fs::create_dir_all(&dir)
+        .with_context(|| format!("creating temporary directory {}", dir.display()))?;
+    Ok(dir.join(name))
 }
 
 /// Tell the user when `paper` on `PATH` resolves to a different binary.
@@ -196,6 +201,15 @@ fn version_of(binary: &Path) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::is_newer;
+
+    #[test]
+    fn temp_script_directory_exists() {
+        let path = super::temp_script_path().expect("temp path");
+        assert!(path.parent().expect("parent").is_dir());
+        if let Some(dir) = path.parent() {
+            let _ = std::fs::remove_dir(dir);
+        }
+    }
 
     #[test]
     fn compares_versions_numerically() {
