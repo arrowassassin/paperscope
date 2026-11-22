@@ -342,8 +342,18 @@ jobs:
           version: '0.10'
       - name: Generate CycloneDX SBOM
         run: |
+          mkdir -p target
+          # cargo-cyclonedx names its output after the package and format
+          # (<name>.cdx.json on 0.5), so locate whatever it wrote instead of
+          # assuming a filename.
           cargo cyclonedx --format json --override-filename sbom
-          find . -maxdepth 2 -name 'sbom.json' -exec mv -f {} target/sbom.json \;
+          found=$(find . -maxdepth 2 -name '*.json' ! -path './target/*' ! -path './.git/*' \
+            | grep -Ei 'bom|cdx|sbom' | head -n1)
+          if [ -z "$found" ]; then
+            echo "::error::cargo-cyclonedx produced no JSON SBOM"
+            exit 1
+          fi
+          mv -f "$found" target/sbom.json
       - name: Generate SPDX SBOM
         run: |
           mkdir -p target
@@ -353,7 +363,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.plan.outputs.tag }}
         run: |
-          gh release upload "$TAG" target/sbom.json target/sbom.spdx.json --clobber
+          # Upload whichever SBOMs were produced; a missing format must not
+          # fail an otherwise complete release.
+          for f in target/sbom.json target/sbom.spdx.json; do
+            if [ -f "$f" ]; then
+              gh release upload "$TAG" "$f" --clobber
+            else
+              echo "::warning::$f was not generated"
+            fi
+          done
 
   announce:
     needs:
