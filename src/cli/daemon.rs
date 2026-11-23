@@ -103,6 +103,12 @@ pub async fn run(args: DaemonControlArgs) -> Result<i32> {
                         stats.skipped,
                         stats.warnings
                     );
+                    if stats.denied > 0 || stats.backed_off > 0 {
+                        println!(
+                            "  {} unreadable (permission denied), {} deferred by the backoff",
+                            stats.denied, stats.backed_off
+                        );
+                    }
                 }
                 DaemonResponse::Error { msg } => bail!("daemon error: {msg}"),
                 other => bail!("unexpected daemon response to index request: {other:?}"),

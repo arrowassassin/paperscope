@@ -6,7 +6,7 @@ use crate::core::search::serialize_f32_vec;
 use crate::core::search::SharedEmbedder;
 use crate::core::text::{fts_segment, same_tokens};
 use anyhow::{Context, Result};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -25,9 +25,11 @@ pub struct IndexStats {
     /// Entries this pass could not read for lack of permission — a macOS TCC
     /// grant that was never given, a POSIX mode, a Windows ACL. Counted once per
     /// pass and reported as one line per root, never one warning per file.
+    #[serde(default)]
     pub denied: usize,
     /// Entries skipped before touching the filesystem because the previous pass
     /// already found them unreadable and the backoff window has not elapsed.
+    #[serde(default)]
     pub backed_off: usize,
 }
 
@@ -129,10 +131,26 @@ impl Indexer {
         // directory in it is pruned whole rather than walked and failed again.
         let denied: RefCell<HashSet<PathBuf>> =
             RefCell::new(self.recently_denied()?.into_iter().collect());
+        // Directories pruned by the filter, counted here because `filter_entry`
+        // cannot touch `stats` while the iterator holds it.
+        let pruned_dirs = Cell::new(0usize);
 
         for root in roots {
             if root.is_file() {
-                stats.merge(self.index_file(root)?);
+                // A root that is itself unreadable gets the same treatment as an
+                // unreadable file inside one: reported, remembered, not fatal.
+                // Propagating here made `--file` (and `--root <file>`) exit 2
+                // while the identical file inside a walked root was fine.
+                match self.index_file(root) {
+                    Ok(file_stats) => stats.merge(file_stats),
+                    Err(err) if is_permission_denied(&err) => {
+                        self.note_denied(root, &format!("{err:#}"));
+                        denied.borrow_mut().insert(root.clone());
+                        stats.denied += 1;
+                        tracing::warn!("{}", denied_summary(root, 1));
+                    }
+                    Err(err) => return Err(err),
+                }
                 continue;
             }
             let mut root_denied = 0usize;
@@ -146,7 +164,11 @@ impl Indexer {
                     if is_hidden(e.file_name()) {
                         return false;
                     }
-                    !(e.file_type().is_dir() && denied.borrow().contains(e.path()))
+                    if e.file_type().is_dir() && denied.borrow().contains(e.path()) {
+                        pruned_dirs.set(pruned_dirs.get() + 1);
+                        return false;
+                    }
+                    true
                 })
             {
                 let entry = match entry {
@@ -158,11 +180,14 @@ impl Indexer {
                         // revoked grant became 1,070 warnings per five minutes.
                         if is_walk_permission_denied(&e) {
                             if let Some(path) = e.path() {
-                                self.remember_unreadable(path, &format!("{e}"))?;
+                                self.note_denied(path, &format!("{e}"));
                                 denied.borrow_mut().insert(path.to_path_buf());
                             }
                             root_denied += 1;
                         } else {
+                            // NotFound included: a path that vanished mid-walk is
+                            // not a permission problem, and telling the user to
+                            // grant Full Disk Access for it would be a lie.
                             tracing::warn!("walk error: {e:#}");
                         }
                         stats.skipped += 1;
@@ -181,7 +206,7 @@ impl Indexer {
                         Ok(file_stats) => stats.merge(file_stats),
                         Err(err) => {
                             if is_permission_denied(&err) {
-                                self.remember_unreadable(entry.path(), &format!("{err:#}"))?;
+                                self.note_denied(entry.path(), &format!("{err:#}"));
                                 denied.borrow_mut().insert(entry.path().to_path_buf());
                                 root_denied += 1;
                             } else {
@@ -197,9 +222,12 @@ impl Indexer {
                 tracing::warn!("{}", denied_summary(root, root_denied));
             }
         }
+        stats.backed_off += pruned_dirs.get();
         // Let the cache expire on its own: a path whose permission was fixed is
         // tried again one backoff window after its last failure.
-        self.expire_unreadable()?;
+        if let Err(err) = self.expire_unreadable() {
+            tracing::warn!("could not age out the unreadable cache: {err:#}");
+        }
         Ok(stats)
     }
 
@@ -392,6 +420,19 @@ impl Indexer {
     }
 
     /// Remember that `path` could not be read, and when it was last tried.
+    ///
+    /// Bookkeeping must never fail an indexing run: a locked database here would
+    /// turn "one file is unreadable" into "the whole pass failed", which is a
+    /// worse outcome than losing the backoff for one pass.
+    fn note_denied(&self, path: &Path, reason: &str) {
+        if let Err(err) = self.remember_unreadable(path, reason) {
+            tracing::warn!(
+                "could not record {} as unreadable ({err:#}); it will be retried next pass",
+                path.display()
+            );
+        }
+    }
+
     fn remember_unreadable(&self, path: &Path, reason: &str) -> Result<()> {
         let now = now_unix();
         self.conn.inner().execute(
@@ -428,9 +469,21 @@ impl Indexer {
 
         // One `stat` per indexed document is unavoidable, but the deletes are
         // not: batching them into a single transaction turns N fsyncs into one.
+        //
+        // A path inside an unreadable directory answers `exists() == false` too,
+        // so pruning on that alone deleted the indexed content of exactly the
+        // roots this change exists to tolerate (revoked TCC grant → "1 removed"
+        // → search returns nothing). Never prune what we could not read.
+        let unreadable = self.recently_denied()?;
+        let hidden_by_permission = |path: &str| {
+            let path = Path::new(path);
+            unreadable.iter().any(|denied| path.starts_with(denied))
+        };
         let missing: Vec<String> = paths
             .into_iter()
-            .filter(|path| !path.is_empty() && !Path::new(path).exists())
+            .filter(|path| {
+                !path.is_empty() && !Path::new(path).exists() && !hidden_by_permission(path)
+            })
             .collect();
         if missing.is_empty() {
             return Ok(0);
@@ -525,21 +578,22 @@ fn is_permission_denied(error: &anyhow::Error) -> bool {
 }
 
 fn is_walk_permission_denied(error: &walkdir::Error) -> bool {
-    error.io_error().is_some_and(|io| {
-        matches!(
-            io.kind(),
-            std::io::ErrorKind::PermissionDenied | std::io::ErrorKind::NotFound
-        )
-    })
+    // Only an actual refusal. `NotFound` is a path that vanished between the
+    // readdir and the stat — a real error, but not one a TCC grant fixes, and
+    // certainly not one to tell the user to grant Full Disk Access for.
+    error
+        .io_error()
+        .is_some_and(|io| io.kind() == std::io::ErrorKind::PermissionDenied)
 }
 
 /// The one line a root gets when part of it is unreadable: what happened, how
-/// much of it, and the two things the user can actually do about it.
+/// much of it, and what the user can actually do about it.
 fn denied_summary(root: &Path, entries: usize) -> String {
+    let entry = if entries == 1 { "entry" } else { "entries" };
     format!(
-        "{}: {entries} entries could not be read (permission denied) — on macOS grant Paper \
-         access under System Settings → Privacy & Security → Full Disk Access, or exclude this \
-         root; retrying in {} minutes",
+        "{}: {entries} {entry} could not be read (permission denied) — grant access \
+         (macOS: System Settings → Privacy & Security → Full Disk Access) and Paper picks it \
+         up on the next pass; retrying in {} minutes",
         root.display(),
         DENIED_BACKOFF.as_secs() / 60
     )
