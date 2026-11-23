@@ -162,14 +162,38 @@ fn present(name: &str) -> bool {
 }
 
 fn should_run(command: &str, switches: &Switches) -> bool {
+    onboarding_enabled(switches) && !SKIP_COMMANDS.contains(&command)
+}
+
+/// Whether onboarding is allowed to happen at all on this machine. Separate from
+/// [`should_run`] because a skipped command still needs to know whether the
+/// silence is deliberate.
+fn onboarding_enabled(switches: &Switches) -> bool {
     if switches.offline || switches.no_autostart || switches.ci {
         return false;
     }
     // `PAPER_HOME` marks tests and portable installs; never write services there.
-    if switches.portable && !switches.force {
-        return false;
+    !switches.portable || switches.force
+}
+
+/// The one thing a skip-listed command says when setup has never run.
+///
+/// `serve` is skip-listed on purpose (see [`SKIP_COMMANDS`]), but a machine whose
+/// only entry point is the editor would otherwise never be provisioned *and*
+/// never learn why. This returns the notice for exactly that case and `None` for
+/// every other skip — diagnostics and portable/CI runs stay silent.
+fn pending_setup_notice(command: &str, switches: &Switches, state: &State) -> Option<&'static str> {
+    if command != "serve" || !onboarding_enabled(switches) {
+        return None;
     }
-    !SKIP_COMMANDS.contains(&command)
+    if state.service != ServiceState::Pending {
+        return None;
+    }
+    Some(
+        "paper: setup has not run on this machine yet — background indexing is off and search \
+         is keyword-only until it does. Run `paper index` once (or `paper bootstrap`); this \
+         server picks it up without a restart.",
+    )
 }
 
 fn now_unix() -> u64 {
@@ -196,19 +220,41 @@ struct BootstrapLock {
 
 impl BootstrapLock {
     fn acquire(path: &Path) -> Option<Self> {
-        let file = fs::OpenOptions::new()
+        let file = match fs::OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .truncate(false)
             .open(path)
-            .ok()?;
+        {
+            Ok(file) => file,
+            Err(err) => {
+                // A lock file that cannot even be opened (read-only mount, a
+                // backup restored under another owner) must not silently disable
+                // onboarding for the life of the install.
+                tracing::warn!(
+                    "could not open the setup lock at {} ({err:#}); background setup is skipped \
+                     this run",
+                    path.display()
+                );
+                return None;
+            }
+        };
         match file.try_lock() {
             Ok(()) => Some(Self { file }),
             // `WouldBlock` is the ordinary "someone else is setting up" answer.
-            // Any other error means this filesystem cannot lock at all; that
-            // must never be read as "the lock is mine".
-            Err(TryLockError::WouldBlock | TryLockError::Error(_)) => None,
+            Err(TryLockError::WouldBlock) => None,
+            // Any other error means this filesystem cannot lock at all (some
+            // NFS/SMB/FUSE mounts). Refusing to pretend the lock is ours is
+            // right; doing it in silence is not.
+            Err(TryLockError::Error(err)) => {
+                tracing::warn!(
+                    "this filesystem cannot lock {} ({err:#}); background setup is skipped this \
+                     run — `paper daemon-control install` does the same work without the race",
+                    path.display()
+                );
+                None
+            }
         }
     }
 }
@@ -226,6 +272,12 @@ impl Drop for BootstrapLock {
 pub async fn maybe_autostart(command: &str) {
     let switches = Switches::from_process();
     if !should_run(command, &switches) {
+        let state = State::load(&Paths::new().base_dir().join(STATE_FILE));
+        if let Some(notice) = pending_setup_notice(command, &switches, &state) {
+            // One line on stderr, no lock, no service, no network: the server
+            // still answers `initialize` immediately.
+            eprintln!("{notice}");
+        }
         return;
     }
 
@@ -426,6 +478,11 @@ mod tests {
         );
     }
 
+    /// The basic contract: exclusive while held, released on drop. On its own
+    /// this would also pass against the old `create_new` file lock — the test
+    /// that actually distinguishes the kernel lock is
+    /// [`a_lock_is_released_when_its_holder_is_killed`], which no file-existence
+    /// scheme can pass.
     #[test]
     fn a_held_lock_is_exclusive_and_released_on_drop() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -455,6 +512,25 @@ mod tests {
         println!("acquired");
         std::thread::sleep(Duration::from_secs(60));
         drop(lock);
+    }
+
+    /// A lock file that cannot even be opened (a read-only mount, a backup
+    /// restored under another owner) must never be mistaken for a held lock.
+    #[cfg(unix)]
+    #[test]
+    fn a_lock_file_that_cannot_be_opened_is_refused_not_assumed_held() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join(LOCK_FILE);
+        fs::write(&path, b"").expect("write");
+        let mut perms = fs::metadata(&path).expect("metadata").permissions();
+        perms.set_mode(0o444);
+        fs::set_permissions(&path, perms).expect("chmod");
+        assert!(
+            BootstrapLock::acquire(&path).is_none(),
+            "an unopenable lock file must refuse, never claim the lock"
+        );
     }
 
     /// The property the staleness heuristic was reaching for, proved instead of
@@ -521,6 +597,41 @@ mod tests {
             acquired.is_some(),
             "the lock must be free once its holder is dead"
         );
+    }
+
+    /// The editor-only install: `serve` never provisions, so it must at least say
+    /// that setup has not run — once, on stderr, without blocking the handshake.
+    #[test]
+    fn serve_says_when_setup_has_never_run() {
+        let pending = State {
+            service: ServiceState::Pending,
+            updated: 0,
+        };
+        let notice = pending_setup_notice("serve", &Switches::default(), &pending)
+            .expect("a pending setup must be announced to the editor-only install");
+        assert!(
+            notice.contains("paper index"),
+            "point at the command: {notice}"
+        );
+        assert!(
+            notice.contains("keyword-only"),
+            "say what search does in the meantime: {notice}"
+        );
+
+        // Silence once setup has run…
+        let installed = State {
+            service: ServiceState::Installed,
+            updated: 0,
+        };
+        assert!(pending_setup_notice("serve", &Switches::default(), &installed).is_none());
+        // …for every other skip-listed command…
+        assert!(pending_setup_notice("doctor", &Switches::default(), &pending).is_none());
+        // …and when onboarding was deliberately turned off.
+        let off = Switches {
+            no_autostart: true,
+            ..Switches::default()
+        };
+        assert!(pending_setup_notice("serve", &off, &pending).is_none());
     }
 
     #[test]

@@ -132,10 +132,10 @@ impl DaemonHandler for DaemonHandlerImpl {
                 {
                     Ok(Ok(stats)) => DaemonResponse::IndexRoots { stats },
                     Ok(Err(e)) => DaemonResponse::Error {
-                        msg: format!("Indexing failed: {e}"),
+                        msg: format!("Indexing failed: {e:#}"),
                     },
                     Err(e) => DaemonResponse::Error {
-                        msg: format!("Indexing task failed: {e}"),
+                        msg: format!("Indexing task failed: {e:#}"),
                     },
                 }
             }

@@ -267,12 +267,18 @@ is not on disk.
   (`path`, `reason`, `first_seen`, `last_attempt`) and skipped for ten minutes
   before being retried, so one revoked grant cannot turn into a failed read and
   a warning per file on every five-minute pass. Denied directories are pruned
-  from the walk; a root with any denial reports once, with the remedy. A fixed
-  permission is retried automatically — the table expires its own rows.
+  from the walk and counted as deferred; a root with any denial reports once,
+  with the remedy. A fixed permission is retried automatically — the table
+  expires its own rows. `NotFound` is deliberately *not* treated as a denial:
+  a path that vanished is reported as a walk error, not as a missing grant.
+- `prune_missing` never deletes a path that is, or is under, a path recorded as
+  unreadable. Without that rule a revoked grant answers `exists() == false` for
+  everything beneath it, so the next pass deleted the content of a folder the
+  user merely could not see.
 
 ## Tests
 
-`cargo test` — 152 passing tests (plus 4 ignored: 3 model downloads and one
+`cargo test` — 156 passing tests (plus 4 ignored: 3 model downloads and one
 child-process helper for the setup-lock test), no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 

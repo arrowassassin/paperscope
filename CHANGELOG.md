@@ -8,18 +8,25 @@ All notable changes to this project are recorded here. This project follows
 
 ### Fixed
 - **A root with unreadable entries no longer re-reads and re-warns every one of
-  them on every pass.** Denied directories are pruned from the walk, denied files
-  are remembered in a new additive `unreadable` table with a ten-minute backoff,
-  and the root gets one actionable line ("grant Full Disk Access … or exclude
-  this root") instead of one warning per file. That loop — a single revoked grant
-  producing 1,070 failed reads per five minutes — is what made Paper look like it
-  was asking for the same permission forever. A restored permission is picked up
-  without a reinstall once the window elapses, and `paper index` reports the
-  numbers (`N unreadable (permission denied), M deferred by the backoff`).
-- **`paper serve` never bootstraps.** The MCP server is what an editor starts,
-  often five sessions at once; it took the one-time setup lock, and each session
-  tried to install the background service, so a project's first `initialize`
-  could wait behind provisioning. Onboarding now belongs to ordinary commands.
+  them on every pass.** Denied directories are pruned from the walk and counted
+  as deferred, denied files are remembered in a new additive `unreadable` table
+  with a ten-minute backoff, and the root gets one actionable line ("grant access
+  … Paper picks it up on the next pass") instead of one warning per file. That
+  loop — a single revoked grant producing 1,070 failed reads per five minutes —
+  is what made Paper look like it was asking for the same permission forever. A
+  restored permission is picked up without a reinstall once the window elapses,
+  and `paper index` reports the numbers (`N unreadable (permission denied), M
+  deferred by the backoff`).
+- **A revoked grant no longer deletes what it cannot see.** `prune_missing`
+  treats a path that fails to exist behind an unreadable directory as missing, so
+  revoking access to an indexed folder silently removed its chunks and searches
+  stopped matching. Content under a path recorded as unreadable is never pruned.
+- **`paper serve` never bootstraps, but it says so.** The MCP server is what an
+  editor starts, often five sessions at once; it took the one-time setup lock,
+  and each session tried to install the background service, so a project's first
+  `initialize` could wait behind provisioning. It is now skip-listed — and when
+  setup has not run yet it prints one line saying so, rather than leaving an
+  editor-only install unprovisioned and silent.
 - **The one-time setup lock is a kernel lock, not a file-existence test.** The
   old `create_new` file with a fifteen-minute "stale, take it over" heuristic was
   racy: two processes could both read the same old file, both decide it was
