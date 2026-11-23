@@ -1,7 +1,7 @@
 {
   "name": "paperscope",
   "displayName": "PaperScope",
-  "version": "0.2.11",
+  "version": "0.2.12",
   "description": "Local-first document search with exact page and line citations. Search your own documents offline through the paper CLI's built-in MCP server.",
   "author": {
     "name": "kintsugi-tools",
