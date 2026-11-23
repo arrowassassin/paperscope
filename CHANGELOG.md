@@ -4,7 +4,7 @@ All notable changes to this project are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html); while the version is
 `0.x`, minor releases may change behaviour.
 
-## [Unreleased]
+## [0.2.12] — 2026-11-22
 
 ### Fixed
 - **A root with unreadable entries no longer re-reads and re-warns every one of
