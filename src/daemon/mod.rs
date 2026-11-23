@@ -358,7 +358,7 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
     let handler_clone = handler.clone();
     let ipc_handle = tokio::spawn(async move {
         if let Err(e) = run_ipc_server(&socket_path_clone, handler_clone).await {
-            tracing::error!("IPC server error: {e}");
+            tracing::error!("IPC server error: {e:#}");
         }
     });
 

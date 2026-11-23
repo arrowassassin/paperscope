@@ -263,10 +263,17 @@ is not on disk.
   though the segmenter already supported it.)
 - `prune_missing` batches its deletes in one transaction: one fsync per prune,
   not one per deleted document.
+- Unreadable paths are remembered in an additive `unreadable` table
+  (`path`, `reason`, `first_seen`, `last_attempt`) and skipped for ten minutes
+  before being retried, so one revoked grant cannot turn into a failed read and
+  a warning per file on every five-minute pass. Denied directories are pruned
+  from the walk; a root with any denial reports once, with the remedy. A fixed
+  permission is retried automatically — the table expires its own rows.
 
 ## Tests
 
-`cargo test` — 132 passing tests (plus 3 ignored model downloads), no network access, no model downloads.
+`cargo test` — 152 passing tests (plus 4 ignored: 3 model downloads and one
+child-process helper for the setup-lock test), no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 
 ```

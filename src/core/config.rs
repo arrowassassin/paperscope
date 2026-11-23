@@ -90,7 +90,7 @@ impl Config {
                 Ok(config) => Ok(config),
                 Err(e) => {
                     tracing::warn!(
-                        "Config file at {} is corrupt ({e}); falling back to defaults",
+                        "Config file at {} is corrupt ({e:#}); falling back to defaults",
                         path.display()
                     );
                     Ok(Self::default())

@@ -191,7 +191,7 @@ pub async fn run_ipc_server(socket_path: &Path, handler: Arc<dyn DaemonHandler>)
         let handler = handler.clone();
         tokio::spawn(async move {
             if let Err(e) = handle_connection(stream, handler).await {
-                tracing::warn!("IPC connection error: {e}");
+                tracing::warn!("IPC connection error: {e:#}");
             }
         });
     }

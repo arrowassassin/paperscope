@@ -57,6 +57,14 @@ fn report(stats: &IndexStats, pruned: usize, ocr_active: bool) {
         "indexed {} file(s) ({} chunks), {} unchanged, {} skipped, {} removed",
         stats.indexed, stats.chunks, stats.unchanged, stats.skipped, pruned
     );
+    if stats.denied > 0 || stats.backed_off > 0 {
+        // Permission problems are counted, not narrated: one line for the whole
+        // pass, next to the totals, instead of one per unreadable file.
+        println!(
+            "  {} unreadable (permission denied), {} deferred by the backoff",
+            stats.denied, stats.backed_off
+        );
+    }
     if stats.warnings > 0 {
         let hint = if ocr_active {
             "pages without a text layer or a decodable image were skipped"
@@ -138,7 +146,7 @@ fn watch(indexer: &Indexer, args: &IndexArgs) -> Result<()> {
             if path.is_file() {
                 match indexer.index_file(&path) {
                     Ok(file_stats) => stats.merge(file_stats),
-                    Err(err) => eprintln!("{}: {err}", path.display()),
+                    Err(err) => eprintln!("{}: {err:#}", path.display()),
                 }
             } else if !path.exists() {
                 // Removals are resolved once per batch, not per path.

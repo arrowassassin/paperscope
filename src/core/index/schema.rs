@@ -91,6 +91,18 @@ CREATE TABLE IF NOT EXISTS index_meta (
     value TEXT NOT NULL
 );
 
+-- Paths the last walk could not read, with the reason and when they were last
+-- tried. Without this, every five-minute pass re-attempts every unreadable file
+-- and logs a warning for each one: the observed 1,070 failed reads per five
+-- minutes. `last_attempt` gives the retry a backoff, so a file whose permission
+-- is fixed is picked up again instead of being excluded forever.
+CREATE TABLE IF NOT EXISTS unreadable (
+    path         TEXT PRIMARY KEY,
+    reason       TEXT NOT NULL,
+    first_seen   INTEGER NOT NULL,
+    last_attempt INTEGER NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_chunks_path ON chunks(path);
 CREATE INDEX IF NOT EXISTS idx_chunks_source ON chunks(source_path);
 CREATE INDEX IF NOT EXISTS idx_chunks_mtime ON chunks(mtime);
@@ -255,7 +267,7 @@ COMMIT;
         // A failure here is not fatal — the index is already correct — so it
         // is reported and ignored.
         if let Err(err) = conn.execute_batch("VACUUM;") {
-            tracing::warn!("could not compact the database after the migration: {err}");
+            tracing::warn!("could not compact the database after the migration: {err:#}");
         }
     }
 
