@@ -126,26 +126,42 @@ impl Indexer {
 
     pub fn index_roots(&self, roots: &[PathBuf]) -> Result<IndexStats> {
         let mut stats = IndexStats::default();
-        // Paths a recent pass already failed to read, loaded once: the walk
-        // consults this set instead of asking the database per file, and a
-        // directory in it is pruned whole rather than walked and failed again.
-        let denied: RefCell<HashSet<PathBuf>> =
-            RefCell::new(self.recently_denied()?.into_iter().collect());
+        // Two views of the same rows, loaded once instead of querying per file:
+        //
+        // - `recent` is the backoff: paths tried within the window and skipped
+        //   without touching the filesystem.
+        // - `known` is every path ever recorded as unreadable, with no time
+        //   limit. A row means "denied, and not yet proven readable again", so it
+        //   is cleared only when the path is actually read, never because time
+        //   passed. The backoff must not be able to expire the evidence.
+        let (known, recent) = self.denied_state()?;
+        let known = RefCell::new(known);
         // Directories pruned by the filter, counted here because `filter_entry`
         // cannot touch `stats` while the iterator holds it.
         let pruned_dirs = Cell::new(0usize);
 
         for root in roots {
             if root.is_file() {
+                // A file root obeys the same backoff as a file inside a walk, or
+                // a single unreadable file in the config would be re-read and
+                // re-warned every five minutes — the loop this change exists to
+                // remove.
+                if recent.contains(root) {
+                    stats.backed_off += 1;
+                    continue;
+                }
                 // A root that is itself unreadable gets the same treatment as an
                 // unreadable file inside one: reported, remembered, not fatal.
                 // Propagating here made `--file` (and `--root <file>`) exit 2
                 // while the identical file inside a walked root was fine.
                 match self.index_file(root) {
-                    Ok(file_stats) => stats.merge(file_stats),
+                    Ok(file_stats) => {
+                        stats.merge(file_stats);
+                        self.forget_recorded(root, &known);
+                    }
                     Err(err) if is_permission_denied(&err) => {
                         self.note_denied(root, &format!("{err:#}"));
-                        denied.borrow_mut().insert(root.clone());
+                        known.borrow_mut().insert(root.clone());
                         stats.denied += 1;
                         tracing::warn!("{}", denied_summary(root, 1));
                     }
@@ -157,14 +173,14 @@ impl Indexer {
             for entry in walkdir::WalkDir::new(root)
                 .follow_links(false)
                 .into_iter()
-                // Hidden entries are skipped; a directory already known to be
-                // unreadable is pruned whole, while a denied *file* stays in the
-                // walk so it can be counted as deferred rather than vanishing.
+                // Hidden entries are skipped; a directory inside its backoff
+                // window is pruned whole, while a denied *file* stays in the walk
+                // so it can be counted as deferred rather than vanishing.
                 .filter_entry(|e| {
                     if is_hidden(e.file_name()) {
                         return false;
                     }
-                    if e.file_type().is_dir() && denied.borrow().contains(e.path()) {
+                    if e.file_type().is_dir() && recent.contains(e.path()) {
                         pruned_dirs.set(pruned_dirs.get() + 1);
                         return false;
                     }
@@ -181,23 +197,34 @@ impl Indexer {
                         if is_walk_permission_denied(&e) {
                             if let Some(path) = e.path() {
                                 self.note_denied(path, &format!("{e}"));
-                                denied.borrow_mut().insert(path.to_path_buf());
+                                let first_time = known.borrow_mut().insert(path.to_path_buf());
+                                if first_time {
+                                    root_denied += 1;
+                                }
+                            } else {
+                                root_denied += 1;
                             }
-                            root_denied += 1;
                         } else {
-                            // NotFound included: a path that vanished mid-walk is
-                            // not a permission problem, and telling the user to
-                            // grant Full Disk Access for it would be a lie.
-                            tracing::warn!("walk error: {e:#}");
+                            // Only a real refusal is a permission problem. A path
+                            // that vanished mid-walk is a walk error, and telling
+                            // the user to grant Full Disk Access for it would be a
+                            // lie they cannot act on. `walkdir::Error`'s `Display`
+                            // already names the path and the io error; the `#`
+                            // alternate flag is meaningless on it.
+                            tracing::warn!("walk error: {e}");
                         }
                         stats.skipped += 1;
                         continue;
                     }
                 };
+                // Anything we can now see is no longer unreadable. Clearing here
+                // (only for paths that were recorded) is what replaces the old
+                // time-based expiry, and keeps the table bounded.
+                self.forget_recorded(entry.path(), &known);
                 // `follow_links(false)` means symlinks are neither files nor
                 // directories here, so they are never followed.
                 if entry.file_type().is_file() {
-                    if denied.borrow().contains(entry.path()) {
+                    if recent.contains(entry.path()) {
                         stats.backed_off += 1;
                         continue;
                     }
@@ -207,8 +234,11 @@ impl Indexer {
                         Err(err) => {
                             if is_permission_denied(&err) {
                                 self.note_denied(entry.path(), &format!("{err:#}"));
-                                denied.borrow_mut().insert(entry.path().to_path_buf());
-                                root_denied += 1;
+                                let first_time =
+                                    known.borrow_mut().insert(entry.path().to_path_buf());
+                                if first_time {
+                                    root_denied += 1;
+                                }
                             } else {
                                 tracing::warn!("{}: {err:#}", entry.path().display());
                             }
@@ -223,10 +253,11 @@ impl Indexer {
             }
         }
         stats.backed_off += pruned_dirs.get();
-        // Let the cache expire on its own: a path whose permission was fixed is
-        // tried again one backoff window after its last failure.
-        if let Err(err) = self.expire_unreadable() {
-            tracing::warn!("could not age out the unreadable cache: {err:#}");
+        // Drop rows for paths that no longer exist at all. This is safe because
+        // every row was written after a `stat` succeeded: a path that answers
+        // `exists()` is still there, denied or not. Age alone never expires a row.
+        if let Err(err) = self.forget_vanished_unreadable() {
+            tracing::warn!("could not tidy the unreadable cache: {err:#}");
         }
         Ok(stats)
     }
@@ -404,19 +435,88 @@ impl Indexer {
         self.index_file(path)
     }
 
-    /// Paths a recent pass could not read, whose backoff window has not elapsed.
-    fn recently_denied(&self) -> Result<Vec<PathBuf>> {
+    /// Every recorded-denied path, plus the subset still inside the backoff
+    /// window.
+    ///
+    /// The two are deliberately different questions. "Should I try this path
+    /// again yet?" is a function of time. "May I delete the indexed content
+    /// behind this path?" is not: a grant revoked ten minutes ago is still
+    /// revoked, and a row that expires by age hands the pruner a false all-clear.
+    fn denied_state(&self) -> Result<(HashSet<PathBuf>, HashSet<PathBuf>)> {
         let cutoff = now_unix() - DENIED_BACKOFF.as_secs() as i64;
         let mut stmt = self
             .conn
             .inner()
-            .prepare("SELECT path FROM unreadable WHERE last_attempt > ?1")?;
-        let rows = stmt.query_map([cutoff], |row| row.get::<_, String>(0))?;
+            .prepare("SELECT path, last_attempt FROM unreadable")?;
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        })?;
+        let mut known = HashSet::new();
+        let mut recent = HashSet::new();
+        for row in rows {
+            let (path, last_attempt) = row?;
+            let path = PathBuf::from(path);
+            if last_attempt > cutoff {
+                recent.insert(path.clone());
+            }
+            known.insert(path);
+        }
+        Ok((known, recent))
+    }
+
+    /// Every path recorded as unreadable, regardless of how long ago it was
+    /// tried. The pruner's guard.
+    fn unreadable_paths(&self) -> Result<Vec<PathBuf>> {
+        let mut stmt = self.conn.inner().prepare("SELECT path FROM unreadable")?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
         Ok(rows
             .collect::<std::result::Result<Vec<_>, _>>()?
             .into_iter()
             .map(PathBuf::from)
             .collect())
+    }
+
+    /// Clear a path we have just proven readable. Only paths in `known` are
+    /// touched, so this costs nothing for the ordinary case.
+    fn forget_recorded(&self, path: &Path, known: &RefCell<HashSet<PathBuf>>) {
+        // `remove` needs a mutable borrow; take it, then release it before the
+        // database call so no borrow is held across it.
+        let was_recorded = known.borrow_mut().remove(path);
+        if !was_recorded {
+            return;
+        }
+        if let Err(err) = self.forget_unreadable(path) {
+            tracing::warn!(
+                "could not clear the unreadable mark on {}: {err:#}",
+                path.display()
+            );
+        }
+    }
+
+    fn forget_unreadable(&self, path: &Path) -> Result<()> {
+        self.conn.inner().execute(
+            "DELETE FROM unreadable WHERE path = ?1",
+            [path.to_string_lossy()],
+        )?;
+        Ok(())
+    }
+
+    /// Drop rows whose path is gone from the filesystem entirely.
+    ///
+    /// Safe because every row was written after a `stat` succeeded: if the path
+    /// still answers `exists()`, it is there — denied or not — and its row stays.
+    /// A deleted file or directory can never be relevant again.
+    fn forget_vanished_unreadable(&self) -> Result<()> {
+        let mut stale = Vec::new();
+        for path in self.unreadable_paths()? {
+            if !path.exists() {
+                stale.push(path);
+            }
+        }
+        for path in stale {
+            self.forget_unreadable(&path)?;
+        }
+        Ok(())
     }
 
     /// Remember that `path` could not be read, and when it was last tried.
@@ -446,16 +546,6 @@ impl Indexer {
         Ok(())
     }
 
-    /// Drop entries whose backoff has elapsed, so a fixed permission is retried
-    /// on the next pass instead of being excluded forever.
-    fn expire_unreadable(&self) -> Result<()> {
-        let cutoff = now_unix() - DENIED_BACKOFF.as_secs() as i64;
-        self.conn
-            .inner()
-            .execute("DELETE FROM unreadable WHERE last_attempt <= ?1", [cutoff])?;
-        Ok(())
-    }
-
     /// Drop every chunk belonging to files that no longer exist on disk.
     pub fn prune_missing(&self) -> Result<usize> {
         let mut stmt = self
@@ -474,7 +564,14 @@ impl Indexer {
         // so pruning on that alone deleted the indexed content of exactly the
         // roots this change exists to tolerate (revoked TCC grant → "1 removed"
         // → search returns nothing). Never prune what we could not read.
-        let unreadable = self.recently_denied()?;
+        //
+        // No backoff cutoff here, on purpose. The pruner does not know which
+        // roots this pass walked — `paper index --file x`, `--root <another root>`
+        // and `--watch` all prune without walking the denied root — so a
+        // ten-minute window would hand it a false all-clear the moment the rows
+        // aged out. A row means "denied and not since proven readable"; only a
+        // successful read removes it.
+        let unreadable = self.unreadable_paths()?;
         let hidden_by_permission = |path: &str| {
             let path = Path::new(path);
             unreadable.iter().any(|denied| path.starts_with(denied))
@@ -586,15 +683,28 @@ fn is_walk_permission_denied(error: &walkdir::Error) -> bool {
         .is_some_and(|io| io.kind() == std::io::ErrorKind::PermissionDenied)
 }
 
+/// What the user can actually do about a denied path, in words that match the
+/// platform they are on. A Linux user sent to System Settings is a bug report.
+fn permission_remedy() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "grant access in System Settings → Privacy & Security → Full Disk Access or Files and \
+         Folders"
+    } else if cfg!(windows) {
+        "grant your user read permission on the folder (Properties → Security)"
+    } else {
+        "fix the directory permissions (`ls -ld` on the path)"
+    }
+}
+
 /// The one line a root gets when part of it is unreadable: what happened, how
 /// much of it, and what the user can actually do about it.
 fn denied_summary(root: &Path, entries: usize) -> String {
     let entry = if entries == 1 { "entry" } else { "entries" };
     format!(
-        "{}: {entries} {entry} could not be read (permission denied) — grant access \
-         (macOS: System Settings → Privacy & Security → Full Disk Access) and Paper picks it \
-         up on the next pass; retrying in {} minutes",
+        "{}: {entries} {entry} could not be read (permission denied) — {}; Paper retries in {} \
+         minutes and picks the files up on the next pass once access is granted",
         root.display(),
+        permission_remedy(),
         DENIED_BACKOFF.as_secs() / 60
     )
 }
@@ -775,5 +885,34 @@ fn ocr_by_default() -> bool {
     #[cfg(not(feature = "ocr"))]
     {
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::IndexStats;
+
+    /// A daemon from before this change sends no `denied`/`backed_off`; a newer
+    /// client must still read its reply rather than erroring on the missing keys.
+    #[test]
+    fn stats_from_an_older_daemon_deserialize() {
+        let old = r#"{"scanned":3,"indexed":1,"unchanged":0,"skipped":2,"chunks":4,"warnings":0}"#;
+        let stats: IndexStats = serde_json::from_str(old).expect("an older payload must parse");
+        assert_eq!(stats.indexed, 1);
+        assert_eq!((stats.denied, stats.backed_off), (0, 0));
+    }
+
+    /// …and a newer daemon's reply still parses on a client that predates the
+    /// fields, because the struct does not deny unknown keys.
+    #[test]
+    fn stats_carry_the_permission_counters_over_the_wire() {
+        let stats = IndexStats {
+            denied: 2,
+            backed_off: 3,
+            ..IndexStats::default()
+        };
+        let json = serde_json::to_string(&stats).expect("serialize");
+        let back: IndexStats = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back, stats);
     }
 }
