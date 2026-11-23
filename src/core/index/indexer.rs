@@ -6,8 +6,11 @@ use crate::core::search::serialize_f32_vec;
 use crate::core::search::SharedEmbedder;
 use crate::core::text::{fts_segment, same_tokens};
 use anyhow::{Context, Result};
+use std::cell::RefCell;
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct IndexStats {
@@ -19,6 +22,13 @@ pub struct IndexStats {
     /// Explicit extraction problems (a PDF page with no text layer, an
     /// unreadable worksheet). Reported, never silently dropped.
     pub warnings: usize,
+    /// Entries this pass could not read for lack of permission — a macOS TCC
+    /// grant that was never given, a POSIX mode, a Windows ACL. Counted once per
+    /// pass and reported as one line per root, never one warning per file.
+    pub denied: usize,
+    /// Entries skipped before touching the filesystem because the previous pass
+    /// already found them unreadable and the backoff window has not elapsed.
+    pub backed_off: usize,
 }
 
 impl IndexStats {
@@ -29,6 +39,8 @@ impl IndexStats {
         self.skipped += other.skipped;
         self.chunks += other.chunks;
         self.warnings += other.warnings;
+        self.denied += other.denied;
+        self.backed_off += other.backed_off;
     }
 }
 
@@ -112,20 +124,47 @@ impl Indexer {
 
     pub fn index_roots(&self, roots: &[PathBuf]) -> Result<IndexStats> {
         let mut stats = IndexStats::default();
+        // Paths a recent pass already failed to read, loaded once: the walk
+        // consults this set instead of asking the database per file, and a
+        // directory in it is pruned whole rather than walked and failed again.
+        let denied: RefCell<HashSet<PathBuf>> =
+            RefCell::new(self.recently_denied()?.into_iter().collect());
+
         for root in roots {
             if root.is_file() {
                 stats.merge(self.index_file(root)?);
                 continue;
             }
+            let mut root_denied = 0usize;
             for entry in walkdir::WalkDir::new(root)
                 .follow_links(false)
                 .into_iter()
-                .filter_entry(|e| !is_hidden(e.file_name()))
+                // Hidden entries are skipped; a directory already known to be
+                // unreadable is pruned whole, while a denied *file* stays in the
+                // walk so it can be counted as deferred rather than vanishing.
+                .filter_entry(|e| {
+                    if is_hidden(e.file_name()) {
+                        return false;
+                    }
+                    !(e.file_type().is_dir() && denied.borrow().contains(e.path()))
+                })
             {
                 let entry = match entry {
                     Ok(e) => e,
                     Err(e) => {
-                        tracing::warn!("walk error: {e}");
+                        // A directory we may not read is not a per-file problem:
+                        // remember it, keep walking, and say it once at the end
+                        // of the root. One line per denied entry is how a single
+                        // revoked grant became 1,070 warnings per five minutes.
+                        if is_walk_permission_denied(&e) {
+                            if let Some(path) = e.path() {
+                                self.remember_unreadable(path, &format!("{e}"))?;
+                                denied.borrow_mut().insert(path.to_path_buf());
+                            }
+                            root_denied += 1;
+                        } else {
+                            tracing::warn!("walk error: {e:#}");
+                        }
                         stats.skipped += 1;
                         continue;
                     }
@@ -133,17 +172,34 @@ impl Indexer {
                 // `follow_links(false)` means symlinks are neither files nor
                 // directories here, so they are never followed.
                 if entry.file_type().is_file() {
+                    if denied.borrow().contains(entry.path()) {
+                        stats.backed_off += 1;
+                        continue;
+                    }
                     // One unreadable file must not abort a whole directory.
                     match self.index_file(entry.path()) {
                         Ok(file_stats) => stats.merge(file_stats),
                         Err(err) => {
-                            tracing::warn!("{}: {err}", entry.path().display());
+                            if is_permission_denied(&err) {
+                                self.remember_unreadable(entry.path(), &format!("{err:#}"))?;
+                                denied.borrow_mut().insert(entry.path().to_path_buf());
+                                root_denied += 1;
+                            } else {
+                                tracing::warn!("{}: {err:#}", entry.path().display());
+                            }
                             stats.skipped += 1;
                         }
                     }
                 }
             }
+            stats.denied += root_denied;
+            if root_denied > 0 {
+                tracing::warn!("{}", denied_summary(root, root_denied));
+            }
         }
+        // Let the cache expire on its own: a path whose permission was fixed is
+        // tried again one backoff window after its last failure.
+        self.expire_unreadable()?;
         Ok(stats)
     }
 
@@ -320,6 +376,45 @@ impl Indexer {
         self.index_file(path)
     }
 
+    /// Paths a recent pass could not read, whose backoff window has not elapsed.
+    fn recently_denied(&self) -> Result<Vec<PathBuf>> {
+        let cutoff = now_unix() - DENIED_BACKOFF.as_secs() as i64;
+        let mut stmt = self
+            .conn
+            .inner()
+            .prepare("SELECT path FROM unreadable WHERE last_attempt > ?1")?;
+        let rows = stmt.query_map([cutoff], |row| row.get::<_, String>(0))?;
+        Ok(rows
+            .collect::<std::result::Result<Vec<_>, _>>()?
+            .into_iter()
+            .map(PathBuf::from)
+            .collect())
+    }
+
+    /// Remember that `path` could not be read, and when it was last tried.
+    fn remember_unreadable(&self, path: &Path, reason: &str) -> Result<()> {
+        let now = now_unix();
+        self.conn.inner().execute(
+            "INSERT INTO unreadable (path, reason, first_seen, last_attempt)
+             VALUES (?1, ?2, ?3, ?3)
+             ON CONFLICT(path) DO UPDATE SET
+                 reason = excluded.reason,
+                 last_attempt = excluded.last_attempt",
+            rusqlite::params![path.to_string_lossy(), reason, now],
+        )?;
+        Ok(())
+    }
+
+    /// Drop entries whose backoff has elapsed, so a fixed permission is retried
+    /// on the next pass instead of being excluded forever.
+    fn expire_unreadable(&self) -> Result<()> {
+        let cutoff = now_unix() - DENIED_BACKOFF.as_secs() as i64;
+        self.conn
+            .inner()
+            .execute("DELETE FROM unreadable WHERE last_attempt <= ?1", [cutoff])?;
+        Ok(())
+    }
+
     /// Drop every chunk belonging to files that no longer exist on disk.
     pub fn prune_missing(&self) -> Result<usize> {
         let mut stmt = self
@@ -403,6 +498,51 @@ fn invalidate_on_upgrade(conn: &Connection) -> Result<()> {
 
 fn is_hidden(name: &std::ffi::OsStr) -> bool {
     name.to_string_lossy().starts_with('.')
+}
+
+/// How long an unreadable path is left alone before it is tried again. Long
+/// enough that the five-minute tick does not turn one revoked grant into a
+/// warning every pass; short enough that fixing the permission (or granting
+/// Full Disk Access) takes effect without restarting anything.
+const DENIED_BACKOFF: Duration = Duration::from_secs(10 * 60);
+
+fn now_unix() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
+
+/// Whether an error chain contains the filesystem refusing access. `anyhow`
+/// context wraps the kind behind a message, so the chain is walked rather than
+/// the text pattern-matched.
+fn is_permission_denied(error: &anyhow::Error) -> bool {
+    error.chain().any(|cause| {
+        cause
+            .downcast_ref::<std::io::Error>()
+            .is_some_and(|io| io.kind() == std::io::ErrorKind::PermissionDenied)
+    })
+}
+
+fn is_walk_permission_denied(error: &walkdir::Error) -> bool {
+    error.io_error().is_some_and(|io| {
+        matches!(
+            io.kind(),
+            std::io::ErrorKind::PermissionDenied | std::io::ErrorKind::NotFound
+        )
+    })
+}
+
+/// The one line a root gets when part of it is unreadable: what happened, how
+/// much of it, and the two things the user can actually do about it.
+fn denied_summary(root: &Path, entries: usize) -> String {
+    format!(
+        "{}: {entries} entries could not be read (permission denied) — on macOS grant Paper \
+         access under System Settings → Privacy & Security → Full Disk Access, or exclude this \
+         root; retrying in {} minutes",
+        root.display(),
+        DENIED_BACKOFF.as_secs() / 60
+    )
 }
 
 pub fn is_indexable(path: &Path) -> bool {

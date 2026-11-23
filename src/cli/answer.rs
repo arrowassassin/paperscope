@@ -27,7 +27,7 @@ pub async fn run(args: AnswerArgs) -> Result<i32> {
             Err(err) => {
                 // Any failure keeps the verbatim extract: a polished answer is a
                 // convenience, never a requirement, and the citations stay exact.
-                eprintln!("note: polish failed ({err}); returning the verbatim extract");
+                eprintln!("note: polish failed ({err:#}); returning the verbatim extract");
             }
         }
     } else if args.polish {

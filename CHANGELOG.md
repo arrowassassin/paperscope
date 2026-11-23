@@ -4,6 +4,32 @@ All notable changes to this project are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html); while the version is
 `0.x`, minor releases may change behaviour.
 
+## [Unreleased]
+
+### Fixed
+- **A root with unreadable entries no longer re-reads and re-warns every one of
+  them on every pass.** Denied directories are pruned from the walk, denied files
+  are remembered in a new additive `unreadable` table with a ten-minute backoff,
+  and the root gets one actionable line ("grant Full Disk Access … or exclude
+  this root") instead of one warning per file. That loop — a single revoked grant
+  producing 1,070 failed reads per five minutes — is what made Paper look like it
+  was asking for the same permission forever. A restored permission is picked up
+  without a reinstall once the window elapses, and `paper index` reports the
+  numbers (`N unreadable (permission denied), M deferred by the backoff`).
+- **`paper serve` never bootstraps.** The MCP server is what an editor starts,
+  often five sessions at once; it took the one-time setup lock, and each session
+  tried to install the background service, so a project's first `initialize`
+  could wait behind provisioning. Onboarding now belongs to ordinary commands.
+- **The one-time setup lock is a kernel lock, not a file-existence test.** The
+  old `create_new` file with a fifteen-minute "stale, take it over" heuristic was
+  racy: two processes could both read the same old file, both decide it was
+  stale, and both proceed. `File::try_lock` (`flock` / `LockFileEx`) is released
+  by the OS when the holder dies, so the heuristic — and its dependence on an
+  mtime that a clock change or a restore can move — is gone.
+- **Error messages print context chains.** `{e}` → `{e:#}` at the user-facing
+  log and print sites, so a failure says what was being attempted as well as what
+  failed, instead of only the innermost message.
+
 ## [0.2.11] — 2026-11-22
 
 ### Changed

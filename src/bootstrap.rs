@@ -19,9 +19,9 @@
 //!
 //! `CI` suppresses it too: a build machine must never index its own files.
 
-use std::fs;
+use std::fs::{self, File, TryLockError};
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::core::paths::Paths;
@@ -30,8 +30,6 @@ use crate::core::paths::Paths;
 const STATE_VERSION: &str = "1";
 /// Do not retry a failed service install more often than this.
 const RETRY_AFTER: Duration = Duration::from_secs(60 * 60);
-/// A lock older than this belongs to a crashed run and may be taken over.
-const LOCK_STALE: Duration = Duration::from_secs(15 * 60);
 
 const STATE_FILE: &str = "bootstrap.state";
 const LOCK_FILE: &str = "bootstrap.lock";
@@ -45,6 +43,12 @@ const SKIP_COMMANDS: &[&str] = &[
     "doctor",
     "models",
     "index",
+    // `serve` is the MCP server an editor starts, often several at once. It
+    // must answer the handshake and serve keyword results immediately; it must
+    // never install a service or take the setup lock. Without this, five MCP
+    // sessions opening together serialised behind one lock and each tried to
+    // provision — the slowest possible answer to a first `initialize`.
+    "serve",
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -177,46 +181,43 @@ fn now_unix() -> u64 {
 
 /// Guards the one-time setup against parallel invocations (an editor can start
 /// several MCP sessions at once, each calling `paper serve`).
+///
+/// This is a kernel advisory lock (`flock` / `LockFileEx`, through
+/// [`File::try_lock`]), not a "does the file exist?" test. The difference is
+/// the whole point: a file-based lock has to guess whether its owner is still
+/// alive, and the guess is racy — two processes can both read the same
+/// 15-minute-old file, both decide it is stale, both delete it, and both
+/// "acquire" it. A kernel lock is released when the holder's descriptor closes,
+/// which the OS does even when the holder is killed, so no staleness heuristic
+/// (and no reliance on an mtime a clock change or a restore can move) remains.
 struct BootstrapLock {
-    path: PathBuf,
+    file: File,
 }
 
 impl BootstrapLock {
     fn acquire(path: &Path) -> Option<Self> {
-        if fs::OpenOptions::new()
+        let file = fs::OpenOptions::new()
+            .read(true)
             .write(true)
-            .create_new(true)
+            .create(true)
+            .truncate(false)
             .open(path)
-            .is_ok()
-        {
-            return Some(Self {
-                path: path.to_path_buf(),
-            });
+            .ok()?;
+        match file.try_lock() {
+            Ok(()) => Some(Self { file }),
+            // `WouldBlock` is the ordinary "someone else is setting up" answer.
+            // Any other error means this filesystem cannot lock at all; that
+            // must never be read as "the lock is mine".
+            Err(TryLockError::WouldBlock | TryLockError::Error(_)) => None,
         }
-        let stale = fs::metadata(path)
-            .and_then(|meta| meta.modified())
-            .ok()
-            .and_then(|modified| modified.elapsed().ok())
-            .map(|age| age > LOCK_STALE)
-            .unwrap_or(true);
-        if !stale {
-            return None;
-        }
-        let _ = fs::remove_file(path);
-        fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(path)
-            .ok()
-            .map(|_| Self {
-                path: path.to_path_buf(),
-            })
     }
 }
 
 impl Drop for BootstrapLock {
     fn drop(&mut self) {
-        let _ = fs::remove_file(&self.path);
+        // Dropping the handle releases the lock; unlocking first makes that
+        // explicit and keeps the release observable in this function.
+        let _ = self.file.unlock();
     }
 }
 
@@ -392,9 +393,134 @@ mod tests {
         for command in SKIP_COMMANDS {
             assert!(!should_run(command, &Switches::default()), "{command}");
         }
-        for command in ["search", "answer", "serve", "aggregate"] {
+        for command in ["search", "answer", "aggregate"] {
             assert!(should_run(command, &Switches::default()), "{command}");
         }
+    }
+
+    /// `serve` is what an editor starts — often five sessions at once — so it is
+    /// the one command that must never be the thing that installs a service.
+    #[test]
+    fn serve_never_bootstraps() {
+        assert!(!should_run("serve", &Switches::default()));
+        // Not even the portable force switch, which exists for installs that
+        // want onboarding: a server session is never the right place for it.
+        let forced_portable = Switches {
+            portable: true,
+            force: true,
+            ..Switches::default()
+        };
+        assert!(!should_run("serve", &forced_portable));
+    }
+
+    /// A lock file with nobody holding it is what a killed run leaves behind.
+    /// The old `create_new` test read that state as "someone is setting up".
+    #[test]
+    fn a_lock_file_left_by_a_dead_run_does_not_block_setup() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join(LOCK_FILE);
+        fs::write(&path, b"").expect("write");
+        assert!(
+            BootstrapLock::acquire(&path).is_some(),
+            "an unheld lock file must be acquirable"
+        );
+    }
+
+    #[test]
+    fn a_held_lock_is_exclusive_and_released_on_drop() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join(LOCK_FILE);
+        let first = BootstrapLock::acquire(&path).expect("first acquisition");
+        assert!(
+            BootstrapLock::acquire(&path).is_none(),
+            "a second holder must be refused while the first lives"
+        );
+        drop(first);
+        assert!(
+            BootstrapLock::acquire(&path).is_some(),
+            "dropping the guard must release the lock"
+        );
+    }
+
+    /// Child half of [`a_lock_is_released_when_its_holder_is_killed`]: acquire,
+    /// say so on stdout, then wait to be killed. Ignored by default; the parent
+    /// runs it by exact name in a separate process.
+    #[test]
+    #[ignore = "child process helper for a_lock_is_released_when_its_holder_is_killed"]
+    fn lock_child_acquires_and_waits() {
+        let Ok(path) = std::env::var("PAPER_LOCK_CHILD") else {
+            return;
+        };
+        let lock = BootstrapLock::acquire(Path::new(&path)).expect("child acquires");
+        println!("acquired");
+        std::thread::sleep(Duration::from_secs(60));
+        drop(lock);
+    }
+
+    /// The property the staleness heuristic was reaching for, proved instead of
+    /// guessed: the kernel drops the lock when the holder dies, so a crashed run
+    /// never wedges the next one.
+    #[test]
+    fn a_lock_is_released_when_its_holder_is_killed() {
+        use std::io::BufRead;
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join(LOCK_FILE);
+        let mut child = std::process::Command::new(std::env::current_exe().expect("exe"))
+            .args([
+                "--exact",
+                "bootstrap::tests::lock_child_acquires_and_waits",
+                "--ignored",
+                "--nocapture",
+            ])
+            .env("PAPER_LOCK_CHILD", &path)
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .expect("spawn helper");
+
+        // libtest writes its own banner before the test's output, so read until
+        // the marker appears or the helper exits.
+        let mut collected = String::new();
+        let mut reader = std::io::BufReader::new(child.stdout.take().expect("stdout"));
+        let mut line = String::new();
+        loop {
+            line.clear();
+            let read = reader.read_line(&mut line).expect("read helper output");
+            if read == 0 {
+                break;
+            }
+            collected.push_str(&line);
+            if line.contains("acquired") {
+                break;
+            }
+        }
+        assert!(
+            collected.contains("acquired"),
+            "helper never acquired the lock: {collected:?}"
+        );
+        assert!(
+            BootstrapLock::acquire(&path).is_none(),
+            "a live holder must refuse a second acquirer"
+        );
+
+        child.kill().expect("kill helper");
+        let _ = child.wait();
+
+        // The close that releases the lock is asynchronous relative to `kill`,
+        // so poll briefly rather than asserting on a race.
+        let mut acquired = None;
+        for _ in 0..100 {
+            if let Some(lock) = BootstrapLock::acquire(&path) {
+                acquired = Some(lock);
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(
+            acquired.is_some(),
+            "the lock must be free once its holder is dead"
+        );
     }
 
     #[test]

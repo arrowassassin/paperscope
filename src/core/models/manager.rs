@@ -242,7 +242,7 @@ impl ModelManager {
         match self.load_embedder(model_id) {
             Ok(e) => Some(e),
             Err(e) => {
-                tracing::debug!("embedder {model_id} unavailable: {e}");
+                tracing::debug!("embedder {model_id} unavailable: {e:#}");
                 None
             }
         }
@@ -257,7 +257,7 @@ impl ModelManager {
         match self.load_reranker() {
             Ok(r) => Some(r),
             Err(e) => {
-                tracing::debug!("reranker unavailable: {e}");
+                tracing::debug!("reranker unavailable: {e:#}");
                 None
             }
         }

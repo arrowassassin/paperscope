@@ -32,7 +32,7 @@ pub async fn run() -> Result<i32> {
                 println!("  note: no embeddings yet; run `paper index --embeddings` after installing the model");
             }
         }
-        Err(e) => println!("  database:   unavailable ({e})"),
+        Err(e) => println!("  database:   unavailable ({e:#})"),
     }
 
     for model in ModelManager::new().list() {
