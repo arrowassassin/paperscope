@@ -1,6 +1,6 @@
 # Paper
 
-![Paper — local-first AI document search with exact citations](docs/assets/banner.svg)
+![Paper, local-first AI document search with exact citations](docs/assets/banner.svg)
 
 [![CI](https://img.shields.io/github/actions/workflow/status/kintsugi-tools/paperscope/ci.yml?branch=main&label=CI)](https://github.com/kintsugi-tools/paperscope/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/paperscope.svg)](https://crates.io/crates/paperscope)
@@ -8,7 +8,7 @@
 [![Licence](https://img.shields.io/badge/licence-MIT%20OR%20Apache--2.0-blue)](#licence)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-black)](#install)
 
-**Your documents, searchable — with receipts.** Paper is a local-first AI
+**Your documents, searchable, with receipts.** Paper is a local-first AI
 document search engine: ask a question in plain language, get the answer *and*
 the exact file, page and line it came from. One Rust binary. No account, no
 API keys, no telemetry, no cloud.
@@ -34,7 +34,7 @@ cargo install paperscope               # any platform with Rust 1.94+
 
 1. registers a background indexer as a user service (launchd / systemd), so it
    survives reboots;
-2. downloads the default models in the background — embeddings (134 MB) first,
+2. downloads the default models in the background, embeddings (134 MB) first,
    then the reranker (1.13 GB);
 3. indexes `~/Documents`, `~/Downloads` and `~/Desktop`, then keeps them current
    with a five-minute incremental pass and a 3 AM full pass.
@@ -84,7 +84,7 @@ source first, then a short answer, and never invents one.
   `~/.local/share`; nothing leaves the machine. `PAPER_OFFLINE=1` blocks the
   network entirely.
 - **Agent-ready.** Ships with an MCP server. Claude (or any MCP client) can
-  search, read, index new folders and report index status — with path vetting so
+  search, read, index new folders and report index status, with path vetting so
   a prompt injection cannot reach `.ssh` or `.aws`.
 - **Honest about its limits.** If the answer is not in your files, it says so
   instead of hallucinating. Exit code `1` means "not found", `3` means "model

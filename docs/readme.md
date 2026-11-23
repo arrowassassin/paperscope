@@ -1,6 +1,6 @@
 # Paper
 
-![Paper — local-first AI document search with exact citations](https://raw.githubusercontent.com/kintsugi-tools/paperscope/main/docs/assets/banner.svg)
+![Paper, local-first AI document search with exact citations](https://raw.githubusercontent.com/kintsugi-tools/paperscope/main/docs/assets/banner.svg)
 
 [![crates.io](https://img.shields.io/crates/v/paperscope.svg)](https://crates.io/crates/paperscope)
 [![downloads](https://img.shields.io/crates/d/paperscope.svg)](https://crates.io/crates/paperscope)
@@ -9,7 +9,7 @@
 **Local-first AI document search with exact page and line citations.** Ask in
 plain language, get the answer *and* the file, page and line it came from. One
 binary: a CLI and an MCP server for Claude and other agents. No account, no API
-keys, no telemetry — and it works offline.
+keys, no telemetry, and it works offline.
 
 ![Animated demo](https://raw.githubusercontent.com/kintsugi-tools/paperscope/main/docs/assets/demo.svg)
 
@@ -67,7 +67,7 @@ or two sentences, and "not found" when the evidence is weak.
   HTML, CSV, JSON, EPUB, RTF, ODT, XLSX, PPTX, and PNG/JPEG/TIFF/WebP/BMP/GIF
   images.
 - **Scans are searchable.** OCR runs automatically on pages with no text layer
-  and on standalone images — no Tesseract, no system tools, no setup. Text from
+  and on standalone images, no Tesseract, no system tools, no setup. Text from
   a scan is cited as `page 12 (OCR)` so a citation never hides its origin.
 - **100+ languages** with `multilingual-e5-small`, including cross-lingual
   search.
