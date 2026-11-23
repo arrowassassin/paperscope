@@ -268,13 +268,17 @@ is not on disk.
   before being retried, so one revoked grant cannot turn into a failed read and
   a warning per file on every five-minute pass. Denied directories are pruned
   from the walk and counted as deferred; a root with any denial reports once,
-  with the remedy. A fixed permission is retried automatically — the table
-  expires its own rows. `NotFound` is deliberately *not* treated as a denial:
-  a path that vanished is reported as a walk error, not as a missing grant.
+  with a platform-appropriate remedy. `NotFound` is deliberately *not* treated as
+  a denial: a path that vanished is reported as a walk error, not as a missing
+  grant.
+- A row in `unreadable` means "denied, and not since proven readable". It is
+  cleared by a successful read, not by a timer, so the backoff window (which only
+  decides when to *retry*) can never expire the evidence a prune depends on. Rows
+  for paths that no longer exist at all are dropped.
 - `prune_missing` never deletes a path that is, or is under, a path recorded as
   unreadable. Without that rule a revoked grant answers `exists() == false` for
   everything beneath it, so the next pass deleted the content of a folder the
-  user merely could not see.
+  user merely could not see — including prunes that never re-walked that root.
 
 ## Tests
 

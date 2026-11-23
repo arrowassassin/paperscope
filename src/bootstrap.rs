@@ -182,6 +182,10 @@ fn onboarding_enabled(switches: &Switches) -> bool {
 /// only entry point is the editor would otherwise never be provisioned *and*
 /// never learn why. This returns the notice for exactly that case and `None` for
 /// every other skip — diagnostics and portable/CI runs stay silent.
+///
+/// Every command named here must exist. An earlier draft pointed at
+/// `paper bootstrap`, which is not a subcommand: the one sentence an
+/// editor-only user gets would have handed them a usage dump.
 fn pending_setup_notice(command: &str, switches: &Switches, state: &State) -> Option<&'static str> {
     if command != "serve" || !onboarding_enabled(switches) {
         return None;
@@ -191,8 +195,9 @@ fn pending_setup_notice(command: &str, switches: &Switches, state: &State) -> Op
     }
     Some(
         "paper: setup has not run on this machine yet — background indexing is off and search \
-         is keyword-only until it does. Run `paper index` once (or `paper bootstrap`); this \
-         server picks it up without a restart.",
+         is keyword-only until it does. Run `paper index` once; keyword search here picks it up \
+         on the next query (restart this server to load the embedding model for semantic \
+         search).",
     )
 }
 
@@ -612,6 +617,10 @@ mod tests {
         assert!(
             notice.contains("paper index"),
             "point at the command: {notice}"
+        );
+        assert!(
+            !notice.contains("bootstrap"),
+            "`paper bootstrap` is not a subcommand — never name it: {notice}"
         );
         assert!(
             notice.contains("keyword-only"),

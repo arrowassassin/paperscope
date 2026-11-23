@@ -76,8 +76,14 @@ fn a_denied_directory_is_one_line_then_silent() {
          descendant:\n{first_err}"
     );
     assert!(
-        first_err.contains("Full Disk Access"),
-        "the line must name the remedy:\n{first_err}"
+        first_err.contains("permission denied"),
+        "the line must name what happened:\n{first_err}"
+    );
+    // Platform-neutral: the remedy is macOS/Windows/Linux-specific, and asserting
+    // the macOS wording here would fail on a Linux CI run.
+    assert!(
+        first_err.contains("retries in"),
+        "the line must say when it tries again:\n{first_err}"
     );
     // The readable sibling is still indexed: a denied neighbour never fails a run.
     assert!(
@@ -168,6 +174,95 @@ fn a_missing_root_is_not_reported_as_a_permission_problem() {
     assert!(
         err.contains("walk error"),
         "it should still be reported, as the error it is:\n{err}"
+    );
+}
+
+/// A denial keeps protecting its content after the backoff window passes. The
+/// first version of this guard consulted only rows inside the window, so any
+/// prune that was not immediately preceded by a walk of that root — `--file`,
+/// `--root <another root>`, `--watch` — saw an empty guard and deleted the
+/// content behind a grant that was still revoked.
+#[test]
+fn an_aged_denial_still_protects_content_from_a_prune() {
+    let (home, docs, _ok) = fixture();
+    let keep = docs.join("keep");
+    std::fs::create_dir(&keep).unwrap();
+    std::fs::write(
+        keep.join("contract.txt"),
+        "Retention\n\nThe contract renews on 2027-03-01.\n",
+    )
+    .unwrap();
+
+    assert!(index(&docs, home.path()).status.success(), "first index");
+    set_mode(&keep, 0o000);
+    let denied = index(&docs, home.path());
+    assert!(denied.status.success(), "index failed: {}", stderr(&denied));
+
+    // The window passes while the grant stays revoked — the row is now old, and
+    // must still count as evidence.
+    age_the_backoff(home.path(), 601);
+
+    // Prune without walking the denied root: a second root, no connection to it.
+    let other = home.path().join("other");
+    std::fs::create_dir(&other).unwrap();
+    std::fs::write(other.join("note.txt"), "Unrelated note.\n").unwrap();
+    let pruned = index(&other, home.path());
+    assert!(pruned.status.success(), "index failed: {}", stderr(&pruned));
+    assert!(
+        stdout(&pruned).contains("0 removed"),
+        "an aged denial must still block the prune:\n{}",
+        stdout(&pruned)
+    );
+
+    set_mode(&keep, 0o755);
+    let still = paper(home.path(), &["search", "contract renews"]);
+    assert!(
+        still.status.success(),
+        "content behind a still-revoked grant must survive an unrelated prune:\n{}",
+        stderr(&still)
+    );
+}
+
+/// The directory counterpart of the file test: once the permission is given back
+/// and the window passes, the subtree is indexed again and its mark is cleared
+/// by the successful read — not by the clock.
+#[test]
+fn a_restored_directory_is_indexed_again_and_its_mark_cleared() {
+    let (home, docs, _ok) = fixture();
+    let keep = docs.join("keep");
+    std::fs::create_dir(&keep).unwrap();
+    std::fs::write(
+        keep.join("contract.txt"),
+        "Retention\n\nThe contract renews on 2027-03-01.\n",
+    )
+    .unwrap();
+    set_mode(&keep, 0o000);
+
+    let denied = index(&docs, home.path());
+    assert!(denied.status.success(), "index failed: {}", stderr(&denied));
+    assert_eq!(
+        unreadable_rows(home.path()),
+        1,
+        "the denied directory must be recorded"
+    );
+
+    set_mode(&keep, 0o755);
+    age_the_backoff(home.path(), 601);
+    let restored = index(&docs, home.path());
+    assert!(
+        restored.status.success(),
+        "index failed: {}",
+        stderr(&restored)
+    );
+    assert!(
+        stdout(&restored).contains("indexed 1 file(s)"),
+        "the subtree must be indexed once the permission is back:\n{}",
+        stdout(&restored)
+    );
+    assert_eq!(
+        unreadable_rows(home.path()),
+        0,
+        "a successful read must clear the mark, not the clock"
     );
 }
 

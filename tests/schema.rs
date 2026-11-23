@@ -1,3 +1,4 @@
+use paper::core::index::schema::SCHEMA_VERSION;
 use paper::core::index::{init_db, Connection};
 
 fn memory_db() -> Connection {
@@ -20,7 +21,7 @@ fn insert_chunk(conn: &Connection, path: &str, content: &str) -> i64 {
 #[test]
 fn init_db_creates_all_tables() {
     let conn = memory_db();
-    for table in ["chunks", "chunks_fts", "chunks_vec"] {
+    for table in ["chunks", "chunks_fts", "chunks_vec", "unreadable"] {
         let n = conn
             .inner()
             .query_row(
@@ -31,6 +32,42 @@ fn init_db_creates_all_tables() {
             .unwrap();
         assert_eq!(n, 1, "missing table {table}");
     }
+}
+
+/// The `unreadable` table is additive: an existing v4 database gains it on open,
+/// without a schema version bump or a reindex.
+#[test]
+fn an_existing_database_gains_the_unreadable_table_on_open() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("chunks.db");
+    {
+        let conn = Connection::open(&path).unwrap();
+        init_db(&conn).unwrap();
+        conn.inner()
+            .execute_batch("DROP TABLE unreadable;")
+            .unwrap();
+        let version: i64 = conn
+            .inner()
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, SCHEMA_VERSION, "precondition: a current database");
+    }
+    let conn = Connection::open(&path).unwrap();
+    init_db(&conn).unwrap();
+    let n: i64 = conn
+        .inner()
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE name = 'unreadable'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(n, 1, "the table must be recreated without a version bump");
+    let version: i64 = conn
+        .inner()
+        .query_row("PRAGMA user_version", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(version, SCHEMA_VERSION, "the version must not move");
 }
 
 #[test]

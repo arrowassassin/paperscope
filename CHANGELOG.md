@@ -17,16 +17,20 @@ All notable changes to this project are recorded here. This project follows
   restored permission is picked up without a reinstall once the window elapses,
   and `paper index` reports the numbers (`N unreadable (permission denied), M
   deferred by the backoff`).
-- **A revoked grant no longer deletes what it cannot see.** `prune_missing`
-  treats a path that fails to exist behind an unreadable directory as missing, so
-  revoking access to an indexed folder silently removed its chunks and searches
-  stopped matching. Content under a path recorded as unreadable is never pruned.
+- **A revoked grant no longer deletes what it cannot see.** A path inside an
+  unreadable directory answers "does not exist", so re-indexing used to delete its
+  chunks and searches stopped matching. Content under a path recorded as
+  unreadable is now never pruned — and the record no longer expires on a timer,
+  so a prune that does not re-walk that root (`paper index --file …`, a different
+  `--root`, `--watch`) cannot mistake a still-revoked grant for a deleted file.
+  The mark is cleared when the path is read successfully, or when it is gone from
+  the disk entirely.
 - **`paper serve` never bootstraps, but it says so.** The MCP server is what an
   editor starts, often five sessions at once; it took the one-time setup lock,
   and each session tried to install the background service, so a project's first
   `initialize` could wait behind provisioning. It is now skip-listed — and when
-  setup has not run yet it prints one line saying so, rather than leaving an
-  editor-only install unprovisioned and silent.
+  setup has not run yet it prints one line naming `paper index`, rather than
+  leaving an editor-only install unprovisioned and silent.
 - **The one-time setup lock is a kernel lock, not a file-existence test.** The
   old `create_new` file with a fifteen-minute "stale, take it over" heuristic was
   racy: two processes could both read the same old file, both decide it was
