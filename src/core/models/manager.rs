@@ -1,4 +1,6 @@
-use super::specs::{all_specs, ModelKind, ModelSpec, DEFAULT_EMBEDDING, OPTIONAL_RERANKER};
+use super::specs::{
+    all_specs, ModelFile, ModelKind, ModelSpec, DEFAULT_EMBEDDING, OPTIONAL_RERANKER,
+};
 use super::{Embedder, Reranker};
 use crate::core::paths::Paths;
 use anyhow::{bail, Context, Result};
@@ -69,23 +71,23 @@ impl ModelManager {
         self.model_dir(model_id).join(file)
     }
 
-    /// Cheap presence check: every artifact exists with its pinned size.
-    ///
-    /// This runs on every search, so it must not hash multi-GB files. Hash
-    /// verification happens when a file is downloaded (`ensure`) and in
-    /// `is_verified`, which `paper doctor` uses.
+    /// Load-time gate: every artifact exists, has its pinned size and is
+    /// hash-verified. The hash is computed once and recorded in a stamp next to
+    /// the file (`<file>.verified`: sha256, size, mtime); later calls trust the
+    /// stamp only while all three still match, otherwise the file is re-hashed.
+    /// An unwritable stamp just means hashing every time, never trusting blindly.
     pub fn is_installed(&self, model_id: &str) -> bool {
         let Ok(spec) = self.spec(model_id) else {
             return false;
         };
-        spec.files.iter().all(|f| {
-            std::fs::metadata(self.file_path(model_id, f.name))
-                .is_ok_and(|m| m.is_file() && m.len() == f.size)
-        })
+        spec.files
+            .iter()
+            .all(|f| check_file(&self.file_path(model_id, f.name), f, false))
     }
 
     /// True when every artifact is present *and* matches its pinned hash.
-    /// Results are cached so repeated calls don't re-hash multi-GB files (I1).
+    /// Always hashes (stamps are ignored; `paper doctor` relies on that), but
+    /// the result is cached in memory so repeated calls don't re-hash (I1).
     pub fn is_verified(&self, model_id: &str) -> bool {
         if self.installed_cache.lock().unwrap().contains(model_id) {
             return true;
@@ -93,10 +95,10 @@ impl ModelManager {
         let Ok(spec) = self.spec(model_id) else {
             return false;
         };
-        let verified = spec.files.iter().all(|f| {
-            let path = self.file_path(model_id, f.name);
-            path.exists() && verify_sha256(&path, f.sha256).unwrap_or(false)
-        });
+        let verified = spec
+            .files
+            .iter()
+            .all(|f| check_file(&self.file_path(model_id, f.name), f, true));
         if verified {
             self.installed_cache
                 .lock()
@@ -115,7 +117,7 @@ impl ModelManager {
 
         for file in spec.files {
             let dest = dir.join(file.name);
-            if dest.exists() && verify_sha256(&dest, file.sha256)? {
+            if dest.exists() && check_file(&dest, file, true) {
                 continue;
             }
             if dest.exists() {
@@ -148,7 +150,7 @@ impl ModelManager {
             if let Some(e) = last_error {
                 return Err(e);
             }
-            if !verify_sha256(&dest, file.sha256)? {
+            if !check_file(&dest, file, true) {
                 let _ = tokio::fs::remove_file(&dest).await;
                 bail!(
                     "checksum mismatch for {model_id}/{}; deleted the corrupt download",
@@ -245,6 +247,9 @@ impl ModelManager {
         if spec.kind != ModelKind::Embedding {
             bail!("{model_id} is not an embedding model");
         }
+        if !self.is_installed(model_id) {
+            bail!("{model_id} is not installed or failed verification");
+        }
         Embedder::new(&self.model_dir(model_id), spec)
     }
 
@@ -261,6 +266,9 @@ impl ModelManager {
 
     pub fn load_reranker(&self) -> Result<Reranker> {
         let spec = self.spec(OPTIONAL_RERANKER)?;
+        if !self.is_installed(OPTIONAL_RERANKER) {
+            bail!("{OPTIONAL_RERANKER} is not installed or failed verification");
+        }
         Reranker::new(&self.model_dir(OPTIONAL_RERANKER), spec)
     }
 
@@ -282,6 +290,49 @@ impl ModelManager {
         }
         Ok(())
     }
+}
+
+fn stamp_path(path: &Path) -> PathBuf {
+    let mut p = path.as_os_str().to_owned();
+    p.push(".verified");
+    PathBuf::from(p)
+}
+
+/// "sha256\nsize\nmtime_nanos\n" for the file as it is now.
+fn stamp_text(path: &Path, sha256: &str) -> Option<String> {
+    let m = std::fs::metadata(path).ok()?;
+    let nanos = m
+        .modified()
+        .ok()?
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_nanos();
+    Some(format!(
+        "{}\n{}\n{nanos}\n",
+        sha256.to_ascii_lowercase(),
+        m.len()
+    ))
+}
+
+/// Size matches and the content hash is verified. `force` skips the stamp.
+fn check_file(path: &Path, f: &ModelFile, force: bool) -> bool {
+    if !std::fs::metadata(path).is_ok_and(|m| m.is_file() && m.len() == f.size) {
+        return false;
+    }
+    // Fingerprint before hashing, so a change during the hash invalidates the stamp.
+    let Some(expected) = stamp_text(path, f.sha256) else {
+        return verify_sha256(path, f.sha256).unwrap_or(false);
+    };
+    let stamp = stamp_path(path);
+    if !force && std::fs::read_to_string(&stamp).is_ok_and(|s| s == expected) {
+        return true;
+    }
+    if !verify_sha256(path, f.sha256).unwrap_or(false) {
+        let _ = std::fs::remove_file(&stamp);
+        return false;
+    }
+    let _ = std::fs::write(&stamp, expected);
+    true
 }
 
 pub fn verify_sha256(path: &Path, expected: &str) -> Result<bool> {
