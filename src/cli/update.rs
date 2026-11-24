@@ -4,6 +4,7 @@
 //! exactly one code path that knows where files belong, how to verify the
 //! download and how to touch `PATH`. `--check` is offline-safe reporting only.
 
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
@@ -121,8 +122,13 @@ async fn install_latest() -> Result<()> {
         .await
         .context("read installer")?;
 
-    let path = temp_script_path()?;
-    std::fs::write(&path, script)
+    // The guard removes the directory and script when it drops, after the installer exits.
+    let (_dir, path) = temp_script_path(&std::env::temp_dir())?;
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+        .and_then(|mut file| file.write_all(script.as_bytes()))
         .with_context(|| format!("write installer to {}", path.display()))?;
     let mut command = std::process::Command::new(program);
     if !flag.is_empty() {
@@ -130,26 +136,31 @@ async fn install_latest() -> Result<()> {
     }
     command.arg(&path);
     let status = command.status().context("run installer")?;
-    let _ = std::fs::remove_file(&path);
-    if let Some(dir) = path.parent() {
-        let _ = std::fs::remove_dir(dir);
-    }
     if !status.success() {
         bail!("installer exited with {status}; nothing was changed");
     }
     Ok(())
 }
 
-fn temp_script_path() -> Result<PathBuf> {
+/// Installer path inside a fresh, randomly named directory under `base`, created
+/// exclusively (0700 on Unix) so no other local user can pre-create or plant it.
+fn temp_script_path(base: &Path) -> Result<(tempfile::TempDir, PathBuf)> {
     let name = if cfg!(windows) {
         "paperscope-installer.ps1"
     } else {
         "paperscope-installer.sh"
     };
-    let dir = std::env::temp_dir().join(format!("paper-update-{}", std::process::id()));
-    std::fs::create_dir_all(&dir)
-        .with_context(|| format!("creating temporary directory {}", dir.display()))?;
-    Ok(dir.join(name))
+    std::fs::create_dir_all(base)
+        .with_context(|| format!("creating temporary directory {}", base.display()))?;
+    let mut builder = tempfile::Builder::new();
+    builder.prefix("paper-update-");
+    #[cfg(unix)]
+    builder.permissions(std::os::unix::fs::PermissionsExt::from_mode(0o700));
+    let dir = builder
+        .tempdir_in(base)
+        .with_context(|| format!("creating temporary directory in {}", base.display()))?;
+    let path = dir.path().join(name);
+    Ok((dir, path))
 }
 
 /// Tell the user when `paper` on `PATH` resolves to a different binary.
@@ -164,7 +175,7 @@ pub fn warn_if_shadowed() {
     let Some(path) = std::env::var_os("PATH") else {
         return;
     };
-    for dir in std::env::split_paths(&path) {
+    for dir in absolute_dirs(&path) {
         let candidate = dir.join(if cfg!(windows) { "paper.exe" } else { "paper" });
         if !candidate.is_file() {
             continue;
@@ -185,6 +196,13 @@ pub fn warn_if_shadowed() {
     }
 }
 
+/// PATH entries that name a fixed directory. Empty, `.` and relative entries
+/// resolve against the current directory (shells do resolve them), so a
+/// `paper` there is not run by this shadow check.
+fn absolute_dirs(path: &std::ffi::OsStr) -> impl Iterator<Item = PathBuf> + '_ {
+    std::env::split_paths(path).filter(|dir| dir.is_absolute())
+}
+
 fn canonical(path: &Path) -> PathBuf {
     std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
 }
@@ -203,12 +221,35 @@ mod tests {
     use super::is_newer;
 
     #[test]
-    fn temp_script_directory_exists() {
-        let path = super::temp_script_path().expect("temp path");
-        assert!(path.parent().expect("parent").is_dir());
-        if let Some(dir) = path.parent() {
-            let _ = std::fs::remove_dir(dir);
+    fn temp_script_directory_is_fresh_and_private() {
+        let root = tempfile::tempdir().expect("tempdir");
+        // A missing temp root is still created, as before.
+        let base = root.path().join("missing");
+        let (first, path) = super::temp_script_path(&base).expect("temp path");
+        let (second, _) = super::temp_script_path(&base).expect("temp path");
+        assert_eq!(path.parent(), Some(first.path()));
+        assert_ne!(first.path(), second.path());
+        assert!(!path.exists());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = std::fs::metadata(first.path())
+                .expect("metadata")
+                .permissions()
+                .mode();
+            assert_eq!(mode & 0o777, 0o700);
         }
+        let dir = first.path().to_path_buf();
+        drop(first);
+        assert!(!dir.exists());
+    }
+
+    #[test]
+    fn relative_path_entries_are_ignored() {
+        let abs = std::env::current_dir().expect("current dir");
+        let path = std::env::join_paths(["", ".", "bin", abs.to_str().expect("utf-8"), ""])
+            .expect("join PATH");
+        assert_eq!(super::absolute_dirs(&path).collect::<Vec<_>>(), [abs]);
     }
 
     #[test]

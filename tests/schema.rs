@@ -160,3 +160,41 @@ fn vec_table_accepts_and_retrieves_embeddings() {
     assert_eq!(rowid, id);
     assert!(distance.abs() < 1e-5, "distance was {distance}");
 }
+
+#[cfg(unix)]
+fn mode(path: &std::path::Path) -> u32 {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::metadata(path).unwrap().permissions().mode() & 0o777
+}
+
+/// The index holds a plaintext copy of every indexed document.
+#[cfg(unix)]
+#[test]
+fn a_new_index_and_the_directory_created_for_it_are_owner_only() {
+    let dir = tempfile::tempdir().unwrap();
+    let base = dir.path().join("paper");
+    let path = base.join("chunks.db");
+    let conn = Connection::open(&path).unwrap();
+    init_db(&conn).unwrap();
+    assert_eq!(mode(&base), 0o700);
+    assert_eq!(mode(&path), 0o600);
+    assert_eq!(mode(&base.join("chunks.db-wal")), 0o600);
+}
+
+#[cfg(unix)]
+#[test]
+fn an_existing_world_readable_index_is_made_owner_only() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("chunks.db");
+    let first = Connection::open(&path).unwrap(); // stays open: -wal and -shm exist
+    init_db(&first).unwrap();
+    let files = ["chunks.db", "chunks.db-wal", "chunks.db-shm"].map(|f| dir.path().join(f));
+    for file in &files {
+        std::fs::set_permissions(file, std::fs::Permissions::from_mode(0o644)).unwrap();
+    }
+    let _second = Connection::open(&path).unwrap();
+    for file in &files {
+        assert_eq!(mode(file), 0o600, "{}", file.display());
+    }
+}

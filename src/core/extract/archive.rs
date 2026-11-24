@@ -1,5 +1,5 @@
 use super::{
-    extension_of, extract_named, is_supported, ExtractedDocument, Extractor, MAX_ARCHIVE_ENTRIES,
+    extension_of, extract_member, is_supported, ExtractedDocument, Extractor, MAX_ARCHIVE_ENTRIES,
     MAX_EXTRACTED_BYTES,
 };
 use anyhow::Result;
@@ -43,7 +43,7 @@ impl Extractor for Archive {
                 continue;
             }
             let virtual_path = format!("{name}!/{member}");
-            if let Ok(Some(mut extracted)) = extract_named(&virtual_path, &data, false) {
+            if let Ok(Some(mut extracted)) = extract_member(&virtual_path, &data) {
                 for doc in &mut extracted {
                     doc.path = virtual_path.clone();
                 }
@@ -147,4 +147,52 @@ fn read_tar(bytes: &[u8]) -> Result<Vec<Member>> {
         }
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::extract_named;
+    use std::io::Write;
+
+    fn zip_of(members: &[(&str, &[u8])]) -> Vec<u8> {
+        let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        let options = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Stored);
+        for (name, data) in members {
+            zip.start_file(*name, options).unwrap();
+            zip.write_all(data).unwrap();
+        }
+        zip.finish().unwrap().into_inner()
+    }
+
+    fn paths(outer: &[u8]) -> Vec<String> {
+        let docs = extract_named("outer.zip", outer, false).unwrap().unwrap();
+        docs.into_iter().map(|d| d.path).collect()
+    }
+
+    #[test]
+    fn a_member_that_sniffs_as_an_archive_is_not_opened_again() {
+        let inner = zip_of(&[("note.txt", b"nested words")]);
+        let outer = zip_of(&[("inner.txt", &inner), ("plain.txt", b"top words")]);
+        assert_eq!(paths(&outer), ["outer.zip!/plain.txt"]);
+    }
+
+    #[test]
+    fn container_and_text_members_still_extract() {
+        let docx = zip_of(&[(
+            "word/document.xml",
+            b"<w:document><w:body><w:p><w:r><w:t>docx words</w:t></w:r></w:p></w:body></w:document>",
+        )]);
+        let outer = zip_of(&[("report.docx", &docx), ("notes.txt", b"plain words")]);
+        assert_eq!(
+            paths(&outer),
+            ["outer.zip!/report.docx", "outer.zip!/notes.txt"]
+        );
+    }
+
+    #[test]
+    fn a_text_member_starting_with_zip_magic_is_not_indexed() {
+        let outer = zip_of(&[("a.txt", b"PK\x03\x04garbage not a zip")]);
+        assert!(extract_named("outer.zip", &outer, false).unwrap().is_none());
+    }
 }

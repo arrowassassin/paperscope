@@ -29,6 +29,44 @@ pub fn register_sqlite_vec() {
     });
 }
 
+/// Keep the index, a plaintext copy of every indexed document, owner-only.
+/// A new database is created 0600 (SQLite's -wal/-shm inherit its mode);
+/// existing files are tightened best-effort so a read-only or foreign-owned
+/// index still opens.
+#[cfg(unix)]
+fn restrict_to_owner(path: &Path) -> Result<()> {
+    use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+    match std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(path)
+    {
+        Err(err) if err.kind() != std::io::ErrorKind::AlreadyExists => {
+            return Err(err).with_context(|| format!("creating {}", path.display()));
+        }
+        _ => {}
+    }
+    for suffix in ["", "-wal", "-shm"] {
+        let mut file = path.as_os_str().to_os_string();
+        file.push(suffix);
+        let file = Path::new(&file);
+        // symlink_metadata: never chmod whatever a symlink points at.
+        let Ok(meta) = std::fs::symlink_metadata(file) else {
+            continue;
+        };
+        let mode = meta.permissions().mode();
+        if !meta.is_file() || mode & 0o077 == 0 {
+            continue;
+        }
+        let owner_only = std::fs::Permissions::from_mode(mode & 0o700);
+        if let Err(err) = std::fs::set_permissions(file, owner_only) {
+            tracing::warn!("could not make {} owner-only: {err}", file.display());
+        }
+    }
+    Ok(())
+}
+
 /// Thin wrapper around `rusqlite::Connection` that guarantees the sqlite-vec
 /// extension is available and applies Paper's pragmas.
 pub struct Connection {
@@ -47,9 +85,11 @@ impl Connection {
         register_sqlite_vec();
         let existed = path.exists();
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)
+            crate::core::paths::create_private_dir(parent)
                 .with_context(|| format!("creating db directory {}", parent.display()))?;
         }
+        #[cfg(unix)]
+        restrict_to_owner(path)?;
         let conn = rusqlite::Connection::open(path)
             .with_context(|| format!("opening {}", path.display()))?;
         if !existed {
@@ -136,5 +176,15 @@ impl Connection {
             )
             .optional()?;
         Ok(model)
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod tests {
+    /// procfs refuses chmod even for root: tightening an existing file must
+    /// warn and carry on, never stop the index from opening.
+    #[test]
+    fn a_file_that_cannot_be_chmodded_does_not_block_opening() {
+        super::restrict_to_owner(std::path::Path::new("/proc/self/stat")).unwrap();
     }
 }

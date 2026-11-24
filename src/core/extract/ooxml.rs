@@ -289,9 +289,28 @@ impl Extractor for Pptx {
     }
 
     fn extract(&self, name: &str, bytes: &[u8]) -> Result<Option<Vec<ExtractedDocument>>> {
+        self.extract_within(name, bytes, MAX_PPTX_BYTES)
+    }
+}
+
+/// Per-deck cap on slide bytes inflated plus text kept, so a small .pptx cannot
+/// expand without bound. 16 slides at the per-slide cap is far above real decks.
+const MAX_PPTX_BYTES: usize = 16 * MAX_EXTRACTED_BYTES;
+
+impl Pptx {
+    /// Parse each slide as soon as it is read, charging every inflated byte and
+    /// every kept byte to `budget`, and stop once it is used up.
+    fn extract_within(
+        &self,
+        name: &str,
+        bytes: &[u8],
+        budget: usize,
+    ) -> Result<Option<Vec<ExtractedDocument>>> {
         let mut zip = open_zip(bytes)?;
-        let mut slides: Vec<(u32, String)> = Vec::new();
-        for i in 0..zip.len().min(1000) {
+        let mut left = budget;
+        let mut exhausted = false;
+        let mut blocks = Vec::new();
+        for i in 0..zip.len().min(self.capabilities().max_entries) {
             let Ok(mut file) = zip.by_index(i) else {
                 continue;
             };
@@ -302,27 +321,24 @@ impl Extractor for Pptx {
             let Some(rest) = fname.strip_prefix("ppt/slides/slide") else {
                 continue;
             };
-            let Some(num) = rest
+            let Some(number) = rest
                 .strip_suffix(".xml")
                 .and_then(|n| n.parse::<u32>().ok())
             else {
                 continue;
             };
-            let mut data = String::new();
-            if file
-                .by_ref()
-                .take((MAX_EXTRACTED_BYTES + 1) as u64)
-                .read_to_string(&mut data)
-                .is_ok()
-                && data.len() <= MAX_EXTRACTED_BYTES
-            {
-                slides.push((num, data));
-            }
-        }
-        slides.sort_by_key(|(n, _)| *n);
-
-        let mut blocks = Vec::new();
-        for (number, xml) in slides {
+            let limit = MAX_EXTRACTED_BYTES.min(left);
+            let mut data = Vec::new();
+            let read = file.by_ref().take(limit as u64 + 1).read_to_end(&mut data);
+            left = left.saturating_sub(data.len());
+            let xml = match String::from_utf8(data) {
+                Ok(xml) if read.is_ok() && xml.len() <= limit => xml,
+                _ if left == 0 => {
+                    exhausted = true;
+                    break;
+                }
+                _ => continue,
+            };
             let mut reader = Reader::from_str(&xml);
             let mut buf = Vec::new();
             let mut text = String::new();
@@ -358,17 +374,37 @@ impl Extractor for Pptx {
             if text.trim().is_empty() {
                 continue;
             }
+            let anchor = format!("slide {number}");
+            let kept = text.len() + anchor.len();
+            if kept > left {
+                exhausted = true;
+                break;
+            }
+            left -= kept;
             let line_count = text.lines().count().max(1) as i64;
             blocks.push(Block {
                 text,
                 page: number as i64,
-                anchor: Some(format!("slide {number}")),
+                anchor: Some(anchor),
                 section: None,
                 line_start: 1,
                 line_end: line_count,
             });
         }
-        Ok(Some(single(name, "pptx", blocks, Vec::new())))
+        // Stable, so blocks keep the order sorting slides by number gave.
+        blocks.sort_by_key(|block| block.page);
+        let mut warnings = Vec::new();
+        if exhausted {
+            let warning =
+                format!("pptx budget of {budget} bytes reached; remaining slides skipped");
+            // `extract_named` drops a document without blocks; an error is how
+            // the warning survives when no slide had any.
+            if blocks.is_empty() {
+                anyhow::bail!(warning);
+            }
+            warnings.push(warning);
+        }
+        Ok(Some(single(name, "pptx", blocks, warnings)))
     }
 }
 
@@ -399,6 +435,24 @@ impl Extractor for Epub {
     }
 
     fn extract(&self, name: &str, bytes: &[u8]) -> Result<Option<Vec<ExtractedDocument>>> {
+        self.extract_within(name, bytes, MAX_EPUB_BYTES)
+    }
+}
+
+/// Per-book cap on chapter bytes inflated plus paths and text kept, so a spine
+/// that repeats one chapter cannot expand without bound. Far above real books.
+const MAX_EPUB_BYTES: usize = 16 * MAX_EXTRACTED_BYTES;
+
+impl Epub {
+    /// Read the spine (at most `max_pages` items), charging every path kept, every
+    /// chapter byte inflated and every text byte kept to `budget`; stop once it is
+    /// used up.
+    fn extract_within(
+        &self,
+        name: &str,
+        bytes: &[u8],
+        budget: usize,
+    ) -> Result<Option<Vec<ExtractedDocument>>> {
         let mut zip = open_zip(bytes)?;
         let container = read_entry(&mut zip, "META-INF/container.xml").unwrap_or_default();
         let opf_path = container_path(&container);
@@ -412,11 +466,20 @@ impl Extractor for Epub {
             .and_then(|p| p.rsplit_once('/').map(|(dir, _)| dir.to_string()))
             .unwrap_or_default();
 
+        let max_pages = self.capabilities().max_pages as usize;
         let mut blocks = Vec::new();
         let mut order: Vec<String> = Vec::new();
+        let mut order_bytes = 0usize;
         for idref in &spine {
+            // A spine may repeat an item without limit: stop one past the page
+            // cap (to detect it), or once the paths alone outgrow the budget.
+            if order.len() > max_pages || order_bytes > budget {
+                break;
+            }
             if let Some(href) = manifest.iter().find(|(id, _)| id == idref).map(|(_, h)| h) {
-                order.push(join_path(&base, href));
+                let path = join_path(&base, href);
+                order_bytes += path.len();
+                order.push(path);
             }
         }
         if order.is_empty() {
@@ -431,25 +494,69 @@ impl Extractor for Epub {
             order.sort();
         }
 
+        let mut warnings = Vec::new();
+        if order.len() > max_pages {
+            order.truncate(max_pages);
+            warnings.push(format!(
+                "epub spine longer than {max_pages} items; remaining items skipped"
+            ));
+        }
+        let budget_warning =
+            || format!("epub budget of {budget} bytes reached; remaining chapters skipped");
+        // The paths stay alive for the whole loop, so they count as kept bytes.
+        let Some(mut left) = budget.checked_sub(order.iter().map(String::len).sum()) else {
+            anyhow::bail!(budget_warning());
+        };
+        let mut exhausted = false;
         for (index, name) in order.iter().enumerate() {
-            let Some(raw) = read_entry(&mut zip, name) else {
+            let Ok(mut file) = zip.by_name(name) else {
                 continue;
+            };
+            if file.size() as usize > MAX_EXTRACTED_BYTES {
+                continue;
+            }
+            let limit = MAX_EXTRACTED_BYTES.min(left);
+            let mut data = Vec::new();
+            let read = file.by_ref().take(limit as u64 + 1).read_to_end(&mut data);
+            left = left.saturating_sub(data.len());
+            let raw = match String::from_utf8(data) {
+                Ok(raw) if read.is_ok() && raw.len() <= limit => raw,
+                _ if left == 0 => {
+                    exhausted = true;
+                    break;
+                }
+                _ => continue,
             };
             let text = html2text::from_read(raw.as_bytes(), 100).unwrap_or(raw);
             if text.trim().is_empty() {
                 continue;
             }
+            let anchor = format!("spine {}: {name}", index + 1);
+            let kept = text.len() + anchor.len();
+            if kept > left {
+                exhausted = true;
+                break;
+            }
+            left -= kept;
             let line_count = text.lines().count().max(1) as i64;
             blocks.push(Block {
                 text,
                 page: (index + 1) as i64,
-                anchor: Some(format!("spine {}: {name}", index + 1)),
+                anchor: Some(anchor),
                 section: None,
                 line_start: 1,
                 line_end: line_count,
             });
         }
-        Ok(Some(single(name, "epub", blocks, Vec::new())))
+        if exhausted {
+            warnings.push(budget_warning());
+        }
+        // `extract_named` drops a document without blocks; an error is how the
+        // warnings survive when no chapter had any text.
+        if blocks.is_empty() && !warnings.is_empty() {
+            anyhow::bail!(warnings.join("; "));
+        }
+        Ok(Some(single(name, "epub", blocks, warnings)))
     }
 }
 
@@ -500,5 +607,220 @@ fn join_path(base: &str, href: &str) -> String {
         href.to_string()
     } else {
         format!("{base}/{href}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use zip::write::SimpleFileOptions;
+
+    const BUDGET: usize = 64 * 1024;
+
+    fn zip_of(members: &[(String, Vec<u8>)]) -> Vec<u8> {
+        let mut zip = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        let options =
+            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+        for (name, data) in members {
+            zip.start_file(name.as_str(), options).unwrap();
+            zip.write_all(data).unwrap();
+        }
+        zip.finish().unwrap().into_inner()
+    }
+
+    /// An EPUB whose spine lists `spine` (manifest ids) over `chapters` (id, body).
+    fn epub(chapters: &[(&str, String)], spine: &[&str]) -> Vec<u8> {
+        let manifest: String = chapters
+            .iter()
+            .map(|(id, _)| format!(r#"<item id="{id}" href="{id}.xhtml"/>"#))
+            .collect();
+        let itemrefs: String = spine
+            .iter()
+            .map(|id| format!(r#"<itemref idref="{id}"/>"#))
+            .collect();
+        let mut members = vec![
+            (
+                "META-INF/container.xml".to_string(),
+                r#"<container><rootfiles><rootfile full-path="OEBPS/content.opf"/></rootfiles></container>"#.to_string(),
+            ),
+            (
+                "OEBPS/content.opf".to_string(),
+                format!("<package><manifest>{manifest}</manifest><spine>{itemrefs}</spine></package>"),
+            ),
+        ];
+        // An empty body leaves the item in the manifest but out of the zip.
+        for (id, body) in chapters.iter().filter(|(_, body)| !body.is_empty()) {
+            members.push((
+                format!("OEBPS/{id}.xhtml"),
+                format!("<html><body>{body}</body></html>"),
+            ));
+        }
+        let members: Vec<_> = members
+            .into_iter()
+            .map(|(name, body)| (name, body.into_bytes()))
+            .collect();
+        zip_of(&members)
+    }
+
+    fn slide(number: usize, body: &str) -> (String, Vec<u8>) {
+        let xml = format!("<p:sld>{body}</p:sld>");
+        (format!("ppt/slides/slide{number}.xml"), xml.into_bytes())
+    }
+
+    fn para(text: &str) -> String {
+        format!("<a:p><a:r><a:t>{text}</a:t></a:r></a:p>")
+    }
+
+    #[test]
+    fn a_slide_bomb_stops_at_the_budget() {
+        let padding = " ".repeat(BUDGET / 8);
+        let mut members = vec![slide(1, &para("first"))];
+        members.extend((2..40).map(|n| slide(n, &padding)));
+        members.push(slide(40, &para("late")));
+        let docs = Pptx
+            .extract_within("bomb.pptx", &zip_of(&members), BUDGET)
+            .unwrap()
+            .unwrap();
+        // Textless slides still cost what they inflate to, so slide 40 is never read.
+        let anchors: Vec<_> = docs[0].blocks.iter().map(|b| b.anchor.clone()).collect();
+        assert_eq!(anchors, [Some("slide 1".to_string())]);
+        assert!(docs[0].warnings.iter().any(|w| w.contains("pptx budget")));
+
+        // Without any citable slide the warning must surface as an error.
+        let err = Pptx
+            .extract_within("bomb.pptx", &zip_of(&members[1..]), BUDGET)
+            .unwrap_err();
+        assert!(err.to_string().contains("pptx budget"), "{err}");
+    }
+
+    #[test]
+    fn kept_slide_text_is_charged_to_the_budget() {
+        let text = para(&"x".repeat(20_000));
+        let members: Vec<_> = (1..=5).map(|n| slide(n, &text)).collect();
+        // Inflated bytes alone would admit three slides; their text admits one.
+        let docs = Pptx
+            .extract_within("text.pptx", &zip_of(&members), BUDGET)
+            .unwrap()
+            .unwrap();
+        assert_eq!(docs[0].blocks.len(), 1);
+        assert!(docs[0].warnings.iter().any(|w| w.contains("pptx budget")));
+    }
+
+    #[test]
+    fn a_normal_deck_is_extracted_unchanged() {
+        let members = vec![
+            ("[Content_Types].xml".to_string(), b"<Types/>".to_vec()),
+            slide(2, &format!("{}{}", para("A"), para("B"))),
+            slide(1, &para("Title")),
+            slide(3, "<a:p></a:p>"),
+            (
+                "ppt/slides/_rels/slide1.xml.rels".to_string(),
+                b"<Relationships/>".to_vec(),
+            ),
+        ];
+        let docs = Pptx
+            .extract("deck.pptx", &zip_of(&members))
+            .unwrap()
+            .unwrap();
+        assert_eq!(docs.len(), 1);
+        assert!(docs[0].warnings.is_empty());
+        let block = |text: &str, page: i64, lines: i64| Block {
+            text: text.to_string(),
+            page,
+            anchor: Some(format!("slide {page}")),
+            section: None,
+            line_start: 1,
+            line_end: lines,
+        };
+        assert_eq!(
+            docs[0].blocks,
+            [block("Title\n", 1, 1), block("A\nB\n", 2, 2)]
+        );
+    }
+
+    fn anchors(doc: &ExtractedDocument) -> Vec<String> {
+        doc.blocks.iter().filter_map(|b| b.anchor.clone()).collect()
+    }
+
+    #[test]
+    fn a_spine_bomb_stops_at_the_budget() {
+        let chapters = [
+            ("first", "<p>first</p>".to_string()),
+            ("pad", " ".repeat(BUDGET / 8)),
+            ("late", "<p>late</p>".to_string()),
+        ];
+        // One textless chapter named over and over: each reference still costs
+        // what it inflates to, so "late" is never read.
+        let mut spine = vec!["first"];
+        spine.extend(["pad"; 40]);
+        spine.push("late");
+        let docs = Epub
+            .extract_within("bomb.epub", &epub(&chapters, &spine), BUDGET)
+            .unwrap()
+            .unwrap();
+        assert_eq!(anchors(&docs[0]), ["spine 1: OEBPS/first.xhtml"]);
+        assert!(docs[0].warnings.iter().any(|w| w.contains("epub budget")));
+
+        // Without any citable chapter the warning must surface as an error.
+        let err = Epub
+            .extract_within("bomb.epub", &epub(&chapters, &spine[1..]), BUDGET)
+            .unwrap_err();
+        assert!(err.to_string().contains("epub budget"), "{err}");
+    }
+
+    #[test]
+    fn kept_chapter_text_is_charged_to_the_budget() {
+        let chapters = [("text", format!("<p>{}</p>", "x".repeat(20_000)))];
+        // Inflated bytes alone would admit three references; their text admits one.
+        let docs = Epub
+            .extract_within("text.epub", &epub(&chapters, &["text"; 5]), BUDGET)
+            .unwrap()
+            .unwrap();
+        assert_eq!(docs[0].blocks.len(), 1);
+        assert!(docs[0].warnings.iter().any(|w| w.contains("epub budget")));
+    }
+
+    #[test]
+    fn a_spine_longer_than_max_pages_is_truncated() {
+        let chapters = [
+            ("first", "<p>first</p>".to_string()),
+            ("gone", String::new()),
+            ("late", "<p>late</p>".to_string()),
+        ];
+        let mut spine = vec!["first"];
+        spine.extend(["gone"; 4_999]);
+        spine.push("late");
+        let bytes = epub(&chapters, &spine);
+        let docs = Epub.extract("long.epub", &bytes).unwrap().unwrap();
+        assert_eq!(anchors(&docs[0]), ["spine 1: OEBPS/first.xhtml"]);
+        assert!(docs[0].warnings.iter().any(|w| w.contains("5000 items")));
+    }
+
+    #[test]
+    fn a_normal_epub_is_extracted_unchanged() {
+        let chapters = [
+            ("c1", "<h1>One</h1><p>Alpha</p>".to_string()),
+            ("c2", "<p>Beta</p>".to_string()),
+            ("blank", "<p> </p>".to_string()),
+        ];
+        // A repeated item is emitted each time, as before.
+        let bytes = epub(&chapters, &["c1", "blank", "c2", "c1"]);
+        let docs = Epub.extract("book.epub", &bytes).unwrap().unwrap();
+        assert_eq!(docs.len(), 1);
+        assert!(docs[0].warnings.is_empty());
+        let got: Vec<_> = docs[0]
+            .blocks
+            .iter()
+            .map(|b| (b.text.as_str(), b.page, b.anchor.as_deref(), b.line_end))
+            .collect();
+        assert_eq!(
+            got,
+            [
+                ("# One\n\nAlpha\n", 1, Some("spine 1: OEBPS/c1.xhtml"), 3),
+                ("Beta\n", 3, Some("spine 3: OEBPS/c2.xhtml"), 1),
+                ("# One\n\nAlpha\n", 4, Some("spine 4: OEBPS/c1.xhtml"), 3),
+            ]
+        );
     }
 }
