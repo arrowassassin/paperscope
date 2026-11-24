@@ -243,9 +243,11 @@ fn mcp_results_are_scoped_to_the_server_roots() {
     let sources = client.call_tool("list_sources", json!({}));
     assert!(sources.as_array().unwrap().is_empty());
 }
+// Unix only: these tests fake the home directory via HOME, which Windows ignores (dirs uses the Known Folder API).
 
 /// A fake home with Paper's data in a visible subdirectory, so the hidden-path
 /// and Paper-own checks are exercised separately.
+#[cfg(unix)]
 fn fake_home() -> (tempfile::TempDir, PathBuf, PathBuf, PathBuf) {
     let tmp = tempfile::tempdir().unwrap();
     let home = tmp.path().canonicalize().unwrap().join("home");
@@ -271,6 +273,7 @@ fn fake_home() -> (tempfile::TempDir, PathBuf, PathBuf, PathBuf) {
     (tmp, home, data, docs)
 }
 
+#[cfg(unix)]
 fn assert_refused_to_index(client: &mut McpClient, tool: &str, path: &Path) {
     let result = client.send(
         "tools/call",
@@ -286,6 +289,7 @@ fn assert_refused_to_index(client: &mut McpClient, tool: &str, path: &Path) {
     );
 }
 
+#[cfg(unix)]
 #[test]
 fn mcp_refuses_to_index_hidden_paths_and_papers_own_data() {
     let (_tmp, home, data, docs) = fake_home();
@@ -310,6 +314,7 @@ fn mcp_refuses_to_index_hidden_paths_and_papers_own_data() {
     assert_eq!(ok["stats"]["indexed"], 1, "{ok}");
 }
 
+#[cfg(unix)]
 #[test]
 fn mcp_refuses_a_parent_of_papers_dir_only_when_a_walk_would_reach_it() {
     let tmp = tempfile::tempdir().unwrap();
@@ -337,6 +342,7 @@ fn mcp_refuses_a_parent_of_papers_dir_only_when_a_walk_would_reach_it() {
     assert_refused_to_index(&mut client, "add_index_root", &home.join("hidden"));
 }
 
+#[cfg(unix)]
 #[test]
 fn mcp_remove_index_root_still_removes_a_hidden_root() {
     let (_tmp, home, data, docs) = fake_home();
