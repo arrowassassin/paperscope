@@ -109,9 +109,6 @@ pub async fn run(args: ModelsArgs) -> Result<i32> {
                 model_dir.display()
             ));
             println!("installed {} at {}", model, model_dir.display());
-
-            // Update installed cache via is_installed (which caches on success)
-            let _ = manager.is_installed(&model);
         }
         ModelsCommand::Remove { model } => {
             // Serialize removals of the same model so an install and a remove

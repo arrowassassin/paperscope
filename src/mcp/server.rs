@@ -19,6 +19,9 @@ use std::sync::Arc;
 struct Inner {
     db_path: PathBuf,
     embedder: Option<crate::core::search::SharedEmbedder>,
+    /// Loaded once at start when its weights are already installed; never
+    /// downloaded here.
+    reranker: Option<Arc<crate::core::models::Reranker>>,
     config: crate::core::config::SearchConfig,
     /// Read/write: the agent can add or remove indexed roots at runtime, and
     /// the same list is the read allow-list for citations.
@@ -34,7 +37,7 @@ impl Inner {
         Ok(SearchPipeline::new(
             self.connect()?,
             self.embedder.clone(),
-            None,
+            self.reranker.clone(),
             self.config.clone(),
         ))
     }
@@ -110,6 +113,7 @@ impl PaperMcp {
             inner: Arc::new(Inner {
                 db_path: ws.paths.db_path(),
                 embedder: ws.embedder(),
+                reranker: ws.model_manager.reranker_if_installed().map(Arc::new),
                 config: ws.config.search(),
                 roots: std::sync::RwLock::new(roots),
             }),
