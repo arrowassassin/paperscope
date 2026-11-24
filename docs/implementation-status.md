@@ -286,9 +286,24 @@ is not on disk.
   everything beneath it, so the next pass deleted the content of a folder the
   user merely could not see — including prunes that never re-walked that root.
 
+## Index and search behaviour (0.3.0)
+
+- The daemon's passes over the configured roots also prune deleted files, and
+  indexing jobs run one at a time (a mutex in the daemon state).
+- A failed or timed-out extraction keeps the file's previous chunks; the file is
+  counted as skipped with warnings and retried on the next pass.
+- Recording a different embedding model than the one stored drops every chunk and
+  vector, so the next pass re-embeds everything; vectors from two models never mix.
+- `INDEXER_VERSION` is `extract4+chunk1` (no package version): a release does not
+  wipe the index, only a change to extraction or chunking does.
+- Chunks and embeddings for a file are computed before its write transaction.
+- The MCP server loads the reranker once at start if installed (never downloads).
+- `ModelManager::is_installed` checks existence and size only; `is_verified` and
+  `paper doctor` do the full SHA-256 check, as does every download.
+
 ## Tests
 
-`cargo test` — 201 passing tests (plus 4 ignored: 3 model downloads and one
+`cargo test` — 205 passing tests (plus 4 ignored: 3 model downloads and one
 child-process helper for the setup-lock test), no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 

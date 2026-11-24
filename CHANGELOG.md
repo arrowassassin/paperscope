@@ -4,6 +4,50 @@ All notable changes to this project are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html); while the version is
 `0.x`, minor releases may change behaviour.
 
+## [0.3.0] — 2026-11-24
+
+### Security
+Twenty-one findings from a security scan (PR #4), grouped:
+- **Dashboard and CLI output.** Route prompts and model names are escaped (XSS),
+  state-changing POSTs are gated against CSRF, wildcard CORS is gone, and
+  control characters are stripped from search/answer output, chat error bodies,
+  polish citation references and TUI agent models.
+- **Archives and documents.** pptx, epub and nested-archive extraction are bounded
+  by memory/decompression budgets and an epub spine cap; archive streaming has
+  byte budgets for inflated and kept text, sections and anchors.
+- **Indexing paths.** The watcher no longer follows planted symlinks into unlisted
+  roots; every indexing path opens the file once and checks it is the same file
+  under a configured root; agent-requested indexing refuses hidden paths and
+  Paper's own directories; the root allow-list cannot be emptied.
+- **Local files.** The index DB, `config.toml` and their directories are created
+  owner-only; config writes are serialised and atomic; the `paper update` temp
+  directory is private; relative `PATH` entries are ignored by the shadow check.
+
+### Fixed
+- The daemon's scheduled passes over the configured roots now prune deleted files.
+- A timed-out or failed extraction no longer erases the last good chunks of a file.
+- Switching embedding model drops the old model's chunks and vectors instead of
+  mixing them.
+- Daemon indexing runs are serialised, ending `SQLITE_BUSY` from overlapping runs.
+- A release no longer wipes the index: the package version is gone from the
+  index version string.
+
+### Changed
+- MCP search now uses the reranker when its weights are installed (never
+  downloaded by search).
+- `is_installed` is an existence-and-size check, so each search no longer hashes
+  model weights; SHA-256 verification stays at download and in `paper doctor`.
+- Files are chunked and embedded before their write transaction opens.
+- **One-time re-index.** The index version is now `extract4+chunk1` because
+  archive, pptx and epub extraction changed; 0.3.0 re-indexes once on first run.
+- Design documents and internal notes were removed from the repository; their
+  history is on the `archive/design-docs` branch. The plugin zip is built and
+  attached to each release by CI instead of being committed.
+- Behaviour: dashboard POSTs through a tunnel or foreign `Host` get 403; keyword
+  root filters are case-sensitive and literal; index and config files are
+  owner-only; the agent cannot index hidden paths; documents over 512 MiB are
+  truncated.
+
 ## [0.2.12] — 2026-11-22
 
 ### Fixed

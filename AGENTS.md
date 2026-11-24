@@ -10,7 +10,7 @@ target and the installed binary are both `paper`.
 
 ```bash
 cargo check          # must be warning-free
-cargo test           # 55 tests, offline, no model downloads
+cargo test           # offline, no model downloads (count: docs/implementation-status.md)
 cargo build --release
 cargo deny check licenses bans sources   # no copyleft in the shipped tree
 cargo publish --dry-run                  # packaging must succeed warning-free
