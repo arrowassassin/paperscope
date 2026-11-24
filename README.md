@@ -150,7 +150,7 @@ paper models install multilingual-e5-small
 
 ## Documentation
 
-- [Architecture and retrieval design](docs/paper-architecture.md)
+- [Implementation status](docs/implementation-status.md)
 - [MCP setup per client](docs/CLAUDE_PLUGIN.md)
 - [Website](https://kintsugi.tools/paperscope.html) · [Changelog](CHANGELOG.md)
 

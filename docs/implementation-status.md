@@ -1,8 +1,8 @@
 # Paper — implementation status
 
 Verified against the actual binary on 2026-11-19. This file describes what is
-built and tested; `paper-architecture.md` remains the original design spec and is
-**not** up to date with the model choices below.
+built and tested. The original design documents live on the `archive/design-docs`
+branch and are **not** up to date with the model choices below.
 
 ## Naming
 
