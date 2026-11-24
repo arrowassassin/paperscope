@@ -8,7 +8,7 @@ members = ["."]
 # terminal editor), and every evocative one-word alternative was already a
 # competing product. See docs/implementation-status.md#naming.
 name = "paperscope"
-version = "0.2.12"
+version = "0.3.0"
 edition = "2021"
 # Highest MSRV in the dependency tree. `candle-core` 0.11.1 needs 1.94 on
 # x86_64: it calls `__cpuid_count` from safe code, and that intrinsic only

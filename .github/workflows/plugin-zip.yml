@@ -1,0 +1,40 @@
+# Builds paperscope-plugin.zip (with .claude-plugin/plugin.json at the zip root,
+# as the README expects) and attaches it to the release that release.yml
+# creates for the same tag.
+name: Plugin zip
+
+on:
+  push:
+    tags:
+      - '**[0-9]+.[0-9]+.[0-9]+*'
+
+permissions:
+  contents: write
+
+jobs:
+  plugin-zip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Build the zip
+        run: |
+          cd paperscope-plugin
+          zip -r ../paperscope-plugin.zip . > /dev/null
+          unzip -l ../paperscope-plugin.zip | grep -q ' .claude-plugin/plugin.json$'
+      - name: Upload to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          # release.yml creates the release late in its run; wait for it.
+          for _ in $(seq 1 60); do
+            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+              gh release upload "$TAG" paperscope-plugin.zip --clobber --repo "$GITHUB_REPOSITORY"
+              exit 0
+            fi
+            sleep 60
+          done
+          echo "release $TAG did not appear within 60 minutes" >&2
+          exit 1
