@@ -395,3 +395,95 @@ fn a_file_root_below_a_parent_swapped_for_a_symlink_is_not_indexed() {
         .unwrap();
     assert_eq!(stats.indexed, 1, "{stats:?}");
 }
+
+#[test]
+fn a_failed_extraction_keeps_the_last_good_chunks() {
+    let (dir, indexer) = indexer();
+    let file = dir.path().join("a.docx");
+    // A plain-text body under a .docx name is a corrupt document for the
+    // extractor; first index a good version through a markdown twin of the path.
+    let good = dir.path().join("a.md");
+    fs::write(&good, "warranty covers 24 months").unwrap();
+    indexer.index_file(&good).unwrap();
+    let before = indexer
+        .connection()
+        .query_i64("SELECT COUNT(*) FROM chunks")
+        .unwrap();
+    assert_eq!(before, 1);
+    // Rewrite the same indexed path with content the extractor cannot parse.
+    let conn = indexer.connection().inner();
+    conn.execute(
+        "UPDATE chunks SET source_path = ?",
+        [file.to_string_lossy().to_string()],
+    )
+    .unwrap();
+    fs::write(&file, b"this is not a zip archive").unwrap();
+    let stats = indexer.index_file(&file).unwrap();
+    assert_eq!(stats.skipped, 1);
+    assert!(stats.warnings > 0);
+    assert_eq!(
+        indexer
+            .connection()
+            .query_i64("SELECT COUNT(*) FROM chunks")
+            .unwrap(),
+        1
+    );
+}
+
+#[test]
+fn switching_embedding_models_drops_vectors_from_the_old_one() {
+    struct Other;
+    impl paper::core::search::QueryEmbedder for Other {
+        fn embed(&self, t: &str) -> anyhow::Result<Vec<f32>> {
+            paper::core::search::QueryEmbedder::embed(&common::HashEmbedder, t)
+        }
+        fn model_id(&self) -> &str {
+            "another-model"
+        }
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("chunks.db");
+    let file = dir.path().join("a.txt");
+    fs::write(&file, "warranty covers 24 months").unwrap();
+    let first = Indexer::new(
+        Connection::open(&db).unwrap(),
+        Some(common::hash_embedder()),
+    )
+    .unwrap();
+    first.index_file(&file).unwrap();
+    assert_eq!(
+        first
+            .connection()
+            .query_i64("SELECT COUNT(*) FROM chunks")
+            .unwrap(),
+        1
+    );
+    drop(first);
+    let second = Indexer::new(
+        Connection::open(&db).unwrap(),
+        Some(std::sync::Arc::new(Other)),
+    )
+    .unwrap();
+    assert_eq!(
+        second
+            .connection()
+            .query_i64("SELECT COUNT(*) FROM chunks")
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        second
+            .connection()
+            .query_i64("SELECT COUNT(*) FROM chunks_vec")
+            .unwrap(),
+        0
+    );
+    second.index_file(&file).unwrap();
+    assert_eq!(
+        second
+            .connection()
+            .query_i64("SELECT COUNT(*) FROM chunks_vec")
+            .unwrap(),
+        1
+    );
+}
