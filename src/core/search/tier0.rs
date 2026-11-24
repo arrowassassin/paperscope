@@ -67,8 +67,10 @@ pub fn fts5_match_expr(query: &str) -> String {
     terms.join(" OR ")
 }
 
-/// SQL fragment restricting hits to the configured roots. `path LIKE` on the
-/// canonical path keeps everything inside the allow-list.
+/// SQL fragment restricting hits to the configured roots. A literal,
+/// case-sensitive prefix test (`instr(...) = 1`) on the canonical path keeps
+/// everything inside the allow-list; `LIKE` would treat `%`/`_` as wildcards
+/// and ignore ASCII case.
 fn root_filter(roots: &[PathBuf]) -> (String, Vec<String>) {
     if roots.is_empty() {
         return (String::new(), vec![]);
@@ -80,9 +82,9 @@ fn root_filter(roots: &[PathBuf]) -> (String, Vec<String>) {
         if !prefix.ends_with(std::path::MAIN_SEPARATOR) {
             prefix.push(std::path::MAIN_SEPARATOR);
         }
-        clauses.push("(chunks.path = ? OR chunks.path LIKE ?)");
+        clauses.push("(chunks.path = ? OR instr(chunks.path, ?) = 1)");
         params.push(root.to_string_lossy().to_string());
-        params.push(format!("{}%", prefix));
+        params.push(prefix);
     }
     (format!(" AND ({})", clauses.join(" OR ")), params)
 }

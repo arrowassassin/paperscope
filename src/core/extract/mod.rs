@@ -327,6 +327,21 @@ pub fn extract_named(
     bytes: &[u8],
     ocr_enabled: bool,
 ) -> Result<Option<Vec<ExtractedDocument>>> {
+    extract_selected(name, bytes, ocr_enabled, false)
+}
+
+/// Extract an archive member. Another archive is never opened from here,
+/// whatever the member's extension or magic bytes, so nesting cannot recurse.
+pub(crate) fn extract_member(name: &str, bytes: &[u8]) -> Result<Option<Vec<ExtractedDocument>>> {
+    extract_selected(name, bytes, false, true)
+}
+
+fn extract_selected(
+    name: &str,
+    bytes: &[u8],
+    ocr_enabled: bool,
+    inside_archive: bool,
+) -> Result<Option<Vec<ExtractedDocument>>> {
     let options = ExtractOptions { ocr_enabled };
 
     // Try shell-out accelerators first (feature-gated)
@@ -348,6 +363,15 @@ pub fn extract_named(
     for extractor in extractors() {
         if !extractor.can_handle(name, bytes) {
             continue;
+        }
+        // Final, not skipped: the member ends as a failed nested parse always did.
+        if inside_archive && extractor.name() == archive::Archive.name() {
+            return Ok(Some(single(
+                name,
+                extractor.name(),
+                Vec::new(),
+                vec!["nested archive not followed".to_string()],
+            )));
         }
         let caps = extractor.capabilities();
 

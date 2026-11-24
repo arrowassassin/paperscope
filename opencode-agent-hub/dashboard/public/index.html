@@ -413,6 +413,10 @@
   <script>
     let state = {};
 
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    }
+
     function getQuotaColor(val) {
       if (val > 80) return '#f43f5e';
       if (val > 60) return '#f59e0b';
@@ -423,19 +427,19 @@
       const container = document.getElementById('agents-container');
       if (!state.agents) return;
       container.innerHTML = state.agents.map(agent => `
-        <div class="agent-card ${agent.status === 'working' ? 'active' : ''}" id="card-${agent.id}">
+        <div class="agent-card ${agent.status === 'working' ? 'active' : ''}" id="card-${escapeHtml(agent.id)}">
           <div class="agent-header">
-            <span class="agent-name">${agent.name}</span>
+            <span class="agent-name">${escapeHtml(agent.name)}</span>
             <span class="agent-badge" style="color: ${agent.status === 'working' ? '#f59e0b' : '#10b981'}">
               ${agent.status === 'working' ? '● WORKING' : '○ IDLE'}
             </span>
           </div>
-          <div class="agent-model">🤖 ${agent.model}</div>
-          <div class="agent-role">${agent.role}</div>
+          <div class="agent-model">🤖 ${escapeHtml(agent.model)}</div>
+          <div class="agent-role">${escapeHtml(agent.role)}</div>
           <div class="agent-meta">
-            <span>Ctx: ${agent.contextLimit}</span>
-            <span>⚡ ${agent.latency}</span>
-            <span>Load: ${agent.quotaUsed}%</span>
+            <span>Ctx: ${escapeHtml(agent.contextLimit)}</span>
+            <span>⚡ ${escapeHtml(agent.latency)}</span>
+            <span>Load: ${escapeHtml(agent.quotaUsed)}%</span>
           </div>
         </div>
       `).join('');
@@ -464,18 +468,18 @@
         if (log.type === 'ROUTED') {
           return `
             <div class="log-entry">
-              <span class="log-time">${log.timestamp}</span>
+              <span class="log-time">${escapeHtml(log.timestamp)}</span>
               <span class="log-tag ROUTED">[ROUTE]</span>
-              <strong>${log.agent}</strong> (${log.model})<br>
-              <span style="color: var(--text-dim); font-size: 11px;">"${log.prompt}"</span>
+              <strong>${escapeHtml(log.agent)}</strong> (${escapeHtml(log.model)})<br>
+              <span style="color: var(--text-dim); font-size: 11px;">"${escapeHtml(log.prompt)}"</span>
             </div>
           `;
         }
         return `
           <div class="log-entry">
-            <span class="log-time">${log.timestamp}</span>
-            <span class="log-tag ${log.type}">[${log.type}]</span>
-            <span>${log.message}</span>
+            <span class="log-time">${escapeHtml(log.timestamp)}</span>
+            <span class="log-tag ${escapeHtml(log.type)}">[${escapeHtml(log.type)}]</span>
+            <span>${escapeHtml(log.message)}</span>
           </div>
         `;
       }).join('');

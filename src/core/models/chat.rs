@@ -156,10 +156,32 @@ impl ChatClient {
     }
 }
 
+/// Shorten an error body for display. Control characters are dropped first,
+/// as `polish::sanitize` does for replies, so a hostile server cannot put
+/// terminal escape sequences into the printed error.
 fn truncate(text: &str, max: usize) -> String {
+    let text: String = text
+        .chars()
+        .filter(|c| !c.is_control() || *c == '\n' || *c == '\t')
+        .collect();
     if text.chars().count() <= max {
-        return text.to_string();
+        return text;
     }
     let head: String = text.chars().take(max).collect();
     format!("{head}…")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn error_bodies_lose_control_characters_but_keep_their_text() {
+        assert_eq!(truncate("plain\terror\n", 400), "plain\terror\n");
+        assert_eq!(
+            truncate("\u{1b}[31mboom\u{1b}]0;title\u{7}\u{9b}2J\r!", 400),
+            "[31mboom]0;title2J!"
+        );
+        assert_eq!(truncate("\u{1b}abcdef", 3), "abc…");
+    }
 }

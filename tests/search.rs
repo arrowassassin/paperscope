@@ -155,6 +155,38 @@ fn root_filter_excludes_documents_outside_the_allow_list() {
 }
 
 #[test]
+fn root_filter_is_literal_and_case_sensitive() {
+    let dir = tempfile::tempdir().unwrap();
+    let inside = dir.path().join("client_a");
+    let outside = dir.path().join("client-a");
+    fs::create_dir(&inside).unwrap();
+    fs::create_dir(&outside).unwrap();
+    fs::write(inside.join("a.txt"), "Invoice for client A\n").unwrap();
+    fs::write(outside.join("b.txt"), "Invoice for another client\n").unwrap();
+    let conn = Connection::open(&dir.path().join("chunks.db")).unwrap();
+    let indexer = Indexer::new(conn, None).unwrap();
+    indexer
+        .index_roots(&[inside.clone(), outside.clone()])
+        .unwrap();
+
+    // `_` must not act as a LIKE wildcard matching `-`.
+    let hits = tier0_search(
+        indexer.connection(),
+        "invoice",
+        std::slice::from_ref(&inside),
+        10,
+    )
+    .unwrap();
+    assert_eq!(hits.len(), 1, "{hits:?}");
+    assert!(PathBuf::from(&hits[0].path).starts_with(&inside));
+
+    // ASCII case must not be folded.
+    let upper = dir.path().join("CLIENT_A");
+    let hits = tier0_search(indexer.connection(), "invoice", &[upper], 10).unwrap();
+    assert!(hits.is_empty(), "{hits:?}");
+}
+
+#[test]
 fn rrf_rewards_chunks_present_in_both_lists() {
     let kw = vec![raw(1), raw(2), raw(3)];
     let sem = vec![raw(3), raw(9)];

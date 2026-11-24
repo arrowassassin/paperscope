@@ -494,7 +494,7 @@ fn install_service(force: bool) -> Result<PathBuf> {
     let path = launchd_plist_path()?;
     let exe = std::env::current_exe().context("locating the current paper executable")?;
     let cache_dir = Paths::new().base_dir();
-    fs::create_dir_all(&cache_dir)
+    crate::core::paths::create_private_dir(&cache_dir)
         .with_context(|| format!("creating Paper cache directory {}", cache_dir.display()))?;
     let plist = render_launchd_plist(&exe, &cache_dir);
     install_service_file(&path, &plist, force)?;

@@ -7,7 +7,7 @@ use crate::daemon::ipc::DaemonRequest;
 use anyhow::Result;
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher};
 use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, RwLock};
@@ -72,8 +72,9 @@ impl Watcher {
 
         // Start debounce task
         let sender = self.sender.clone();
+        let roots = self.roots.clone();
         let debounce_handle = tokio::spawn(async move {
-            Self::debounce_loop(event_rx, sender, Duration::from_millis(debounce_ms)).await;
+            Self::debounce_loop(event_rx, sender, roots, Duration::from_millis(debounce_ms)).await;
         });
         self.debounce_handle = Some(debounce_handle);
 
@@ -168,6 +169,7 @@ impl Watcher {
     async fn debounce_loop(
         mut event_rx: mpsc::Receiver<Vec<PathBuf>>,
         sender: mpsc::Sender<DaemonRequest>,
+        roots: Arc<RwLock<HashSet<PathBuf>>>,
         debounce_duration: Duration,
     ) {
         let mut pending_paths = Vec::new();
@@ -186,6 +188,15 @@ impl Watcher {
                         // Deduplicate paths
                         pending_paths.sort();
                         pending_paths.dedup();
+                        // Checked at send time, not event time, so a folder swapped
+                        // for a symlink during the debounce window is still caught.
+                        let current_roots = roots.read().await.clone();
+                        pending_paths.retain(|p| {
+                            current_roots.iter().any(|root| reachable_from_root(root, p))
+                        });
+                        if pending_paths.is_empty() {
+                            continue;
+                        }
 
                         tracing::debug!("Watcher: triggering index for {} changed paths", pending_paths.len());
 
@@ -200,5 +211,47 @@ impl Watcher {
                 }
             }
         }
+    }
+}
+
+/// True when `path` lies under `root` through real directories only: no `..`
+/// and no symlink at or below the root, because the indexer follows a symlinked
+/// index root out of the watched tree. A prefix that no longer exists passes,
+/// so Remove events still reach the indexer.
+fn reachable_from_root(root: &Path, path: &Path) -> bool {
+    let Ok(rel) = path.strip_prefix(root) else {
+        return false;
+    };
+    let mut cur = root.to_path_buf();
+    rel.components().all(|c| {
+        cur.push(c);
+        matches!(c, Component::Normal(_))
+            && !cur
+                .symlink_metadata()
+                .is_ok_and(|m| m.file_type().is_symlink())
+    })
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::reachable_from_root;
+
+    #[test]
+    fn only_paths_the_walk_would_reach_become_index_roots() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("root");
+        let outside = tmp.path().join(".config");
+        std::fs::create_dir_all(root.join(".private")).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::write(root.join(".private/notes.md"), "x").unwrap();
+        std::os::unix::fs::symlink(&outside, root.join("docs")).unwrap();
+
+        assert!(reachable_from_root(&root, &root.join("a.md")));
+        assert!(reachable_from_root(&root, &root.join(".private/notes.md")));
+        assert!(reachable_from_root(&root, &root.join("gone/deleted.md")));
+        assert!(!reachable_from_root(&root, &root.join("docs")));
+        assert!(!reachable_from_root(&root, &root.join("docs/secret.md")));
+        assert!(!reachable_from_root(&root, &root.join("../.config")));
+        assert!(!reachable_from_root(&root, &outside));
     }
 }

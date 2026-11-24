@@ -124,7 +124,7 @@ tract-onnx = { version = "0.23", optional = true }
 image = { version = "0.25", optional = true, default-features = false, features = ["jpeg", "png", "tiff", "webp", "bmp", "gif"] }
 
 # Temp files with random suffixes (used by OCR engine to avoid symlink attacks).
-tempfile = "3.8"
+tempfile = "3.10"
 
 # Extraction: pure-Rust parsers, all permissive licences (see deny.toml).
 lopdf = "0.47"
@@ -163,7 +163,7 @@ lto = "thin"
 criterion = { version = "0.8", default-features = false, features = ["html_reports"] }
 arbitrary = { version = "1", features = ["derive"] }
 libfuzzer-sys = "0.4"
-tempfile = "3.8"
+tempfile = "3.10"
 httpmock = "0.6"
 async-trait = "0.1"
 

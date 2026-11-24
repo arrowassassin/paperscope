@@ -227,7 +227,7 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
 
     // Ensure parent directory exists
     if let Some(parent) = socket_path.parent() {
-        tokio::fs::create_dir_all(parent).await?;
+        crate::core::paths::create_private_dir(parent)?;
     }
 
     // Determine roots to index. Explicit `--root` wins; otherwise the

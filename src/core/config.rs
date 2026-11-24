@@ -1,5 +1,6 @@
-use super::paths::Paths;
+use super::paths::{create_private_dir, Paths};
 use serde::{Deserialize, Serialize};
+use std::io::Write;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -102,11 +103,25 @@ impl Config {
     }
 
     pub fn save(&self) -> anyhow::Result<()> {
-        let path = Paths::new().config_path();
+        self.save_to(&Paths::new().config_path())
+    }
+
+    /// Owner-only on Unix: the file may hold the OpenRouter API key.
+    pub fn save_to(&self, path: &std::path::Path) -> anyhow::Result<()> {
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
+            create_private_dir(parent)?;
         }
-        std::fs::write(path, toml::to_string_pretty(self)?)?;
+        let contents = toml::to_string_pretty(self)?;
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create(true).truncate(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+            // Before writing, so new contents never land in a readable file.
+            restrict_existing(path);
+        }
+        options.open(path)?.write_all(contents.as_bytes())?;
         Ok(())
     }
 
@@ -117,6 +132,25 @@ impl Config {
             rrf_k: self.rrf_k,
             ..SearchConfig::default()
         }
+    }
+}
+
+/// Best-effort: drops group/other bits from an existing config file. A failure
+/// is logged rather than returned so a save that used to succeed still does.
+#[cfg(unix)]
+fn restrict_existing(path: &std::path::Path) {
+    use std::os::unix::fs::PermissionsExt;
+    // symlink_metadata: never chmod through a symlink to a file Paper does not own.
+    let Ok(metadata) = std::fs::symlink_metadata(path) else {
+        return;
+    };
+    let mode = metadata.permissions().mode();
+    if !metadata.file_type().is_file() || mode & 0o077 == 0 {
+        return;
+    }
+    let restricted = std::fs::Permissions::from_mode(mode & !0o077);
+    if let Err(e) = std::fs::set_permissions(path, restricted) {
+        tracing::warn!("could not restrict permissions on {}: {e}", path.display());
     }
 }
 

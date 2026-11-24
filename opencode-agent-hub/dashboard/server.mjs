@@ -170,11 +170,22 @@ function classifyTask(prompt) {
   };
 }
 
+// CSRF / DNS-rebinding guard for state-changing routes: Host must be this server, Origin (when a
+// browser sends one) must be this server, and the body must be declared JSON (forms cannot do that).
+function isTrustedPost(req) {
+  const own = ["127.0.0.1", "localhost"].map(h => new URL(`http://${h}:${server.address().port}`));
+  const { host, origin } = req.headers;
+  const type = (req.headers["content-type"] || "").split(";")[0].trim().toLowerCase();
+  return own.some(u => u.host === host)
+    && (origin === undefined || own.some(u => u.origin === origin))
+    && type === "application/json";
+}
+
 const server = http.createServer((req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
 
-  // CORS headers
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  // CORS headers. No Access-Control-Allow-Origin: the dashboard is same-origin and the TUI
+  // is not a browser, so no other website may read hub state (prompts in state.logs).
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
@@ -204,6 +215,12 @@ const server = http.createServer((req, res) => {
   if (parsedUrl.pathname === "/api/status" && req.method === "GET") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(state));
+    return;
+  }
+
+  if (req.method === "POST" && ["/api/route", "/api/override"].includes(parsedUrl.pathname) && !isTrustedPost(req)) {
+    res.writeHead(403, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Forbidden: cross-origin request rejected" }));
     return;
   }
 

@@ -61,11 +61,26 @@ impl Paths {
 
     /// Create the directories Paper writes into. Safe to call repeatedly.
     pub fn ensure_dirs(&self) -> std::io::Result<()> {
-        std::fs::create_dir_all(&self.base)?;
+        create_private_dir(&self.base)?;
         std::fs::create_dir_all(self.model_cache_dir())?;
         if let Some(parent) = self.config_path().parent() {
-            std::fs::create_dir_all(parent)?;
+            create_private_dir(parent)?;
         }
         Ok(())
     }
+}
+
+/// Create `dir` and any missing parents. On Unix a newly created `dir` is
+/// 0700: it holds the index (a plaintext copy of every indexed document) or
+/// the config (which can hold an API key). Parents get the default mode and
+/// existing directories are left untouched.
+pub(crate) fn create_private_dir(dir: &Path) -> std::io::Result<()> {
+    if let Some(parent) = dir.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let mut builder = std::fs::DirBuilder::new();
+    builder.recursive(true); // an existing directory is not an error
+    #[cfg(unix)]
+    std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+    builder.create(dir)
 }
