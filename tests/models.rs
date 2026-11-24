@@ -88,6 +88,23 @@ fn checksum_verification_detects_corruption() {
 
 use sha2::Digest;
 
+#[test]
+fn installed_is_a_cheap_size_check_and_verified_hashes_the_content() {
+    let dir = tempfile::tempdir().unwrap();
+    let manager = ModelManager::with_cache_dir(dir.path().to_path_buf());
+    let model_dir = manager.model_dir(DEFAULT_EMBEDDING);
+    std::fs::create_dir_all(&model_dir).unwrap();
+    for f in spec(DEFAULT_EMBEDDING).unwrap().files {
+        // Sparse zero-filled file of the pinned size: right length, wrong bytes.
+        std::fs::File::create(model_dir.join(f.name))
+            .unwrap()
+            .set_len(f.size)
+            .unwrap();
+    }
+    assert!(manager.is_installed(DEFAULT_EMBEDDING));
+    assert!(!manager.is_verified(DEFAULT_EMBEDDING));
+}
+
 /// Real end-to-end model check: downloads 134 MB into a temporary cache, verifies
 /// every pinned hash, then checks embedding semantics. Ignored by default so a
 /// normal `cargo test` never touches the network.

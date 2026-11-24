@@ -99,7 +99,9 @@ impl Workspace {
         Ok(SearchPipeline::new(
             self.open_index()?,
             self.embedder(),
-            self.model_manager.reranker_if_installed(),
+            self.model_manager
+                .reranker_if_installed()
+                .map(std::sync::Arc::new),
             self.config.search(),
         ))
     }

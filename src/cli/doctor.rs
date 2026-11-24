@@ -35,12 +35,18 @@ pub async fn run() -> Result<i32> {
         Err(e) => println!("  database:   unavailable ({e:#})"),
     }
 
-    for model in ModelManager::new().list() {
+    let manager = ModelManager::new();
+    for model in manager.list() {
         println!(
             "  model:      {:<22} {} ({} MB)",
             model.id,
             if model.installed {
-                "installed"
+                // `installed` is a cheap size check; doctor does the full hash.
+                if manager.is_verified(&model.id) {
+                    "installed"
+                } else {
+                    "installed but FAILS CHECKSUM (run `paper models install`)"
+                }
             } else {
                 "not installed"
             },

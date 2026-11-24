@@ -47,7 +47,7 @@ pub type SharedEmbedder = std::sync::Arc<dyn QueryEmbedder + Send + Sync>;
 pub struct SearchPipeline {
     conn: Connection,
     embedder: Option<SharedEmbedder>,
-    reranker: Option<Reranker>,
+    reranker: Option<std::sync::Arc<Reranker>>,
     config: SearchConfig,
 }
 
@@ -55,7 +55,7 @@ impl SearchPipeline {
     pub fn new(
         conn: Connection,
         embedder: Option<SharedEmbedder>,
-        reranker: Option<Reranker>,
+        reranker: Option<std::sync::Arc<Reranker>>,
         config: SearchConfig,
     ) -> Self {
         Self {

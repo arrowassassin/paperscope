@@ -17,7 +17,7 @@ pub struct ModelManager {
     client: Client,
     specs: Vec<ModelSpec>,
     offline: bool,
-    /// Installed model IDs cached in memory so repeated `is_installed()` calls
+    /// Verified model IDs cached in memory so repeated `is_verified()` calls
     /// don't re-hash multi-GB model files on every search (I1).
     installed_cache: Mutex<HashSet<String>>,
 }
@@ -69,30 +69,41 @@ impl ModelManager {
         self.model_dir(model_id).join(file)
     }
 
+    /// Cheap presence check: every artifact exists with its pinned size.
+    ///
+    /// This runs on every search, so it must not hash multi-GB files. Hash
+    /// verification happens when a file is downloaded (`ensure`) and in
+    /// `is_verified`, which `paper doctor` uses.
+    pub fn is_installed(&self, model_id: &str) -> bool {
+        let Ok(spec) = self.spec(model_id) else {
+            return false;
+        };
+        spec.files.iter().all(|f| {
+            std::fs::metadata(self.file_path(model_id, f.name))
+                .is_ok_and(|m| m.is_file() && m.len() == f.size)
+        })
+    }
+
     /// True when every artifact is present *and* matches its pinned hash.
     /// Results are cached so repeated calls don't re-hash multi-GB files (I1).
-    pub fn is_installed(&self, model_id: &str) -> bool {
-        // Fast path: already verified in this process.
-        {
-            let cache = self.installed_cache.lock().unwrap();
-            if cache.contains(model_id) {
-                return true;
-            }
+    pub fn is_verified(&self, model_id: &str) -> bool {
+        if self.installed_cache.lock().unwrap().contains(model_id) {
+            return true;
         }
         let Ok(spec) = self.spec(model_id) else {
             return false;
         };
-        let installed = spec.files.iter().all(|f| {
+        let verified = spec.files.iter().all(|f| {
             let path = self.file_path(model_id, f.name);
             path.exists() && verify_sha256(&path, f.sha256).unwrap_or(false)
         });
-        if installed {
+        if verified {
             self.installed_cache
                 .lock()
                 .unwrap()
                 .insert(model_id.to_string());
         }
-        installed
+        verified
     }
 
     /// Ensure every file of `model_id` is present and verified, downloading what
