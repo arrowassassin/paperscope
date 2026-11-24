@@ -147,3 +147,32 @@ fn reindex_is_incremental() {
     assert!(stdout.contains("indexed 0 file"), "{stdout}");
     assert!(stdout.contains("2 unchanged"), "{stdout}");
 }
+
+#[test]
+fn human_output_never_carries_terminal_control_characters() {
+    let home = tempfile::tempdir().unwrap();
+    let docs = home.path().join("docs");
+    std::fs::create_dir(&docs).unwrap();
+    let body = "# Boiler \x1b]0;pwned\x07manual\n\nThe boiler \x1b[2Jwarranty \u{9b}31mcovers 36 months.\n";
+    std::fs::write(docs.join("boiler.md"), body).unwrap();
+    #[cfg(unix)]
+    std::fs::write(docs.join("evil\x1b[31m.md"), body).unwrap();
+    let out = paper(home.path(), &["index", "--root", docs.to_str().unwrap()]);
+    assert!(out.status.success(), "index failed: {:?}", out);
+
+    for args in [
+        &["search", "boiler warranty"][..],
+        &["answer", "how long does the boiler warranty cover?"][..],
+    ] {
+        let out = paper(home.path(), args);
+        assert_eq!(out.status.code(), Some(0), "{args:?}: {out:?}");
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        assert!(stdout.contains("boiler.md"), "{args:?}: {stdout}");
+        #[cfg(unix)]
+        assert!(stdout.contains("evil[31m.md"), "{args:?}: {stdout}");
+        assert!(
+            !stdout.chars().any(|c| c.is_control() && c != '\n'),
+            "{args:?} printed a control character: {stdout:?}"
+        );
+    }
+}

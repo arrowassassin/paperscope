@@ -117,6 +117,9 @@ impl DaemonHandler for DaemonHandlerImpl {
 
                 let db_path = self.state.db_path.clone();
                 let embedder = self.state.embedder.clone();
+                // A file named directly (the watcher sends changed files) is
+                // checked against the configured root it lives under.
+                let configured = self.state.roots.read().await.clone();
 
                 // Indexing is blocking CPU/IO work and `Indexer` is not `Send`:
                 // create it inside the blocking task and run it there.
@@ -125,7 +128,7 @@ impl DaemonHandler for DaemonHandlerImpl {
                         let conn = Connection::open(&db_path)?;
                         init_db(&conn)?;
                         let indexer = Indexer::new(conn, embedder)?;
-                        indexer.index_roots(&roots_to_index)
+                        indexer.index_roots_within(&roots_to_index, &configured)
                     },
                 )
                 .await

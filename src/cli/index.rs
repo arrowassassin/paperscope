@@ -1,4 +1,5 @@
 use super::{IndexArgs, Workspace, EXIT_FOUND, EXIT_MODEL_MISSING};
+use crate::core::index::indexer::enclosing_root;
 use crate::core::index::{IndexStats, Indexer};
 use crate::core::models::DEFAULT_EMBEDDING;
 use anyhow::{Context, Result};
@@ -31,7 +32,8 @@ pub async fn run(args: IndexArgs) -> Result<i32> {
     // One pass over the requested scope: new files are added, changed files are
     // replaced, unchanged files are skipped by mtime+size and then by hash.
     let stats = if let Some(file) = &args.file {
-        indexer.index_file(&PathBuf::from(file))?
+        let file = PathBuf::from(file);
+        indexer.index_file_within(&file, Some(&enclosing_root(&file, &[])))?
     } else {
         let roots = ws.roots(&args.root);
         indexer.index_roots(&roots)?
@@ -144,7 +146,10 @@ fn watch(indexer: &Indexer, args: &IndexArgs) -> Result<()> {
                 continue;
             }
             if path.is_file() {
-                match indexer.index_file(&path) {
+                // Checked against the watched root it lives under, or for a
+                // watched file its own directory.
+                let root = enclosing_root(&path, &targets);
+                match indexer.index_file_within(&path, Some(&root)) {
                     Ok(file_stats) => stats.merge(file_stats),
                     Err(err) => eprintln!("{}: {err:#}", path.display()),
                 }

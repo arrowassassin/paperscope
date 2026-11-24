@@ -106,22 +106,25 @@ impl Config {
         self.save_to(&Paths::new().config_path())
     }
 
-    /// Owner-only on Unix: the file may hold the OpenRouter API key.
+    /// Owner-only on Unix: the file may hold the OpenRouter API key. Written to
+    /// a private temp file in the same directory and renamed over `path`, so a
+    /// reader (or a crash) never sees a half-written config, and the new file
+    /// is 0600 before any content lands in it (tempfile creates it `create_new`
+    /// with an unpredictable name; mode 0600 on Unix). A symlinked config is
+    /// written through, as before.
     pub fn save_to(&self, path: &std::path::Path) -> anyhow::Result<()> {
-        if let Some(parent) = path.parent() {
-            create_private_dir(parent)?;
-        }
+        let path = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+        let parent = path.parent().unwrap_or(std::path::Path::new("."));
+        create_private_dir(parent)?;
         let contents = toml::to_string_pretty(self)?;
-        let mut options = std::fs::OpenOptions::new();
-        options.write(true).create(true).truncate(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            options.mode(0o600);
-            // Before writing, so new contents never land in a readable file.
-            restrict_existing(path);
-        }
-        options.open(path)?.write_all(contents.as_bytes())?;
+        let mut temp = tempfile::Builder::new()
+            .prefix(".config-")
+            .suffix(".tmp")
+            .tempfile_in(parent)?;
+        temp.write_all(contents.as_bytes())?;
+        temp.as_file().sync_all()?;
+        // Replaces an existing file (std's rename semantics; MoveFileEx on Windows).
+        temp.persist(&path).map_err(|e| e.error)?;
         Ok(())
     }
 
@@ -132,25 +135,6 @@ impl Config {
             rrf_k: self.rrf_k,
             ..SearchConfig::default()
         }
-    }
-}
-
-/// Best-effort: drops group/other bits from an existing config file. A failure
-/// is logged rather than returned so a save that used to succeed still does.
-#[cfg(unix)]
-fn restrict_existing(path: &std::path::Path) {
-    use std::os::unix::fs::PermissionsExt;
-    // symlink_metadata: never chmod through a symlink to a file Paper does not own.
-    let Ok(metadata) = std::fs::symlink_metadata(path) else {
-        return;
-    };
-    let mode = metadata.permissions().mode();
-    if !metadata.file_type().is_file() || mode & 0o077 == 0 {
-        return;
-    }
-    let restricted = std::fs::Permissions::from_mode(mode & !0o077);
-    if let Err(e) = std::fs::set_permissions(path, restricted) {
-        tracing::warn!("could not restrict permissions on {}: {e}", path.display());
     }
 }
 

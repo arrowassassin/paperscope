@@ -162,6 +162,18 @@ fn indexing_a_directory_skips_non_text_and_hidden_files() {
 }
 
 #[test]
+fn a_hidden_file_root_is_skipped_like_a_hidden_file_in_a_walk() {
+    let (dir, indexer) = indexer();
+    let hidden = dir.path().join(".secrets.txt");
+    let visible = dir.path().join("note.txt");
+    fs::write(&hidden, "aws_secret_access_key = hunter2").unwrap();
+    fs::write(&visible, "boiler serviced annually").unwrap();
+
+    let stats = indexer.index_roots(&[hidden, visible]).unwrap();
+    assert_eq!(stats.indexed, 1);
+}
+
+#[test]
 fn binary_content_is_skipped_not_corrupted() {
     let (dir, indexer) = indexer();
     let file = dir.path().join("binary.txt");
@@ -270,4 +282,116 @@ fn deleting_a_document_removes_its_fts_entries() {
             .is_empty(),
         "deleted rows must not linger in the FTS index"
     );
+}
+
+/// Index `docs` over and over while `swap` keeps flipping part of it to a
+/// symlink that leads outside, then prove nothing outside was ever indexed.
+/// The in-root file is binary, so it is never stored and every pass reads again.
+#[cfg(unix)]
+fn index_while_swapping(indexer: &Indexer, docs: &std::path::Path, swap: impl Fn() + Sync) {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    let stop = AtomicBool::new(false);
+    std::thread::scope(|s| {
+        s.spawn(|| {
+            while !stop.load(Ordering::Relaxed) {
+                swap();
+            }
+        });
+        let passes: Vec<_> = (0..2000)
+            .map(|_| indexer.index_roots(&[docs.to_path_buf()]))
+            .collect();
+        stop.store(true, Ordering::Relaxed);
+        for pass in passes {
+            pass.unwrap();
+        }
+    });
+    assert_eq!(
+        indexer
+            .connection()
+            .query_i64("SELECT COUNT(*) FROM chunks")
+            .unwrap(),
+        0,
+        "a file outside the root was indexed through a swapped-in symlink"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_file_swapped_for_a_symlink_mid_index_is_never_read_through_it() {
+    let (dir, indexer) = indexer();
+    let docs = dir.path().join("docs");
+    fs::create_dir(&docs).unwrap();
+    fs::write(dir.path().join("outside.txt"), "zqxsecret outside the root").unwrap();
+    let (note, real, link) = (
+        docs.join("note.txt"),
+        docs.join(".real"),
+        docs.join(".link"),
+    );
+    fs::write(&note, [0xffu8, 0xfe, 0x00, 0x01]).unwrap();
+    std::os::unix::fs::symlink(dir.path().join("outside.txt"), &link).unwrap();
+    index_while_swapping(&indexer, &docs, || {
+        fs::rename(&note, &real).unwrap();
+        fs::rename(&link, &note).unwrap();
+        fs::rename(&note, &link).unwrap();
+        fs::rename(&real, &note).unwrap();
+    });
+}
+
+// Only where the kernel reports an open file's path: elsewhere it is resolved
+// again, which a parent swapped back and forth can still fool (see `real_path`).
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[test]
+fn a_parent_directory_swapped_for_a_symlink_mid_walk_is_never_read_through_it() {
+    let (dir, indexer) = indexer();
+    let docs = dir.path().join("docs");
+    let outside = dir.path().join("outside");
+    fs::create_dir_all(docs.join("sub")).unwrap();
+    fs::create_dir(&outside).unwrap();
+    fs::write(docs.join("sub").join("a.txt"), [0xffu8, 0xfe, 0x00, 0x01]).unwrap();
+    fs::write(outside.join("a.txt"), "zqxsecret outside the root").unwrap();
+    let (sub, real, link) = (docs.join("sub"), docs.join(".real"), docs.join(".link"));
+    std::os::unix::fs::symlink(&outside, &link).unwrap();
+    index_while_swapping(&indexer, &docs, || {
+        fs::rename(&sub, &real).unwrap();
+        fs::rename(&link, &sub).unwrap();
+        fs::rename(&sub, &link).unwrap();
+        fs::rename(&real, &sub).unwrap();
+    });
+}
+
+/// The single-file entry points (the daemon watcher's file roots, and
+/// `paper index --watch` through `index_file_within`) check the configured root
+/// too: a file whose parent directory became a symlink out of the root is skipped.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[test]
+fn a_file_root_below_a_parent_swapped_for_a_symlink_is_not_indexed() {
+    let (dir, indexer) = indexer();
+    let docs = dir.path().join("docs");
+    let outside = dir.path().join("outside");
+    fs::create_dir(&docs).unwrap();
+    fs::create_dir(&outside).unwrap();
+    fs::write(outside.join("a.txt"), "zqxsecret outside the root").unwrap();
+    std::os::unix::fs::symlink(&outside, docs.join("sub")).unwrap();
+    let file = docs.join("sub").join("a.txt");
+
+    let stats = indexer
+        .index_roots_within(std::slice::from_ref(&file), std::slice::from_ref(&docs))
+        .unwrap();
+    assert_eq!((stats.indexed, stats.skipped), (0, 1), "{stats:?}");
+    let stats = indexer.index_file_within(&file, Some(&docs)).unwrap();
+    assert_eq!(stats.indexed, 0);
+    assert_eq!(
+        indexer
+            .connection()
+            .query_i64("SELECT COUNT(*) FROM chunks")
+            .unwrap(),
+        0
+    );
+
+    // The same file reached legitimately is indexed.
+    let real = outside.join("a.txt");
+    let stats = indexer
+        .index_roots_within(std::slice::from_ref(&real), &[outside])
+        .unwrap();
+    assert_eq!(stats.indexed, 1, "{stats:?}");
 }

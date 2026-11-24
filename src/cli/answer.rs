@@ -1,4 +1,4 @@
-use super::{AnswerArgs, Workspace, EXIT_FOUND, EXIT_NOT_FOUND};
+use super::{terminal_safe, AnswerArgs, Workspace, EXIT_FOUND, EXIT_NOT_FOUND};
 use crate::core::answer::Answer;
 use crate::core::config::Config;
 use crate::core::models::chat::ChatClient;
@@ -37,7 +37,7 @@ pub async fn run(args: AnswerArgs) -> Result<i32> {
     if args.json {
         println!("{}", serde_json::to_string_pretty(&answer)?);
     } else {
-        println!("{}", answer.render());
+        println!("{}", terminal_safe(&answer.render()));
     }
     Ok(if answer.not_found {
         EXIT_NOT_FOUND
