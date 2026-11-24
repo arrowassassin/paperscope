@@ -123,9 +123,12 @@ fn save_is_atomic_leaves_no_temp_files_and_writes_through_a_symlink() {
     let dir = tempfile::tempdir().unwrap();
     let real = dir.path().join("real.toml");
     std::fs::write(&real, "rrf_k = 12\n").unwrap();
-    let link = dir.path().join("config.toml");
     #[cfg(unix)]
-    std::os::unix::fs::symlink(&real, &link).unwrap();
+    let link = {
+        let link = dir.path().join("config.toml");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        link
+    };
     #[cfg(not(unix))]
     let link = real.clone();
 
