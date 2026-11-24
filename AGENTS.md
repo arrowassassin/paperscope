@@ -72,7 +72,6 @@ Always measure performance with `--release`; debug Candle is ~15x slower.
 ## Documentation
 
 `docs/implementation-status.md` is the verified as-built description and the
-source of truth. `docs/paper-architecture.md` and
-`docs/superpowers/plans/2026-11-19-paper-implementation.md` are the original
-design documents and describe superseded model choices (EmbeddingGemma, ONNX).
+source of truth. The original design documents (which describe superseded model
+choices: EmbeddingGemma, ONNX) live on the `archive/design-docs` branch.
 Update `implementation-status.md` whenever behaviour, models or test counts change.

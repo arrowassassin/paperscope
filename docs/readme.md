@@ -92,7 +92,7 @@ paper update                # install it
 
 - [GitHub repository](https://github.com/kintsugi-tools/paperscope)
 - [Website](https://kintsugi.tools/paperscope.html)
-- [Architecture notes](https://github.com/kintsugi-tools/paperscope/blob/main/docs/paper-architecture.md)
+- [Implementation status](https://github.com/kintsugi-tools/paperscope/blob/main/docs/implementation-status.md)
 - [MCP setup](https://github.com/kintsugi-tools/paperscope/blob/main/docs/CLAUDE_PLUGIN.md)
 - Claude Code: `/plugin marketplace add kintsugi-tools/paperscope` then
   `/plugin install paperscope@paperscope`
