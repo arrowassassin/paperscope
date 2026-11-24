@@ -88,21 +88,86 @@ fn checksum_verification_detects_corruption() {
 
 use sha2::Digest;
 
-#[test]
-fn installed_is_a_cheap_size_check_and_verified_hashes_the_content() {
-    let dir = tempfile::tempdir().unwrap();
-    let manager = ModelManager::with_cache_dir(dir.path().to_path_buf());
+/// Sparse zero-filled files of the pinned sizes: right length, wrong bytes.
+fn fake_model(manager: &ModelManager) -> std::path::PathBuf {
     let model_dir = manager.model_dir(DEFAULT_EMBEDDING);
     std::fs::create_dir_all(&model_dir).unwrap();
     for f in spec(DEFAULT_EMBEDDING).unwrap().files {
-        // Sparse zero-filled file of the pinned size: right length, wrong bytes.
         std::fs::File::create(model_dir.join(f.name))
             .unwrap()
             .set_len(f.size)
             .unwrap();
     }
-    assert!(manager.is_installed(DEFAULT_EMBEDDING));
+    model_dir
+}
+
+/// Write a stamp the way the manager does, for the file's current size/mtime.
+fn stamp(path: &std::path::Path, sha: &str) {
+    let m = std::fs::metadata(path).unwrap();
+    let nanos = m
+        .modified()
+        .unwrap()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let mut name = path.as_os_str().to_owned();
+    name.push(".verified");
+    std::fs::write(name, format!("{sha}\n{}\n{nanos}\n", m.len())).unwrap();
+}
+
+#[test]
+fn unstamped_wrong_content_is_not_installed_and_verified_hashes() {
+    let dir = tempfile::tempdir().unwrap();
+    let manager = ModelManager::with_cache_dir(dir.path().to_path_buf());
+    fake_model(&manager);
+    assert!(!manager.is_installed(DEFAULT_EMBEDDING));
     assert!(!manager.is_verified(DEFAULT_EMBEDDING));
+    assert!(manager.load_embedder(DEFAULT_EMBEDDING).is_err());
+}
+
+#[test]
+fn a_matching_stamp_is_trusted_without_rehashing() {
+    let dir = tempfile::tempdir().unwrap();
+    let manager = ModelManager::with_cache_dir(dir.path().to_path_buf());
+    let model_dir = fake_model(&manager);
+    for f in spec(DEFAULT_EMBEDDING).unwrap().files {
+        stamp(&model_dir.join(f.name), f.sha256);
+    }
+    // The content is wrong, so only skipping the hash can make this true.
+    assert!(manager.is_installed(DEFAULT_EMBEDDING));
+    // doctor ignores stamps and still catches it.
+    assert!(!manager.is_verified(DEFAULT_EMBEDDING));
+}
+
+#[test]
+fn a_changed_file_invalidates_its_stamp_and_is_rehashed() {
+    let dir = tempfile::tempdir().unwrap();
+    let manager = ModelManager::with_cache_dir(dir.path().to_path_buf());
+    let model_dir = fake_model(&manager);
+    for f in spec(DEFAULT_EMBEDDING).unwrap().files {
+        stamp(&model_dir.join(f.name), f.sha256);
+    }
+    assert!(manager.is_installed(DEFAULT_EMBEDDING));
+    // Same size, new mtime: the stamp no longer applies, the hash fails.
+    let first = &spec(DEFAULT_EMBEDDING).unwrap().files[0];
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .open(model_dir.join(first.name))
+        .unwrap();
+    file.set_modified(std::time::SystemTime::now() + std::time::Duration::from_secs(5))
+        .unwrap();
+    assert!(!manager.is_installed(DEFAULT_EMBEDDING));
+}
+
+#[test]
+fn a_stamp_for_a_different_hash_is_ignored() {
+    let dir = tempfile::tempdir().unwrap();
+    let manager = ModelManager::with_cache_dir(dir.path().to_path_buf());
+    let model_dir = fake_model(&manager);
+    for f in spec(DEFAULT_EMBEDDING).unwrap().files {
+        stamp(&model_dir.join(f.name), &"0".repeat(64));
+    }
+    assert!(!manager.is_installed(DEFAULT_EMBEDDING));
 }
 
 /// Real end-to-end model check: downloads 134 MB into a temporary cache, verifies

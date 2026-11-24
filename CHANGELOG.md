@@ -35,8 +35,9 @@ Twenty-one findings from a security scan (PR #4), grouped:
 ### Changed
 - MCP search now uses the reranker when its weights are installed (never
   downloaded by search).
-- `is_installed` is an existence-and-size check, so each search no longer hashes
-  model weights; SHA-256 verification stays at download and in `paper doctor`.
+- Model weights are SHA-256 verified once; a `<file>.verified` stamp (hash, size,
+  mtime) lets later loads skip re-hashing, and a changed file is re-hashed and
+  refused on mismatch. `paper doctor` always hashes in full.
 - Files are chunked and embedded before their write transaction opens.
 - **One-time re-index.** The index version is now `extract4+chunk1` because
   archive, pptx and epub extraction changed; 0.3.0 re-indexes once on first run.

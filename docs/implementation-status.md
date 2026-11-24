@@ -298,12 +298,14 @@ is not on disk.
   wipe the index, only a change to extraction or chunking does.
 - Chunks and embeddings for a file are computed before its write transaction.
 - The MCP server loads the reranker once at start if installed (never downloads).
-- `ModelManager::is_installed` checks existence and size only; `is_verified` and
-  `paper doctor` do the full SHA-256 check, as does every download.
+- `ModelManager::is_installed` (the gate for every model load) requires size, a
+  matching SHA-256 and, to skip re-hashing, a `<file>.verified` stamp whose hash,
+  size and mtime still match; otherwise it hashes once and re-stamps. `is_verified`
+  and `paper doctor` always hash in full, as does every download.
 
 ## Tests
 
-`cargo test` — 205 passing tests (plus 4 ignored: 3 model downloads and one
+`cargo test` — 208 passing tests (plus 4 ignored: 3 model downloads and one
 child-process helper for the setup-lock test), no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 
