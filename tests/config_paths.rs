@@ -117,3 +117,61 @@ fn saving_tightens_an_existing_world_readable_config() {
     // An existing directory is never chmodded.
     assert_eq!(mode(dir.path()), before);
 }
+
+#[test]
+fn save_is_atomic_leaves_no_temp_files_and_writes_through_a_symlink() {
+    let dir = tempfile::tempdir().unwrap();
+    let real = dir.path().join("real.toml");
+    std::fs::write(&real, "rrf_k = 12\n").unwrap();
+    let link = dir.path().join("config.toml");
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&real, &link).unwrap();
+    #[cfg(not(unix))]
+    let link = real.clone();
+
+    let config = Config {
+        rrf_k: 9,
+        ..Default::default()
+    };
+    config.save_to(&link).unwrap();
+    assert_eq!(Config::load_from(&real).unwrap().rrf_k, 9);
+    #[cfg(unix)]
+    assert!(std::fs::symlink_metadata(&link).unwrap().is_symlink());
+    let names: Vec<_> = std::fs::read_dir(dir.path())
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(names.len(), if cfg!(unix) { 2 } else { 1 }, "{names:?}");
+}
+
+/// Concurrent saves never expose a torn file: every read parses. (The MCP
+/// server additionally serialises its read-modify-write cycles under the roots
+/// write lock, which is not separable from a running server in a test; that
+/// lock is what makes `add_index_root`/`remove_index_root` lose no updates.)
+#[test]
+fn concurrent_saves_never_expose_a_partial_config() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("config.toml");
+    Config::default().save_to(&path).unwrap();
+    let writers: Vec<_> = (0..4)
+        .map(|n| {
+            let path = path.clone();
+            std::thread::spawn(move || {
+                for i in 0..50 {
+                    let config = Config {
+                        roots: vec![format!("/tmp/{n}/{i}").into(); 50],
+                        ..Default::default()
+                    };
+                    config.save_to(&path).unwrap();
+                }
+            })
+        })
+        .collect();
+    for _ in 0..200 {
+        let text = std::fs::read_to_string(&path).unwrap();
+        toml::from_str::<Config>(&text).expect("torn config read");
+    }
+    for writer in writers {
+        writer.join().unwrap();
+    }
+}

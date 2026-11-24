@@ -192,33 +192,105 @@ impl PaperMcp {
         Ok(canonical)
     }
 
-    /// Persist roots so the choice survives a restart of the agent or the
-    /// machine. `daemon` roots alone are in-memory and would be forgotten.
-    fn persist_roots(&self, add: Option<&Path>, remove: Option<&Path>) -> Result<(), McpError> {
-        let mut config = crate::core::config::Config::load().unwrap_or_default();
-        if let Some(add) = add {
-            if !config.roots.iter().any(|root| root == add) {
-                config.roots.push(add.to_path_buf());
+    /// `vetted_target` plus the checks for a path that is about to be read:
+    /// indexing makes its text searchable and readable by the agent. Hidden
+    /// files and directories (`.env`, `.netrc`, `.docker`, `.config/...`) are
+    /// refused whatever the blocklist misses, and so is Paper's own data — its
+    /// config holds the OpenRouter key. `remove_index_root` keeps the plain
+    /// `vetted_target`: removal only narrows the allow-list. `as_root` is set
+    /// for `add_index_root`, whose target is watched for good.
+    fn vetted_index_target(&self, raw: &str, as_root: bool) -> Result<PathBuf, McpError> {
+        let canonical = self.vetted_target(raw)?;
+        let refuse = |what: &str| {
+            McpError::invalid_request(
+                format!("refusing to index {what}: {}", canonical.display()),
+                None,
+            )
+        };
+        let has_hidden = |below: &Path| {
+            below
+                .components()
+                .any(|c| crate::core::index::indexer::is_hidden(c.as_os_str()))
+        };
+
+        // Only components below the home or an admitting root count: a root the
+        // user configured outside home may itself live under a dot directory.
+        let hidden = dirs::home_dir()
+            .into_iter()
+            .chain(self.inner.roots())
+            .filter_map(|base| canonical.strip_prefix(base).ok().map(has_hidden))
+            .any(|hidden| hidden);
+        if hidden {
+            return Err(refuse("a hidden file or directory"));
+        }
+
+        let paths = crate::core::paths::Paths::new();
+        let config_dir = paths.config_path().parent().map(Path::to_path_buf);
+        for own in std::iter::once(paths.base_dir()).chain(config_dir) {
+            let own = own.canonicalize().unwrap_or(own);
+            if canonical.starts_with(&own) {
+                return Err(refuse("Paper's own data"));
+            }
+            // A parent is refused when a walk from it would reach Paper's dir;
+            // the walk skips hidden directories, so a hidden Paper dir is safe
+            // to walk past. A root is refused for any parent: the watcher sends
+            // changed files from hidden subdirectories of a watched root to
+            // `index_roots` by file name alone, so the walk's skip does not hold.
+            if let Ok(below) = own.strip_prefix(&canonical) {
+                if as_root || !has_hidden(below) {
+                    return Err(refuse("a parent of Paper's own data"));
+                }
             }
         }
-        if let Some(remove) = remove {
-            config.roots.retain(|root| root != remove);
+        Ok(canonical)
+    }
+
+    /// Add `path` to the persisted config and this session's roots under one
+    /// lock, so every config write in the process is serialised with
+    /// `remove_root`. Persisting makes the choice survive a restart; `daemon`
+    /// roots alone are in-memory and would be forgotten.
+    fn add_root(&self, path: &Path) -> Result<(), McpError> {
+        let mut roots = self.inner.roots.write().expect("roots lock poisoned");
+        let mut config = crate::core::config::Config::load().unwrap_or_default();
+        if !config.roots.iter().any(|root| root == path) {
+            config.roots.push(path.to_path_buf());
         }
         config
             .save()
-            .map_err(|error| McpError::internal_error(error.to_string(), None))
-    }
-
-    fn add_root_in_memory(&self, path: &Path) {
-        let mut roots = self.inner.roots.write().expect("roots lock poisoned");
+            .map_err(|error| McpError::internal_error(error.to_string(), None))?;
         if !roots.iter().any(|root| path.starts_with(root)) {
             roots.push(path.to_path_buf());
         }
+        Ok(())
     }
 
-    fn remove_root_in_memory(&self, path: &Path) {
+    /// Remove `path` from this session's roots and from the persisted config,
+    /// under one lock. An empty list means "no restriction" to `allowed()` and
+    /// the search filters, so a removal that would empty a non-empty list, in
+    /// memory or in the config a later default `serve --mcp` starts from, is
+    /// refused.
+    fn remove_root(&self, path: &Path) -> Result<(), McpError> {
         let mut roots = self.inner.roots.write().expect("roots lock poisoned");
+        // Fail rather than default on an unreadable config: saving defaults
+        // would silently empty the persisted roots.
+        let mut config = crate::core::config::Config::load()
+            .map_err(|error| McpError::internal_error(error.to_string(), None))?;
+        let empties = |list: &[PathBuf]| !list.is_empty() && list.iter().all(|root| root == path);
+        if empties(&roots) || empties(&config.roots) {
+            return Err(McpError::invalid_request(
+                format!(
+                    "refusing to remove {}: it is the last index root, and an empty root list exposes every indexed document",
+                    path.display()
+                ),
+                None,
+            ));
+        }
+        config.roots.retain(|root| root != path);
+        config
+            .save()
+            .map_err(|error| McpError::internal_error(error.to_string(), None))?;
         roots.retain(|root| root != path);
+        Ok(())
     }
 
     /// Index `target` through the running daemon when there is one (so the
@@ -251,11 +323,12 @@ impl PaperMcp {
 
         let db_path = self.inner.db_path.clone();
         let embedder = self.inner.embedder.clone();
+        let configured = self.inner.roots();
         tokio::task::spawn_blocking(move || {
             let conn = Connection::open(&db_path)?;
             crate::core::index::init_db(&conn)?;
             let indexer = crate::core::index::Indexer::new(conn, embedder)?;
-            indexer.index_roots(&[target])
+            indexer.index_roots_within(&[target], &configured)
         })
         .await
         .map_err(|error| McpError::internal_error(format!("indexing task failed: {error}"), None))?
@@ -432,7 +505,7 @@ impl PaperMcp {
             IndexPathRequest,
         >,
     ) -> Result<CallToolResult, McpError> {
-        let target = self.vetted_target(&req.path)?;
+        let target = self.vetted_index_target(&req.path, false)?;
         let stats = self.index_target(target.clone()).await?;
         Self::json(serde_json::json!({
             "path": target,
@@ -497,15 +570,14 @@ impl PaperMcp {
             RootRequest,
         >,
     ) -> Result<CallToolResult, McpError> {
-        let target = self.vetted_target(&req.path)?;
+        let target = self.vetted_index_target(&req.path, true)?;
         if target.is_file() {
             return Err(McpError::invalid_params(
                 "add_index_root expects a directory; use index_documents for a single file",
                 None,
             ));
         }
-        self.persist_roots(Some(&target), None)?;
-        self.add_root_in_memory(&target);
+        self.add_root(&target)?;
 
         if let Some(DaemonResponse::Error { msg }) = daemon_request(DaemonRequest::AddRoot {
             path: target.clone(),
@@ -538,8 +610,7 @@ impl PaperMcp {
         >,
     ) -> Result<CallToolResult, McpError> {
         let target = self.vetted_target(&req.path)?;
-        self.persist_roots(None, Some(&target))?;
-        self.remove_root_in_memory(&target);
+        self.remove_root(&target)?;
 
         if let Some(DaemonResponse::Error { msg }) = daemon_request(DaemonRequest::RemoveRoot {
             path: target.clone(),

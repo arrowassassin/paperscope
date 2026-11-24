@@ -190,6 +190,12 @@ prints a hint. `--semantic` makes a missing model an explicit error (exit 3).
 `PAPER_HOME` overrides the data directory; `PAPER_OFFLINE=1` forbids all network
 access.
 
+Human-readable `search` and `answer` output drops control characters (C0, DEL,
+C1) except newline and tab from paths, anchors, sections, snippets and the
+rendered answer, so an indexed document or file name cannot send escape
+sequences to the terminal. `--json` output is not filtered: JSON escapes C0
+controls, while DEL and C1 characters pass through as they are.
+
 ## Answers
 
 Answers are **extractive**: a verbatim quote from a local document plus exact citations. Without `--polish` nothing generative is involved.
@@ -282,7 +288,7 @@ is not on disk.
 
 ## Tests
 
-`cargo test` — 183 passing tests (plus 4 ignored: 3 model downloads and one
+`cargo test` — 201 passing tests (plus 4 ignored: 3 model downloads and one
 child-process helper for the setup-lock test), no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 

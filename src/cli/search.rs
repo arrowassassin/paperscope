@@ -1,4 +1,4 @@
-use super::{SearchArgs, Workspace, EXIT_FOUND, EXIT_MODEL_MISSING, EXIT_NOT_FOUND};
+use super::{terminal_safe, SearchArgs, Workspace, EXIT_FOUND, EXIT_MODEL_MISSING, EXIT_NOT_FOUND};
 use crate::core::models::DEFAULT_EMBEDDING;
 use anyhow::Result;
 
@@ -38,11 +38,11 @@ pub async fn run(args: SearchArgs) -> Result<i32> {
                 Some(anchor) => format!("{} [{anchor}]", hit.path),
                 None => format!("{}:{}-{}", hit.path, hit.line_start, hit.line_end),
             };
-            println!("{location}");
+            println!("{}", terminal_safe(&location));
             if let Some(section) = &hit.section {
-                println!("  § {section}");
+                println!("  § {}", terminal_safe(section));
             }
-            println!("  {}", hit.snippet);
+            println!("  {}", terminal_safe(&hit.snippet));
             println!("  score {:.2}  {}", hit.score, hit.why_matched);
         }
     }

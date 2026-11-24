@@ -9,6 +9,7 @@ use anyhow::{Context, Result};
 use std::cell::{Cell, RefCell};
 use std::collections::HashSet;
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -125,6 +126,17 @@ impl Indexer {
     }
 
     pub fn index_roots(&self, roots: &[PathBuf]) -> Result<IndexStats> {
+        self.index_roots_within(roots, &[])
+    }
+
+    /// `index_roots`, where `configured` are the roots a file named directly in
+    /// `roots` (for example one the watcher saw change) must really live under;
+    /// see `enclosing_root`.
+    pub fn index_roots_within(
+        &self,
+        roots: &[PathBuf],
+        configured: &[PathBuf],
+    ) -> Result<IndexStats> {
         let mut stats = IndexStats::default();
         // Two views of the same rows, loaded once instead of querying per file:
         //
@@ -142,6 +154,10 @@ impl Indexer {
 
         for root in roots {
             if root.is_file() {
+                // A hidden file named directly is skipped like one met in a walk.
+                if root.file_name().is_some_and(is_hidden) {
+                    continue;
+                }
                 // A file root obeys the same backoff as a file inside a walk, or
                 // a single unreadable file in the config would be re-read and
                 // re-warned every five minutes — the loop this change exists to
@@ -154,7 +170,7 @@ impl Indexer {
                 // unreadable file inside one: reported, remembered, not fatal.
                 // Propagating here made `--file` (and `--root <file>`) exit 2
                 // while the identical file inside a walked root was fine.
-                match self.index_file(root) {
+                match self.index_file_within(root, Some(&enclosing_root(root, configured))) {
                     Ok(file_stats) => {
                         stats.merge(file_stats);
                         self.forget_recorded(root, &known);
@@ -229,7 +245,7 @@ impl Indexer {
                         continue;
                     }
                     // One unreadable file must not abort a whole directory.
-                    match self.index_file(entry.path()) {
+                    match self.index_file_within(entry.path(), Some(root)) {
                         Ok(file_stats) => stats.merge(file_stats),
                         Err(err) => {
                             if is_permission_denied(&err) {
@@ -263,6 +279,12 @@ impl Indexer {
     }
 
     pub fn index_file(&self, path: &Path) -> Result<IndexStats> {
+        self.index_file_within(path, None)
+    }
+
+    /// `index_file`, additionally refusing a file that does not really live
+    /// beneath `root` when it is read.
+    pub fn index_file_within(&self, path: &Path, root: Option<&Path>) -> Result<IndexStats> {
         let mut stats = IndexStats {
             scanned: 1,
             ..Default::default()
@@ -317,7 +339,15 @@ impl Indexer {
             return Ok(stats);
         }
 
-        let bytes = std::fs::read(path).with_context(|| format!("reading {path_string}"))?;
+        let bytes = match read_regular_file(path, root, max_allowed)
+            .with_context(|| format!("reading {path_string}"))?
+        {
+            Some(bytes) => bytes,
+            None => {
+                stats.skipped = 1;
+                return Ok(stats);
+            }
+        };
         let hash = blake3::hash(&bytes);
 
         // A new mtime or size does not always mean new content: `touch -r`,
@@ -646,7 +676,153 @@ fn invalidate_on_upgrade(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-fn is_hidden(name: &std::ffi::OsStr) -> bool {
+/// The root a single file is checked against: the configured directory that lexically
+/// contains it, else its own parent directory (so a file given on its own is
+/// still caught if that directory is swapped for a symlink before it is read).
+pub fn enclosing_root(file: &Path, configured: &[PathBuf]) -> PathBuf {
+    configured
+        .iter()
+        .find(|root| *file != **root && file.starts_with(root))
+        .cloned()
+        .or_else(|| file.parent().map(Path::to_path_buf))
+        .unwrap_or_default()
+}
+
+/// Read `path` through a single handle, deciding on that handle: the checks
+/// before it ran against whatever the path named then, and a file or a parent
+/// directory swapped for a symlink since would otherwise be read through it.
+/// `None` means skip: not a regular file reached without a symlink, over
+/// `max_bytes`, or (with `root`) really beneath somewhere else.
+fn read_regular_file(
+    path: &Path,
+    root: Option<&Path>,
+    max_bytes: u64,
+) -> std::io::Result<Option<Vec<u8>>> {
+    let file = fs::File::open(path)?;
+    let opened = file.metadata()?;
+    // A fresh lstat, not the earlier one, so a file an editor replaced by
+    // rename meanwhile is still indexed; only a symlink at the end is refused.
+    let named = fs::symlink_metadata(path)?;
+    if !opened.is_file()
+        || !named.is_file()
+        || file_id(&opened) != file_id(&named)
+        || opened.len() > max_bytes
+    {
+        return Ok(None);
+    }
+    // lstat follows symlinks in parent components, so only where the opened
+    // file really lives shows a parent swapped for a symlink.
+    if let Some(root) = root {
+        match (real_path(path, Some(&file)), real_path(root, None)) {
+            (Ok(real), Ok(root_real)) => {
+                let same = fs::metadata(&real).is_ok_and(|m| file_id(&m) == file_id(&opened));
+                if !real.starts_with(&root_real) {
+                    // Linux reports the path the file was opened by, hard link or
+                    // not. Elsewhere a hard link is reported under one of its
+                    // names, so a multiply-linked file gets the old acceptance.
+                    if cfg!(target_os = "linux") || link_count(&opened) <= 1 {
+                        return Ok(None);
+                    }
+                    warn_unverified_once(path);
+                } else if !same {
+                    return Ok(None);
+                }
+            }
+            _ => warn_unverified_once(path),
+        }
+    }
+    // Bounded, so growth after the size check cannot get past the cap.
+    let mut bytes = Vec::new();
+    file.take(max_bytes + 1).read_to_end(&mut bytes)?;
+    Ok((bytes.len() as u64 <= max_bytes).then_some(bytes))
+}
+
+/// Where the real location could not be established the file is still read, as
+/// it was before this check existed, and this says so once per process.
+// shortcut: the old accept-and-warn path leaves a parent-directory swap
+// undetected on such platforms; add an fd-to-path call for them if it matters.
+fn warn_unverified_once(path: &Path) {
+    static WARNED: std::sync::Once = std::sync::Once::new();
+    WARNED.call_once(|| {
+        tracing::warn!(
+            "cannot verify where {} really lives on this platform; indexing it without the under-root check",
+            path.display()
+        );
+    });
+}
+
+/// Where `path` really is. Linux and macOS report the path the kernel holds for
+/// an open handle (`file`, or a fresh one on `path`), which no later swap can
+/// change; the root goes through the same call so both sides spell it alike.
+fn real_path(path: &Path, file: Option<&fs::File>) -> std::io::Result<PathBuf> {
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    {
+        let opened;
+        let file = match file {
+            Some(file) => file,
+            None => {
+                opened = fs::File::open(path)?;
+                &opened
+            }
+        };
+        if let Some(real) = fd_path(file) {
+            return Ok(real);
+        }
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    let _ = file;
+    fs::canonicalize(path)
+}
+
+#[cfg(target_os = "linux")]
+fn fd_path(file: &fs::File) -> Option<PathBuf> {
+    use std::os::fd::AsRawFd;
+    fs::read_link(format!("/proc/self/fd/{}", file.as_raw_fd())).ok()
+}
+
+#[cfg(target_os = "macos")]
+fn fd_path(file: &fs::File) -> Option<PathBuf> {
+    use std::ffi::{c_int, OsString};
+    use std::os::fd::AsRawFd;
+    use std::os::unix::ffi::OsStringExt;
+    unsafe extern "C" {
+        fn fcntl(fd: c_int, cmd: c_int, ...) -> c_int;
+    }
+    const F_GETPATH: c_int = 50;
+    // MAXPATHLEN: F_GETPATH writes a NUL-terminated path of at most this many bytes.
+    let mut buf = vec![0u8; 1024];
+    if unsafe { fcntl(file.as_raw_fd(), F_GETPATH, buf.as_mut_ptr()) } == -1 {
+        return None;
+    }
+    buf.truncate(buf.iter().position(|&b| b == 0)?);
+    Some(PathBuf::from(OsString::from_vec(buf)))
+}
+
+/// Device and inode, to tell whether two metadata describe the same file.
+#[cfg(unix)]
+fn file_id(metadata: &fs::Metadata) -> Option<(u64, u64)> {
+    use std::os::unix::fs::MetadataExt;
+    Some((metadata.dev(), metadata.ino()))
+}
+
+#[cfg(unix)]
+fn link_count(metadata: &fs::Metadata) -> u64 {
+    std::os::unix::fs::MetadataExt::nlink(metadata)
+}
+
+// shortcut: std has no stable file identity off unix, so only the file-type and
+// root-prefix checks apply there; compare the Windows file index once stable.
+#[cfg(not(unix))]
+fn file_id(_: &fs::Metadata) -> Option<(u64, u64)> {
+    None
+}
+
+#[cfg(not(unix))]
+fn link_count(_: &fs::Metadata) -> u64 {
+    1
+}
+
+pub(crate) fn is_hidden(name: &std::ffi::OsStr) -> bool {
     name.to_string_lossy().starts_with('.')
 }
 

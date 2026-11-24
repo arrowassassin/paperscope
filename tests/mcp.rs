@@ -20,9 +20,15 @@ impl McpClient {
     /// Spawn the server and run the `initialize` handshake with the given
     /// protocol version. The negotiated version is kept for assertions.
     fn spawn_with_version(home: &Path, docs: &Path, version: &str) -> Self {
+        Self::spawn_with_env(home, docs, version, &[])
+    }
+
+    /// `spawn_with_version` with extra environment, e.g. a fake `HOME`.
+    fn spawn_with_env(home: &Path, docs: &Path, version: &str, envs: &[(&str, &Path)]) -> Self {
         let mut child = Command::new(env!("CARGO_BIN_EXE_paper"))
             .args(["serve", "--mcp", "--root", docs.to_str().unwrap()])
             .env("PAPER_HOME", home)
+            .envs(envs.iter().copied())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -236,4 +242,153 @@ fn mcp_results_are_scoped_to_the_server_roots() {
     let mut client = McpClient::spawn(home.path(), &empty);
     let sources = client.call_tool("list_sources", json!({}));
     assert!(sources.as_array().unwrap().is_empty());
+}
+
+/// A fake home with Paper's data in a visible subdirectory, so the hidden-path
+/// and Paper-own checks are exercised separately.
+fn fake_home() -> (tempfile::TempDir, PathBuf, PathBuf, PathBuf) {
+    let tmp = tempfile::tempdir().unwrap();
+    let home = tmp.path().canonicalize().unwrap().join("home");
+    let data = home.join("paperdata");
+    let docs = home.join("docs");
+    let notes = home.join(".notes");
+    for dir in [&data, &docs, &notes] {
+        std::fs::create_dir_all(dir).unwrap();
+    }
+    std::fs::write(
+        data.join("config.toml"),
+        "[openrouter]\napi_key = \"sk-test\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        docs.join("fridge.txt"),
+        "The fridge warranty covers 24 months.\n",
+    )
+    .unwrap();
+    std::fs::write(docs.join(".env.txt"), "TOKEN=hunter2\n").unwrap();
+    std::fs::write(notes.join("secret.txt"), "password hunter2\n").unwrap();
+    std::fs::write(home.join(".netrc.txt"), "machine x password hunter2\n").unwrap();
+    (tmp, home, data, docs)
+}
+
+fn assert_refused_to_index(client: &mut McpClient, tool: &str, path: &Path) {
+    let result = client.send(
+        "tools/call",
+        json!({"name": tool, "arguments": {"path": path}}),
+    );
+    assert_eq!(result["error"]["code"], -32600, "{tool} {path:?}: {result}");
+    assert!(
+        result["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("refusing to index"),
+        "{result}"
+    );
+}
+
+#[test]
+fn mcp_refuses_to_index_hidden_paths_and_papers_own_data() {
+    let (_tmp, home, data, docs) = fake_home();
+    let mut client = McpClient::spawn_with_env(&data, &docs, "2024-11-05", &[("HOME", &home)]);
+
+    let refused = [
+        ("index_documents", home.join(".notes")),
+        ("index_documents", home.join(".notes/secret.txt")),
+        ("index_documents", home.join(".netrc.txt")),
+        ("index_documents", docs.join(".env.txt")),
+        ("index_documents", data.join("config.toml")),
+        ("index_documents", data.clone()),
+        ("add_index_root", home.join(".notes")),
+        ("add_index_root", data.clone()),
+    ];
+    for (tool, path) in refused {
+        assert_refused_to_index(&mut client, tool, &path);
+    }
+
+    // An ordinary document is still indexed.
+    let ok = client.call_tool("index_documents", json!({"path": docs.join("fridge.txt")}));
+    assert_eq!(ok["stats"]["indexed"], 1, "{ok}");
+}
+
+#[test]
+fn mcp_refuses_a_parent_of_papers_dir_only_when_a_walk_would_reach_it() {
+    let tmp = tempfile::tempdir().unwrap();
+    let home = tmp.path().canonicalize().unwrap().join("home");
+    let visible = home.join("work/paperdata");
+    let hidden = home.join("hidden/.paper");
+    let docs = home.join("docs");
+    for dir in [&visible, &hidden, &docs] {
+        std::fs::create_dir_all(dir).unwrap();
+    }
+    std::fs::write(home.join("hidden/note.txt"), "boiler serviced annually\n").unwrap();
+
+    // Visible Paper dir: its parent's walk would read the config.
+    let mut client = McpClient::spawn_with_env(&visible, &docs, "2024-11-05", &[("HOME", &home)]);
+    assert_refused_to_index(&mut client, "index_documents", &home.join("work"));
+    assert_refused_to_index(&mut client, "add_index_root", &home.join("work"));
+    drop(client);
+
+    // Hidden Paper dir: a walk skips it, so indexing the parent stays allowed...
+    let mut client = McpClient::spawn_with_env(&hidden, &docs, "2024-11-05", &[("HOME", &home)]);
+    let ok = client.call_tool("index_documents", json!({"path": home.join("hidden")}));
+    assert_eq!(ok["stats"]["indexed"], 1, "{ok}");
+    // ...but a permanent, watched root over it is not (watcher events from
+    // hidden subdirectories reach the indexer by file name alone).
+    assert_refused_to_index(&mut client, "add_index_root", &home.join("hidden"));
+}
+
+#[test]
+fn mcp_remove_index_root_still_removes_a_hidden_root() {
+    let (_tmp, home, data, docs) = fake_home();
+    let notes = home.join(".notes");
+    let mut client = McpClient::spawn_with_env(&data, &notes, "2024-11-05", &[("HOME", &home)]);
+    // Removing the only root is refused, so add a second one first.
+    client.call_tool("add_index_root", json!({"path": docs}));
+
+    let removed = client.call_tool("remove_index_root", json!({"path": notes}));
+    assert_eq!(removed["removed_root"], json!(notes), "{removed}");
+    let status = client.call_tool("index_status", json!({}));
+    assert_eq!(status["roots"], json!([docs]), "{status}");
+}
+
+/// An empty root list means "no restriction", so the last root must stay.
+fn assert_refused_as_last_root(client: &mut McpClient, path: &Path) {
+    let refused = client.send(
+        "tools/call",
+        json!({"name": "remove_index_root", "arguments": {"path": path}}),
+    );
+    assert!(
+        refused["error"]["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("last index root"),
+        "{refused}"
+    );
+}
+
+#[test]
+fn mcp_refuses_to_remove_the_last_root() {
+    let (home, docs) = fixture();
+    let docs = docs.canonicalize().unwrap();
+    let mut client = McpClient::spawn(home.path(), &docs);
+    assert_refused_as_last_root(&mut client, &docs);
+    let status = client.call_tool("index_status", json!({}));
+    assert_eq!(status["roots"], json!([docs]));
+}
+
+#[test]
+fn mcp_refuses_to_empty_the_persisted_roots() {
+    let (home, _docs) = fixture();
+    let shared = home.path().canonicalize().unwrap().join("shared");
+    // Nested under the session root only so the path vetting accepts it
+    // without faking $HOME; it is still the one persisted root.
+    let notes = shared.join("notes");
+    std::fs::create_dir_all(&notes).unwrap();
+    let config_path = home.path().join("config.toml");
+    let config = format!("roots = [{:?}]\n", notes.to_str().unwrap());
+    std::fs::write(&config_path, &config).unwrap();
+
+    let mut client = McpClient::spawn(home.path(), &shared);
+    assert_refused_as_last_root(&mut client, &notes);
+    assert_eq!(std::fs::read_to_string(&config_path).unwrap(), config);
 }

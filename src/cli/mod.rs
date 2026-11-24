@@ -251,3 +251,24 @@ pub async fn run_doctor() -> Result<i32> {
 pub async fn run_daemon_control(args: DaemonControlArgs) -> Result<i32> {
     daemon::run(args).await
 }
+
+/// Drop control characters (C0, DEL, C1) except `\n` and `\t` from text
+/// headed for a terminal, so an indexed document cannot inject escape
+/// sequences. Same filter as `polish::sanitize`, without the trim.
+fn terminal_safe(text: &str) -> String {
+    text.chars()
+        .filter(|c| !c.is_control() || *c == '\n' || *c == '\t')
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::terminal_safe;
+
+    #[test]
+    fn terminal_safe_drops_control_characters_and_keeps_printable_text() {
+        let raw = "a\x1b[2Jb\x1b]0;pwned\x07c\u{9b}31md\x7fe\r\nf\tg  ";
+        assert_eq!(terminal_safe(raw), "a[2Jb]0;pwnedc31mde\nf\tg  ");
+        assert_eq!(terminal_safe("Grüße, 世界"), "Grüße, 世界");
+    }
+}
