@@ -124,8 +124,25 @@ impl Config {
         temp.write_all(contents.as_bytes())?;
         temp.as_file().sync_all()?;
         // Replaces an existing file (std's rename semantics; MoveFileEx on Windows).
-        temp.persist(&path).map_err(|e| e.error)?;
-        Ok(())
+        // On Windows a replace can fail with "access denied" while another
+        // writer's replace of the same file is still completing, or while a
+        // scanner briefly holds it; that clears in milliseconds, so retry.
+        let mut attempt = 0;
+        loop {
+            match temp.persist(&path) {
+                Ok(_) => return Ok(()),
+                Err(e)
+                    if cfg!(windows)
+                        && e.error.kind() == std::io::ErrorKind::PermissionDenied
+                        && attempt < 50 =>
+                {
+                    temp = e.file;
+                    attempt += 1;
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Err(e) => return Err(e.error.into()),
+            }
+        }
     }
 
     pub fn search(&self) -> SearchConfig {
