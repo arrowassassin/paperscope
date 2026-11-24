@@ -21,7 +21,7 @@ use clap::Args;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::signal;
-use tokio::sync::{mpsc, Notify, RwLock};
+use tokio::sync::{mpsc, Mutex, Notify, RwLock};
 
 /// Arguments for the daemon subcommand.
 #[derive(Args, Debug, Clone)]
@@ -83,6 +83,32 @@ struct DaemonState {
     shutdown_notify: Arc<Notify>,
     db_path: PathBuf,
     embedder: Option<SharedEmbedder>,
+    /// Held for a whole `IndexRoots` job so scheduler, watcher and IPC runs
+    /// queue instead of overlapping and hitting SQLITE_BUSY.
+    index_lock: Mutex<()>,
+}
+
+/// One indexing pass. When it covers exactly the configured roots (the
+/// scheduled passes) it also prunes files deleted since the last pass.
+fn run_index_job(
+    db_path: &std::path::Path,
+    embedder: Option<SharedEmbedder>,
+    roots: &[PathBuf],
+    configured: &[PathBuf],
+) -> Result<crate::core::index::IndexStats> {
+    let conn = Connection::open(db_path)?;
+    init_db(&conn)?;
+    let indexer = Indexer::new(conn, embedder)?;
+    let stats = indexer.index_roots_within(roots, configured)?;
+    let sorted = |v: &[PathBuf]| {
+        let mut v = v.to_vec();
+        v.sort();
+        v
+    };
+    if sorted(roots) == sorted(configured) {
+        indexer.prune_missing()?;
+    }
+    Ok(stats)
 }
 
 /// Daemon request handler.
@@ -123,14 +149,10 @@ impl DaemonHandler for DaemonHandlerImpl {
 
                 // Indexing is blocking CPU/IO work and `Indexer` is not `Send`:
                 // create it inside the blocking task and run it there.
-                match tokio::task::spawn_blocking(
-                    move || -> Result<crate::core::index::IndexStats> {
-                        let conn = Connection::open(&db_path)?;
-                        init_db(&conn)?;
-                        let indexer = Indexer::new(conn, embedder)?;
-                        indexer.index_roots_within(&roots_to_index, &configured)
-                    },
-                )
+                let _running = self.state.index_lock.lock().await;
+                match tokio::task::spawn_blocking(move || {
+                    run_index_job(&db_path, embedder, &roots_to_index, &configured)
+                })
                 .await
                 {
                     Ok(Ok(stats)) => DaemonResponse::IndexRoots { stats },
@@ -277,6 +299,7 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
         shutdown_notify: Arc::new(Notify::new()),
         db_path,
         embedder,
+        index_lock: Mutex::new(()),
     });
 
     // Create scheduler
@@ -441,4 +464,40 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
 
     tracing::info!("Daemon stopped");
     Ok(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_configured_pass_prunes_deleted_files_but_a_partial_one_does_not() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("docs");
+        std::fs::create_dir(&root).unwrap();
+        let (a, b) = (root.join("a.txt"), root.join("b.txt"));
+        std::fs::write(&a, "alpha zebra").unwrap();
+        std::fs::write(&b, "beta giraffe").unwrap();
+        let db = dir.path().join("chunks.db");
+        let configured = vec![root.clone()];
+        run_index_job(&db, None, &configured, &configured).unwrap();
+        std::fs::remove_file(&a).unwrap();
+        // A watcher-style pass over one other path must not prune.
+        run_index_job(&db, None, std::slice::from_ref(&b), &configured).unwrap();
+        let count = |p: &str| -> i64 {
+            Connection::open(&db)
+                .unwrap()
+                .inner()
+                .query_row(
+                    "SELECT COUNT(*) FROM chunks WHERE source_path = ?",
+                    [p],
+                    |r| r.get(0),
+                )
+                .unwrap()
+        };
+        let a = a.to_string_lossy().to_string();
+        assert_eq!(count(&a), 1);
+        run_index_job(&db, None, &configured, &configured).unwrap();
+        assert_eq!(count(&a), 0);
+    }
 }

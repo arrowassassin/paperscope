@@ -64,7 +64,7 @@ pub struct Chunk {
 /// Bump when extraction, chunking or the FTS projection changes meaning. A
 /// mismatch invalidates every stored chunk, because the old text can no longer
 /// be trusted to match what the current extractor would produce.
-const INDEXER_VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), "+extract3+chunk1");
+const INDEXER_VERSION: &str = "extract4+chunk1";
 
 pub struct Indexer {
     conn: Connection,
@@ -113,6 +113,23 @@ impl Indexer {
     /// indexer is created with an embedder, so the index knows which model
     /// produced its vectors.
     fn record_embedding_model(conn: &Connection, model_id: &str) -> Result<()> {
+        // Vectors from a different model are meaningless next to the new one
+        // and unchanged files would keep them: drop every chunk so the next
+        // pass re-extracts and re-embeds everything.
+        let stored: Option<String> = conn
+            .inner()
+            .query_row(
+                "SELECT value FROM index_meta WHERE key = 'embedding_model'",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if stored.as_deref().is_some_and(|old| old != model_id) {
+            let tx = conn.inner().unchecked_transaction()?;
+            tx.execute("DELETE FROM chunks_vec", [])?;
+            tx.execute("DELETE FROM chunks", [])?;
+            tx.commit()?;
+        }
         conn.inner().execute(
             "INSERT INTO index_meta (key, value) VALUES ('embedding_model', ?)
              ON CONFLICT(key) DO UPDATE SET value = excluded.value",
@@ -380,22 +397,35 @@ impl Indexer {
             }
         };
 
-        let tx = self.conn.inner().unchecked_transaction()?;
-        tx.execute(
-            "DELETE FROM chunks_vec WHERE rowid IN (SELECT id FROM chunks WHERE source_path = ?)",
-            [&path_string],
-        )?;
-        tx.execute("DELETE FROM chunks WHERE source_path = ?", [&path_string])?;
-
-        let mut inserted = 0usize;
         let mut warnings = 0usize;
         for doc in &docs {
             for warning in &doc.warnings {
                 tracing::warn!("{path_string}: {warning}");
                 warnings += 1;
             }
-            let chunks = chunk_blocks(&doc.blocks, self.max_chunk_words, self.overlap_words);
-            for chunk in &chunks {
+        }
+        // A timed-out or failed extraction returns a blockless document plus a
+        // warning. Treating that as "the file is now empty" would erase the
+        // chunks of the last good version, so keep them and retry next pass.
+        if warnings > 0 && docs.iter().all(|doc| doc.blocks.is_empty()) {
+            stats.warnings = warnings;
+            stats.skipped = 1;
+            return Ok(stats);
+        }
+
+        // Chunk and embed before opening the write transaction, so the
+        // database lock is not held while the model runs.
+        struct Row<'a> {
+            doc_path: &'a str,
+            chunk: Chunk,
+            fts_text: String,
+            fts_section: String,
+            metadata: String,
+            vector: Option<Vec<f32>>,
+        }
+        let mut rows = Vec::new();
+        for doc in &docs {
+            for chunk in chunk_blocks(&doc.blocks, self.max_chunk_words, self.overlap_words) {
                 // `fts_text` / `fts_section` hold only text that segmentation
                 // actually changed. Latin text segments to itself, and storing
                 // that copy doubled the size of most indexes; the triggers fall
@@ -415,37 +445,57 @@ impl Indexer {
                     fts_section.clear();
                 }
                 let metadata = fields::analyse(&chunk.content);
+                let vector = match &self.embedder {
+                    Some(embedder) => Some(embedder.embed(&chunk.content)?),
+                    None => None,
+                };
+                rows.push(Row {
+                    doc_path: &doc.path,
+                    chunk,
+                    fts_text,
+                    fts_section,
+                    metadata,
+                    vector,
+                });
+            }
+        }
+
+        let tx = self.conn.inner().unchecked_transaction()?;
+        tx.execute(
+            "DELETE FROM chunks_vec WHERE rowid IN (SELECT id FROM chunks WHERE source_path = ?)",
+            [&path_string],
+        )?;
+        tx.execute("DELETE FROM chunks WHERE source_path = ?", [&path_string])?;
+        let inserted = rows.len();
+        for row in &rows {
+            let chunk = &row.chunk;
+            tx.execute(
+                "INSERT INTO chunks
+                   (path, source_path, page, line_start, line_end, anchor, section, content,
+                    fts_text, fts_section, content_hash, mtime, size, metadata)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                rusqlite::params![
+                    row.doc_path,
+                    path_string,
+                    chunk.page,
+                    chunk.line_start,
+                    chunk.line_end,
+                    chunk.anchor,
+                    chunk.section,
+                    chunk.content,
+                    row.fts_text,
+                    row.fts_section,
+                    hash.as_bytes().as_slice(),
+                    mtime,
+                    size,
+                    row.metadata,
+                ],
+            )?;
+            if let Some(vector) = &row.vector {
                 tx.execute(
-                    "INSERT INTO chunks
-                       (path, source_path, page, line_start, line_end, anchor, section, content,
-                        fts_text, fts_section, content_hash, mtime, size, metadata)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    rusqlite::params![
-                        doc.path,
-                        path_string,
-                        chunk.page,
-                        chunk.line_start,
-                        chunk.line_end,
-                        chunk.anchor,
-                        chunk.section,
-                        chunk.content,
-                        fts_text,
-                        fts_section,
-                        hash.as_bytes().as_slice(),
-                        mtime,
-                        size,
-                        metadata,
-                    ],
+                    "INSERT INTO chunks_vec (rowid, embedding) VALUES (?, ?)",
+                    rusqlite::params![tx.last_insert_rowid(), serialize_f32_vec(vector)],
                 )?;
-                let id = tx.last_insert_rowid();
-                if let Some(embedder) = &self.embedder {
-                    let vector = embedder.embed(&chunk.content)?;
-                    tx.execute(
-                        "INSERT INTO chunks_vec (rowid, embedding) VALUES (?, ?)",
-                        rusqlite::params![id, serialize_f32_vec(&vector)],
-                    )?;
-                }
-                inserted += 1;
             }
         }
         tx.commit()?;
