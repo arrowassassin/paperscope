@@ -20,9 +20,9 @@ Installs follow `config/remote-config.toml` (fetched by the daemon only; search,
 - `version`: integer; a config with a version lower than the cached one is ignored (no rollback).
 - `expires`: `YYYY-MM-DD`; an expired config contributes nothing and never triggers or reverts a model switch.
 - `[defaults]` `embedder`, `reranker`: model ids installs should use.
-- `[search]` (optional): `rerank_top` 1..=100, `semantic_min_score` 0.0..=1.0, plus `keyword_sufficiency_threshold` and `rrf_k`.
+- `[search]` (optional): `rerank_top` 1..=100, `semantic_min_score` 0.0..=1.0.
 - `[[models]]` (optional): extra models. `id` must not equal a built-in id; `arch` is `bert` (embedder, `dims = 384`) or `xlm-roberta-seq-cls` (reranker); the Hugging Face org must be `BAAI`, `intfloat`, `cross-encoder` or `sentence-transformers`; every file is pinned to a 40-hex commit and 64-hex sha256.
-- `[[deprecations]]` (optional): models to retire. Users who pinned a model locally keep it.
+- `[[deprecated]]` (optional): models to retire (`id`, `message`, optional `replacement`). Users who pinned a model locally keep it.
 
 Any validation failure rejects the whole file and the previous good copy stays.
 
