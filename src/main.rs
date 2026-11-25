@@ -88,6 +88,15 @@ enum Commands {
     /// Example: paper update --check
     Update(paper::cli::UpdateArgs),
 
+    /// Remove Paper: the background service, your data and the binary.
+    ///
+    /// Asks before deleting data (`--yes` skips the question, `--keep-data`
+    /// keeps it). Homebrew, npm and cargo installs print the package-manager
+    /// command that finishes the job.
+    ///
+    /// Example: paper uninstall --dry-run
+    Uninstall(paper::cli::UninstallArgs),
+
     #[cfg(feature = "daemon")]
     /// Run the background indexer in the foreground (for debugging).
     ///
@@ -120,6 +129,7 @@ impl Commands {
             Commands::Models(_) => "models",
             Commands::Doctor => "doctor",
             Commands::Update(_) => "update",
+            Commands::Uninstall(_) => "uninstall",
             #[cfg(feature = "daemon")]
             Commands::Daemon(_) => "daemon",
             #[cfg(feature = "daemon")]
@@ -155,6 +165,7 @@ async fn main() -> Result<()> {
         Commands::Models(args) => paper::cli::run_models(args).await,
         Commands::Doctor => paper::cli::run_doctor().await,
         Commands::Update(args) => paper::cli::update::run(args).await,
+        Commands::Uninstall(args) => paper::cli::uninstall::run(args).await,
         #[cfg(feature = "daemon")]
         Commands::Daemon(args) => paper::daemon::run_daemon(args).await,
         #[cfg(feature = "daemon")]

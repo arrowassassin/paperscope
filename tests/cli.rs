@@ -176,3 +176,29 @@ fn human_output_never_carries_terminal_control_characters() {
         );
     }
 }
+
+#[test]
+fn uninstall_dry_run_keeps_data_and_yes_removes_it() {
+    let home = tempfile::tempdir().unwrap();
+    let data = home.path().join("data");
+    std::fs::create_dir_all(data.join("models")).unwrap();
+    std::fs::write(data.join("chunks.db"), b"x").unwrap();
+    // Fake HOME/XDG so no real receipt or service file is ever found.
+    let run = |extra: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_paper"))
+            .arg("uninstall")
+            .args(extra)
+            .env("PAPER_HOME", &data)
+            .env("HOME", home.path())
+            .env("XDG_CONFIG_HOME", home.path().join("xdg"))
+            .env("CARGO_HOME", home.path().join("cargo"))
+            .output()
+            .unwrap()
+    };
+    let out = run(&["--yes", "--dry-run"]);
+    assert!(out.status.success(), "{out:?}");
+    assert!(data.join("chunks.db").exists());
+    let out = run(&["--yes"]);
+    assert!(out.status.success(), "{out:?}");
+    assert!(!data.exists());
+}

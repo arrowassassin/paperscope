@@ -7,10 +7,12 @@ pub mod index;
 pub mod model_downloader;
 pub mod models;
 pub mod search;
+pub mod uninstall;
 pub mod update;
 
 #[cfg(feature = "daemon")]
 pub use daemon::{DaemonControlArgs, DaemonControlCommand};
+pub use uninstall::UninstallArgs;
 pub use update::UpdateArgs;
 
 use crate::core::config::Config;
@@ -51,6 +53,23 @@ impl Workspace {
             config: Config::load().unwrap_or_default(),
             model_manager: ModelManager::new(),
         }
+    }
+
+    /// One stderr line when the daemon is still setting up (stdout stays clean).
+    pub fn note_setup_in_progress(&self) {
+        if let Some(phase) = self.setup_status() {
+            eprintln!(
+                "note: Paper is still setting up in the background: {phase}. Results will fill in when it finishes."
+            );
+        }
+    }
+
+    /// Background-setup phase; the status file belongs to the daemon feature.
+    pub fn setup_status(&self) -> Option<String> {
+        #[cfg(feature = "daemon")]
+        return crate::bootstrap::setup_status(&self.paths);
+        #[cfg(not(feature = "daemon"))]
+        None
     }
 
     /// Search scope: `--root` flags, then the config file, then *everything* in

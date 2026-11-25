@@ -20,7 +20,7 @@ API keys, no telemetry, no cloud.
 > 15+ formats · 100+ languages · hybrid keyword + vector search · MCP server for
 > Claude and other agents · runs fully offline.
 
-Latest release: **[0.3.0](https://github.com/kintsugi-tools/paperscope/releases/tag/v0.3.0)**
+Latest release: **[0.3.1](https://github.com/kintsugi-tools/paperscope/releases/tag/v0.3.1)**
 · [changelog](CHANGELOG.md)
 
 ## Install
@@ -40,16 +40,29 @@ cargo install paperscope               # any platform with Rust 1.94+
 
 1. registers a background indexer as a user service (launchd / systemd), so it
    survives reboots;
-2. downloads the default models in the background, embeddings (134 MB) first,
-   then the reranker (1.13 GB);
-3. indexes `~/Documents`, `~/Downloads` and `~/Desktop`, then keeps them current
+2. downloads the multilingual embedding model (488 MB, 100+ languages) in the background;
+3. once it is in, indexes `~/Documents`, `~/Downloads` and `~/Desktop`, then keeps them current
    with a five-minute incremental pass and a 3 AM full pass.
 
-Keyword search works immediately, semantic results appear as soon as the
-embedder lands, and ranking sharpens once the reranker finishes. On a metered
+Until the first index finishes, searches print (CLI) or report (MCP
+`setup_in_progress`) that setup is still running. The reranker (1.13 GB) then
+downloads in the background without delaying indexing, and ranking sharpens
+when it lands. On a metered
 connection or tight disk, `PAPER_NO_RERANKER=1` skips the 1.13 GB second model.
 Prefer to drive it yourself? `PAPER_NO_AUTOSTART=1 paper index --root ~/Documents`,
 or undo everything with `paper daemon-control uninstall`.
+
+### Uninstall
+
+```bash
+paper uninstall            # removes the service, asks before deleting your data, then the binary
+paper uninstall --keep-data   # leave the index, models and config in place
+paper uninstall --dry-run     # show what would happen, change nothing
+```
+
+Add `--yes` to skip the question. Homebrew, cargo and npm installs print the
+package-manager command to finish with (`brew uninstall paper`,
+`cargo uninstall paperscope`, `npm uninstall -g paperscope`).
 
 ### Keeping it current
 
@@ -140,16 +153,15 @@ RTF, ODT, XLSX, PPTX, plus PNG, JPEG, TIFF, WebP, BMP and GIF images.
 **Scans are searchable.** OCR runs automatically on pages with no text layer,
 pulling the page bitmap straight out of the PDF, and on standalone images. Text
 found this way is cited as `page 12 (OCR)`, so you always know it came from a
-picture, not a text layer. English by default; `multilingual-e5-small` adds 100
-languages, including cross-lingual search (ask in English, find the Japanese
+picture, not a text layer. Works in 100+ languages (`multilingual-e5-small`, the default embedder), including cross-lingual search (ask in English, find the Japanese
 contract).
 
 ## Models
 
 | Model | Size | Use |
 |---|---|---|
-| `bge-small-en-v1.5` | 134 MB | default English embeddings (auto-downloaded) |
-| `multilingual-e5-small` | 487 MB | 100 languages |
+| `multilingual-e5-small` | 488 MB | default embeddings, 100+ languages (auto-downloaded) |
+| `bge-small-en-v1.5` | 134 MB | optional English-only embeddings |
 | `bge-reranker-base` | 1.13 GB | reranks top hits (auto-downloaded; `PAPER_NO_RERANKER=1` to skip) |
 | PP-OCRv4 det + rec | 16 MB | reads scans and images (auto-downloaded; `--no-ocr` to skip) |
 

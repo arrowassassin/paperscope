@@ -4,6 +4,34 @@ All notable changes to this project are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html); while the version is
 `0.x`, minor releases may change behaviour.
 
+## [0.3.1] — 2026-11-25
+
+### Added
+- **`paper uninstall`.** Removes the background service, deletes Paper's data
+  (after asking; `--yes`, `--keep-data` and `--dry-run` are available) and deletes
+  the binary for shell-installer installs. Homebrew, cargo and npm installs print
+  the package-manager command to finish with.
+
+### Changed
+- **Multilingual embeddings by default.** New installs download
+  `multilingual-e5-small` (100+ languages) instead of `bge-small-en-v1.5`.
+  Existing installs keep their model; switch with
+  `paper models install multilingual-e5-small`.
+- **Reranker skipped for non-English queries.** Queries containing non-ASCII
+  letters bypass the reranker, which is trained mainly on English.
+- **First-run setup no longer waits on the reranker.** The daemon indexes as soon
+  as the embedding model is in and fetches the 1.13 GB reranker in the
+  background. While it works, a `setup-status` file makes `paper search`/`answer`
+  print a stderr note, `paper doctor` show a line, and MCP `index_status` (plus
+  `search_documents`/`answer_documents` during setup) report `setup_in_progress`.
+
+### Fixed
+- **MCP tool hints.** Every MCP tool now declares `readOnlyHint`,
+  `destructiveHint`, `idempotentHint` and `openWorldHint`. Without them, clients
+  treated every tool as potentially destructive (the MCP default), and
+  directories such as OpenAI's reject the server. Only `remove_index_root` is
+  destructive; no tool reaches the network.
+
 ## [0.3.0] — 2026-11-24
 
 ### Security

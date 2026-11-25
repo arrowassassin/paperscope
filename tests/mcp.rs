@@ -181,6 +181,34 @@ fn mcp_exposes_exactly_the_four_document_tools() {
 }
 
 #[test]
+fn mcp_tools_carry_complete_annotations() {
+    let (home, docs) = fixture();
+    let mut client = McpClient::spawn(home.path(), &docs);
+    let tools = client.request("tools/list", json!({}));
+    let tools = tools["tools"].as_array().unwrap();
+    for t in tools {
+        for hint in [
+            "readOnlyHint",
+            "destructiveHint",
+            "idempotentHint",
+            "openWorldHint",
+        ] {
+            assert!(
+                t["annotations"][hint].is_boolean(),
+                "{} missing {hint}",
+                t["name"]
+            );
+        }
+    }
+    let get = |n: &str| tools.iter().find(|t| t["name"] == n).unwrap();
+    assert_eq!(
+        get("remove_index_root")["annotations"]["destructiveHint"],
+        true
+    );
+    assert_eq!(get("search_documents")["annotations"]["readOnlyHint"], true);
+}
+
+#[test]
 fn mcp_search_read_and_answer_round_trip() {
     let (home, docs) = fixture();
     let mut client = McpClient::spawn(home.path(), &docs);
@@ -397,4 +425,34 @@ fn mcp_refuses_to_empty_the_persisted_roots() {
     let mut client = McpClient::spawn(home.path(), &shared);
     assert_refused_as_last_root(&mut client, &notes);
     assert_eq!(std::fs::read_to_string(&config_path).unwrap(), config);
+}
+
+// Setup status is written by the daemon; keyword-only builds have none.
+#[cfg(feature = "daemon")]
+#[test]
+fn mcp_reports_background_setup_only_while_it_runs() {
+    let (home, docs) = fixture();
+    let mut client = McpClient::spawn(home.path(), &docs);
+    let status = client.call_tool("index_status", json!({}));
+    assert!(status["setup_in_progress"].is_null(), "{status}");
+    let hits = client.call_tool("search_documents", json!({"query": "fridge warranty"}));
+    assert!(hits.is_array(), "{hits}");
+    drop(client);
+
+    // PAPER_HOME is the data dir itself (Paths::base_dir).
+    let phase = "indexing your documents for the first time";
+    std::fs::write(home.path().join("setup-status"), format!("{phase}\n")).unwrap();
+    let mut client = McpClient::spawn(home.path(), &docs);
+    let status = client.call_tool("index_status", json!({}));
+    assert_eq!(status["setup_in_progress"], phase);
+    let raw = client.request(
+        "tools/call",
+        json!({"name": "search_documents", "arguments": {"query": "fridge warranty"}}),
+    );
+    let hits: Value = serde_json::from_str(raw["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert!(hits.is_array(), "{raw}");
+    let note = raw["content"][1]["text"].as_str().unwrap();
+    assert!(note.contains(phase), "{raw}");
+    let answer = client.call_tool("answer_documents", json!({"question": "fridge warranty"}));
+    assert_eq!(answer["setup_in_progress"], phase);
 }

@@ -3592,7 +3592,7 @@ dependencies = [
 
 [[package]]
 name = "paperscope"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "arbitrary",

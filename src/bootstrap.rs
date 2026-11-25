@@ -41,6 +41,7 @@ const SKIP_COMMANDS: &[&str] = &[
     "daemon",
     "daemon-control",
     "doctor",
+    "uninstall",
     "models",
     "index",
     // `serve` is the MCP server an editor starts, often several at once. It
@@ -334,10 +335,8 @@ pub async fn maybe_autostart(command: &str) {
 /// the user's command has already returned. Failure is not fatal: keyword
 /// search keeps working and the next daemon start tries again.
 ///
-/// The embedding model comes first because indexing needs it. The reranker is
-/// best-effort and second: it only improves ordering, so a failed or skipped
-/// download costs accuracy, never functionality. `PAPER_NO_RERANKER=1` keeps
-/// the ~1.1 GB reranker off disk entirely (small disk, metered connection).
+/// Indexing needs the embedding model, so this is awaited before the first
+/// pass. The reranker is not fetched here: see [`ensure_reranker`].
 pub async fn ensure_models(workspace: &crate::cli::Workspace) {
     let switches = Switches::from_process();
     if switches.offline || switches.no_autostart {
@@ -346,29 +345,29 @@ pub async fn ensure_models(workspace: &crate::cli::Workspace) {
     #[cfg(feature = "embeddings")]
     {
         if !workspace.embedding_model_installed() {
-            tracing::info!("downloading the default embedding model in the background");
+            if let Ok(spec) = workspace
+                .model_manager
+                .spec(crate::core::models::MULTILINGUAL_EMBEDDING)
+            {
+                set_setup_status(
+                    &workspace.paths,
+                    &format!(
+                        "downloading the embedding model ({} MB) — keyword and semantic search start once it lands",
+                        spec.size_mb()
+                    ),
+                );
+            }
+            tracing::info!(
+                "downloading the default multilingual embedding model in the background"
+            );
             if let Err(error) = workspace
                 .model_manager
-                .ensure(crate::core::models::DEFAULT_EMBEDDING)
+                .ensure(crate::core::models::MULTILINGUAL_EMBEDDING)
                 .await
             {
                 tracing::warn!(
                     "embedding model download failed ({error:#}); continuing with keyword search"
                 );
-            }
-        }
-        if std::env::var_os("PAPER_NO_RERANKER").is_none()
-            && !workspace
-                .model_manager
-                .is_installed(crate::core::models::OPTIONAL_RERANKER)
-        {
-            tracing::info!("downloading the optional reranker in the background");
-            if let Err(error) = workspace
-                .model_manager
-                .ensure(crate::core::models::OPTIONAL_RERANKER)
-                .await
-            {
-                tracing::warn!("reranker download failed ({error:#}); results stay dense+keyword");
             }
         }
     }
@@ -385,6 +384,49 @@ pub async fn ensure_models(workspace: &crate::cli::Workspace) {
             tracing::warn!("OCR model download failed ({error:#}); scanned pages stay unindexed");
         }
     }
+}
+
+/// Download the optional reranker (~1.1 GB) if missing. Only search processes
+/// use it and it only improves ordering, so the daemon spawns this instead of
+/// delaying the first index pass. A failed or skipped download costs accuracy,
+/// never functionality. `PAPER_NO_RERANKER=1` keeps it off disk entirely.
+pub async fn ensure_reranker(manager: &crate::core::models::ModelManager) {
+    let switches = Switches::from_process();
+    if switches.offline || switches.no_autostart {
+        return;
+    }
+    #[cfg(feature = "embeddings")]
+    if std::env::var_os("PAPER_NO_RERANKER").is_none()
+        && !manager.is_installed(crate::core::models::OPTIONAL_RERANKER)
+    {
+        tracing::info!("downloading the optional reranker in the background");
+        if let Err(error) = manager.ensure(crate::core::models::OPTIONAL_RERANKER).await {
+            tracing::warn!("reranker download failed ({error:#}); results stay dense+keyword");
+        }
+    }
+    #[cfg(not(feature = "embeddings"))]
+    let _ = manager;
+}
+
+const SETUP_STATUS_FILE: &str = "setup-status";
+
+// shortcut: a daemon that dies mid-setup leaves a stale line until the service
+// restarts and rewrites it; upgrade to a pid/heartbeat check if that bites.
+/// Record what the daemon is doing in the background so searches can say so.
+/// Best effort: a failed write only loses the hint.
+pub fn set_setup_status(paths: &Paths, phase: &str) {
+    let _ = std::fs::write(paths.base_dir().join(SETUP_STATUS_FILE), phase);
+}
+
+pub fn clear_setup_status(paths: &Paths) {
+    let _ = std::fs::remove_file(paths.base_dir().join(SETUP_STATUS_FILE));
+}
+
+/// The current background phase, if setup is in progress.
+pub fn setup_status(paths: &Paths) -> Option<String> {
+    let text = std::fs::read_to_string(paths.base_dir().join(SETUP_STATUS_FILE)).ok()?;
+    let text = text.trim();
+    (!text.is_empty()).then(|| text.to_string())
 }
 
 /// True when the index holds no chunks yet, which is the moment to index
@@ -682,6 +724,17 @@ mod tests {
         let path = dir.path().join(STATE_FILE);
         fs::write(&path, "version=0\nservice=installed\n").expect("write");
         assert_eq!(State::load(&path).service, ServiceState::Pending);
+    }
+
+    #[test]
+    fn setup_status_round_trips_and_missing_is_none() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let paths = Paths::with_base(dir.path());
+        assert_eq!(setup_status(&paths), None);
+        set_setup_status(&paths, "indexing");
+        assert_eq!(setup_status(&paths).as_deref(), Some("indexing"));
+        clear_setup_status(&paths);
+        assert_eq!(setup_status(&paths), None);
     }
 
     #[test]

@@ -1,5 +1,5 @@
 use super::{terminal_safe, SearchArgs, Workspace, EXIT_FOUND, EXIT_MODEL_MISSING, EXIT_NOT_FOUND};
-use crate::core::models::DEFAULT_EMBEDDING;
+use crate::core::models::MULTILINGUAL_EMBEDDING;
 use anyhow::Result;
 
 pub async fn run(args: SearchArgs) -> Result<i32> {
@@ -13,7 +13,7 @@ pub async fn run(args: SearchArgs) -> Result<i32> {
     }
     if args.semantic && !ws.embedding_model_installed() {
         eprintln!(
-            "embedding model is not installed; run `paper models install {DEFAULT_EMBEDDING}` \
+            "embedding model is not installed; run `paper models install {MULTILINGUAL_EMBEDDING}` \
              or drop --semantic for keyword-only search"
         );
         return Ok(EXIT_MODEL_MISSING);
@@ -24,13 +24,14 @@ pub async fn run(args: SearchArgs) -> Result<i32> {
     let pipeline = ws.pipeline()?;
     let mut hits = pipeline.search_with(&args.query, &roots, &filters)?;
     hits.truncate(args.limit);
+    ws.note_setup_in_progress();
 
     if args.json {
         println!("{}", serde_json::to_string_pretty(&hits)?);
     } else if hits.is_empty() {
         println!("No matches for {:?}.", args.query);
         if !ws.embedding_model_installed() {
-            eprintln!("hint: install the embedding model for semantic search (paper models install {DEFAULT_EMBEDDING})");
+            eprintln!("hint: install the embedding model for semantic search (paper models install {MULTILINGUAL_EMBEDDING})");
         }
     } else {
         for hit in &hits {

@@ -13,7 +13,7 @@ plain language, get the answer *and* the file, page and line it came from. One
 binary: a CLI and an MCP server for Claude and other agents. No account, no API
 keys, no telemetry, and it works offline.
 
-Latest release: **0.3.0**
+Latest release: **0.3.1**
 
 ![Animated demo](https://raw.githubusercontent.com/kintsugi-tools/paperscope/main/docs/assets/demo.svg)
 
@@ -32,12 +32,15 @@ npm i -g paperscope             # any OS with Node 14.18+; fetches the same bina
 ```
 
 The first `paper` command finishes setup by itself: it registers a background
-indexer (launchd / systemd), downloads the 134 MB embedding model and then the
+indexer (launchd / systemd), downloads the 488 MB multilingual embedding model and then the
 1.13 GB reranker, and indexes `~/Documents`, `~/Downloads`, `~/Desktop`.
 Keyword search works from the first second, semantic results appear when the
 embedder lands, and ranking sharpens once the reranker finishes. Opt out with
 `PAPER_NO_AUTOSTART=1`, skip the reranker with `PAPER_NO_RERANKER=1`, and remove
 the service with `paper daemon-control uninstall`.
+
+To remove Paper, run `paper uninstall` (`--keep-data` keeps your index, `--dry-run`
+previews). Brew, cargo and npm installs print the command that finishes the job.
 
 ## Try it
 
@@ -81,8 +84,8 @@ or two sentences, and "not found" when the evidence is weak.
 
 | Model | Size | Use |
 |---|---|---|
-| `bge-small-en-v1.5` | 134 MB | default English embeddings (auto-downloaded) |
-| `multilingual-e5-small` | 487 MB | 100 languages |
+| `multilingual-e5-small` | 488 MB | default embeddings, 100+ languages (auto-downloaded) |
+| `bge-small-en-v1.5` | 134 MB | optional English-only embeddings |
 | `bge-reranker-base` | 1.13 GB | reranks top hits (auto-downloaded; `PAPER_NO_RERANKER=1` to skip) |
 | PP-OCRv4 det + rec | 16 MB | reads scans and images (auto-downloaded; `--no-ocr` to skip) |
 

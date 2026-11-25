@@ -117,8 +117,8 @@ file**, and verified by downloading the real weights and running inference.
 
 | Model | Role | Size (measured) | Dims | Architecture | Verified |
 | --- | --- | --- | --- | --- | --- |
-| `BAAI/bge-small-en-v1.5` | default embedding | **134 MB** | 384 | BERT | semantic ordering correct |
-| `intfloat/multilingual-e5-small` | opt-in multilingual embedding | **487 MB** | 384 | BERT | English query → French document retrieved |
+| `BAAI/bge-small-en-v1.5` | optional English-only embedding | **134 MB** | 384 | BERT | semantic ordering correct |
+| `intfloat/multilingual-e5-small` | default multilingual embedding (auto-downloaded) | **488 MB** | 384 | BERT | English query → French document retrieved |
 | `BAAI/bge-reranker-base` | opt-in cross-encoder | **1129 MB** | — | XLM-RoBERTa seq-classification | relevant passage ranked first, score > 0.5 |
 
 `paper models install` and `ModelManager` currently download these pinned
@@ -154,7 +154,8 @@ model can serve the same index schema.
    search returns a nearest neighbour for *every* query, including nonsense.
 4. **Tier 2 — RRF (k=60)** over both lists, computed in Rust.
 5. **Tier 3 — optional cross-encoder**, applied to the top `rerank_top` (20) only;
-   remaining hits keep their fused order.
+   remaining hits keep their fused order. The reranker is skipped for queries
+   containing non-ASCII letters (it is trained mainly on English).
 
 `Hit::score` is the normalised relevance (cosine similarity / normalised bm25 /
 reranker sigmoid), **not** the RRF score. RRF values (~0.016) are used for
@@ -174,6 +175,7 @@ paper daemon-control [--socket <path>] status [--json]|pause|resume|stop
 paper daemon-control index [--root <dir>]...
 paper daemon-control add-root <dir>|remove-root <dir>
 paper daemon-control install [--force]|uninstall|start|restart
+paper uninstall [--yes] [--keep-data] [--dry-run]
 ```
 
 `daemon-control` uses a five-second IPC timeout and defaults to
@@ -182,6 +184,8 @@ when `PAPER_HOME` is unset. `install` creates a systemd user service on Linux or
 a launchd user agent on macOS; Windows service installation and IPC are not yet
 supported. Service definitions are replaced atomically, and replacing a
 different existing definition requires `--force`.
+
+`paper uninstall` removes the service (tolerating its absence), deletes the data and config directories Paper owns after a confirmation (`--yes` skips it, `--keep-data` omits it, `--dry-run` changes nothing), then deletes the binary for shell-installer installs or prints the brew, npm or cargo command to finish with.
 
 Exit codes: `0` found, `1` not found, `2` error, `3` model missing.
 
@@ -298,6 +302,9 @@ is not on disk.
   wipe the index, only a change to extraction or chunking does.
 - Chunks and embeddings for a file are computed before its write transaction.
 - The MCP server loads the reranker once at start if installed (never downloads).
+- A `setup-status` file in the data dir tells the CLI, `paper doctor` and MCP
+  (`setup_in_progress`) that the daemon is still downloading or first-indexing;
+  the reranker downloads in a background task and never delays the first index.
 - `ModelManager::is_installed` (the gate for every model load) requires size, a
   matching SHA-256 and, to skip re-hashing, a `<file>.verified` stamp whose hash,
   size and mtime still match; otherwise it hashes once and re-stamps. `is_verified`
@@ -305,12 +312,12 @@ is not on disk.
 
 ## Tests
 
-`cargo test` — 208 passing tests (plus 4 ignored: 3 model downloads and one
+`cargo test` — 220 passing tests (plus 4 ignored: 3 model downloads and one
 child-process helper for the setup-lock test), no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 
 ```
-cargo test --test models -- --ignored   # 134 MB / 487 MB / 1.13 GB
+cargo test --test models -- --ignored   # 134 MB / 488 MB / 1.13 GB
 ```
 
 Coverage: schema + triggers + WAL + KNN, schema migration, chunking and

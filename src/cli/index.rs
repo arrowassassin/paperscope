@@ -1,7 +1,7 @@
 use super::{IndexArgs, Workspace, EXIT_FOUND, EXIT_MODEL_MISSING};
 use crate::core::index::indexer::enclosing_root;
 use crate::core::index::{IndexStats, Indexer};
-use crate::core::models::DEFAULT_EMBEDDING;
+use crate::core::models::MULTILINGUAL_EMBEDDING;
 use anyhow::{Context, Result};
 use notify::{RecursiveMode, Watcher};
 use std::collections::BTreeSet;
@@ -15,7 +15,7 @@ pub async fn run(args: IndexArgs) -> Result<i32> {
     if args.embeddings && embedder.is_none() {
         if cfg!(feature = "embeddings") {
             eprintln!(
-                "embedding model is not installed; run `paper models install {DEFAULT_EMBEDDING}`"
+                "embedding model is not installed; run `paper models install {MULTILINGUAL_EMBEDDING}`"
             );
         } else {
             eprintln!("this build has no embedding support: rebuild with --features embeddings");
@@ -23,7 +23,7 @@ pub async fn run(args: IndexArgs) -> Result<i32> {
         return Ok(EXIT_MODEL_MISSING);
     }
     if embedder.is_none() && cfg!(feature = "embeddings") {
-        eprintln!("indexing without embeddings (keyword search only); install {DEFAULT_EMBEDDING} for semantic search");
+        eprintln!("indexing without embeddings (keyword search only); install {MULTILINGUAL_EMBEDDING} for semantic search");
     }
 
     let ocr_active = ocr_requested(args.ocr, args.no_ocr);
@@ -49,7 +49,7 @@ pub async fn run(args: IndexArgs) -> Result<i32> {
     if !cfg!(feature = "embeddings") {
         // Keyword-only build: there is nothing to install, so do not hint.
     } else if !ws.embedding_model_installed() {
-        eprintln!("hint: `paper models install {DEFAULT_EMBEDDING}` enables semantic search");
+        eprintln!("hint: `paper models install {MULTILINGUAL_EMBEDDING}` enables semantic search");
     }
     Ok(EXIT_FOUND)
 }
