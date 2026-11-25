@@ -2,6 +2,8 @@
 
 pub mod auto_discover;
 pub mod ipc;
+#[cfg(feature = "daemon")]
+pub mod remote;
 pub mod resource_guard;
 pub mod scheduler;
 pub mod watcher;
@@ -82,7 +84,8 @@ struct DaemonState {
     shutdown: RwLock<bool>,
     shutdown_notify: Arc<Notify>,
     db_path: PathBuf,
-    embedder: Option<SharedEmbedder>,
+    /// Swapped when a remote default moves the embedder.
+    embedder: RwLock<Option<SharedEmbedder>>,
     /// Held for a whole `IndexRoots` job so scheduler, watcher and IPC runs
     /// queue instead of overlapping and hitting SQLITE_BUSY.
     index_lock: Mutex<()>,
@@ -158,7 +161,7 @@ impl DaemonHandler for DaemonHandlerImpl {
                 }
 
                 let db_path = self.state.db_path.clone();
-                let embedder = self.state.embedder.clone();
+                let embedder = self.state.embedder.read().await.clone();
                 // A file named directly (the watcher sends changed files) is
                 // checked against the configured root it lives under.
                 let configured = self.state.roots.read().await.clone();
@@ -259,7 +262,7 @@ impl DaemonHandlerImpl {
 
 /// Run the daemon until SIGTERM/SIGINT or an IPC `Shutdown` request.
 pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
-    let workspace = Workspace::new();
+    let workspace = Arc::new(Workspace::new());
 
     // Determine socket path
     let socket_path = args
@@ -300,13 +303,6 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
     #[cfg(feature = "daemon")]
     crate::bootstrap::ensure_models(&workspace).await;
 
-    // The reranker is ~1.1 GB and only search uses it: fetch it without
-    // delaying the first index pass.
-    #[cfg(feature = "daemon")]
-    tokio::spawn(async {
-        crate::bootstrap::ensure_reranker(&crate::core::models::ModelManager::new()).await;
-    });
-
     // The first pass (queued below) clears this line when it ends; with no
     // first pass to wait for, the download step was the last background work.
     #[cfg(feature = "daemon")]
@@ -335,11 +331,17 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
         shutdown: RwLock::new(false),
         shutdown_notify: Arc::new(Notify::new()),
         db_path,
-        embedder,
+        embedder: RwLock::new(embedder),
         index_lock: Mutex::new(()),
         #[cfg(feature = "daemon")]
         paths: crate::core::paths::Paths::new(),
     });
+
+    // Fetch the remote config now and daily, follow its defaults, and finish
+    // any interrupted re-embed (the re-embed holds `index_lock`). This also
+    // downloads the effective reranker without delaying the first index pass.
+    #[cfg(feature = "daemon")]
+    tokio::spawn(remote::run_loop(workspace.clone(), state.clone()));
 
     // Create scheduler
     let full_cron = args.full_cron.unwrap_or_else(|| "0 0 3 * * *".to_string());

@@ -298,6 +298,14 @@ is not on disk.
 
 - The daemon's passes over the configured roots also prune deleted files, and
   indexing jobs run one at a time (a mutex in the daemon state).
+- The daemon fetches the signed remote config (`src/daemon/remote.rs`) at start
+  and every 24 hours unless `PAPER_OFFLINE` is set, records the outcome in
+  `remote-config.state`, then follows the effective defaults: it downloads a new
+  default reranker or embedder, re-embeds from stored text (resumable, status
+  line "re-embedding your documents for the new model (N of M)"), and removes
+  the old model only if it was Paper's own default, never a pinned one. A
+  built-in effective default, which an expired config falls back to, never
+  moves an index.
 - A failed or timed-out extraction keeps the file's previous chunks; the file is
   counted as skipped with warnings and retried on the next pass.
 - Recording a different embedding model than the one stored drops every chunk and
@@ -326,7 +334,7 @@ only, never fetched by the CLI or MCP, and an expired one contributes nothing.
 
 ## Tests
 
-`cargo test` — 244 passing tests (plus 4 ignored: 3 model downloads and one
+`cargo test` — 252 passing tests (plus 4 ignored: 3 model downloads and one
 child-process helper for the setup-lock test), no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 

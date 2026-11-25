@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 ///
 /// The base directory is taken from `PAPER_HOME` when set (used by tests and by
 /// users who want a portable install), otherwise `dirs::cache_dir()/paper`.
+#[derive(Clone)]
 pub struct Paths {
     base: PathBuf,
     config_base: PathBuf,
