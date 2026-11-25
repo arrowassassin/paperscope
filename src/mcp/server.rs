@@ -350,7 +350,15 @@ impl PaperMcp {
 impl PaperMcp {
     /// Search the user's local documents. Returns citations with file path,
     /// page and line numbers. Nothing leaves the machine.
-    #[tool(description = "Search local documents and return exact file/line citations")]
+    #[tool(
+        description = "Search local documents and return exact file/line citations",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
     async fn search_documents(
         &self,
         rmcp::handler::server::wrapper::Parameters(req): rmcp::handler::server::wrapper::Parameters<
@@ -368,7 +376,15 @@ impl PaperMcp {
     }
 
     /// Read the full text of one search result, optionally with neighbours.
-    #[tool(description = "Read the full text behind a citation, by source_id")]
+    #[tool(
+        description = "Read the full text behind a citation, by source_id",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
     async fn read_source(
         &self,
         rmcp::handler::server::wrapper::Parameters(req): rmcp::handler::server::wrapper::Parameters<
@@ -436,7 +452,15 @@ impl PaperMcp {
     }
 
     /// List every document currently in the local index.
-    #[tool(description = "List indexed documents with chunk counts")]
+    #[tool(
+        description = "List indexed documents with chunk counts",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
     async fn list_sources(
         &self,
         rmcp::handler::server::wrapper::Parameters(req): rmcp::handler::server::wrapper::Parameters<
@@ -481,7 +505,15 @@ impl PaperMcp {
 
     /// Answer a question with a verbatim extract plus citations. No text is
     /// generated, so answers cannot hallucinate facts that are not on disk.
-    #[tool(description = "Answer from local documents with citations (extractive, no generation)")]
+    #[tool(
+        description = "Answer from local documents with citations (extractive, no generation)",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
     async fn answer_documents(
         &self,
         rmcp::handler::server::wrapper::Parameters(req): rmcp::handler::server::wrapper::Parameters<
@@ -501,7 +533,13 @@ impl PaperMcp {
     /// Index a file or directory, recursively. This is how an agent adds
     /// documents after the automatic first pass.
     #[tool(
-        description = "Index a file or directory (recursive). Hidden files and symlinks are skipped. Paths are restricted to the user's home and existing roots."
+        description = "Index a file or directory (recursive). Hidden files and symlinks are skipped. Paths are restricted to the user's home and existing roots.",
+        annotations(
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
     )]
     async fn index_documents(
         &self,
@@ -521,7 +559,13 @@ impl PaperMcp {
     /// Report what is indexed, where indexing is allowed, and whether the
     /// background daemon is reachable.
     #[tool(
-        description = "Report indexed file/chunk counts, the configured index roots, the embedding model, and daemon status"
+        description = "Report indexed file/chunk counts, the configured index roots, the embedding model, and daemon status",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
     )]
     async fn index_status(
         &self,
@@ -566,7 +610,13 @@ impl PaperMcp {
     /// Add a directory to the index permanently: persisted to the config, sent
     /// to the daemon (so its watcher follows changes), and indexed now.
     #[tool(
-        description = "Add a directory to the index (persisted). Indexes it recursively and asks the daemon to watch it for changes."
+        description = "Add a directory to the index (persisted). Indexes it recursively and asks the daemon to watch it for changes.",
+        annotations(
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
     )]
     async fn add_index_root(
         &self,
@@ -605,7 +655,13 @@ impl PaperMcp {
     /// Stop indexing (and stop exposing) a directory. Chunks stay on disk but
     /// fall outside the allow-list, so they can no longer be read or searched.
     #[tool(
-        description = "Remove a directory from the index roots (persisted) and stop the daemon watching it"
+        description = "Remove a directory from the index roots (persisted) and stop the daemon watching it",
+        annotations(
+            read_only_hint = false,
+            destructive_hint = true,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
     )]
     async fn remove_index_root(
         &self,

@@ -181,6 +181,34 @@ fn mcp_exposes_exactly_the_four_document_tools() {
 }
 
 #[test]
+fn mcp_tools_carry_complete_annotations() {
+    let (home, docs) = fixture();
+    let mut client = McpClient::spawn(home.path(), &docs);
+    let tools = client.request("tools/list", json!({}));
+    let tools = tools["tools"].as_array().unwrap();
+    for t in tools {
+        for hint in [
+            "readOnlyHint",
+            "destructiveHint",
+            "idempotentHint",
+            "openWorldHint",
+        ] {
+            assert!(
+                t["annotations"][hint].is_boolean(),
+                "{} missing {hint}",
+                t["name"]
+            );
+        }
+    }
+    let get = |n: &str| tools.iter().find(|t| t["name"] == n).unwrap();
+    assert_eq!(
+        get("remove_index_root")["annotations"]["destructiveHint"],
+        true
+    );
+    assert_eq!(get("search_documents")["annotations"]["readOnlyHint"], true);
+}
+
+#[test]
 fn mcp_search_read_and_answer_round_trip() {
     let (home, docs) = fixture();
     let mut client = McpClient::spawn(home.path(), &docs);
