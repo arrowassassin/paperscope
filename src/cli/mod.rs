@@ -7,10 +7,12 @@ pub mod index;
 pub mod model_downloader;
 pub mod models;
 pub mod search;
+pub mod uninstall;
 pub mod update;
 
 #[cfg(feature = "daemon")]
 pub use daemon::{DaemonControlArgs, DaemonControlCommand};
+pub use uninstall::UninstallArgs;
 pub use update::UpdateArgs;
 
 use crate::core::config::Config;

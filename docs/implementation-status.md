@@ -175,6 +175,7 @@ paper daemon-control [--socket <path>] status [--json]|pause|resume|stop
 paper daemon-control index [--root <dir>]...
 paper daemon-control add-root <dir>|remove-root <dir>
 paper daemon-control install [--force]|uninstall|start|restart
+paper uninstall [--yes] [--keep-data] [--dry-run]
 ```
 
 `daemon-control` uses a five-second IPC timeout and defaults to
@@ -183,6 +184,8 @@ when `PAPER_HOME` is unset. `install` creates a systemd user service on Linux or
 a launchd user agent on macOS; Windows service installation and IPC are not yet
 supported. Service definitions are replaced atomically, and replacing a
 different existing definition requires `--force`.
+
+`paper uninstall` removes the service (tolerating its absence), deletes the data and config directories Paper owns after a confirmation (`--yes` skips it, `--keep-data` omits it, `--dry-run` changes nothing), then deletes the binary for shell-installer installs or prints the brew, npm or cargo command to finish with.
 
 Exit codes: `0` found, `1` not found, `2` error, `3` model missing.
 
@@ -309,7 +312,7 @@ is not on disk.
 
 ## Tests
 
-`cargo test` — 212 passing tests (plus 4 ignored: 3 model downloads and one
+`cargo test` — 220 passing tests (plus 4 ignored: 3 model downloads and one
 child-process helper for the setup-lock test), no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 

@@ -41,6 +41,7 @@ const SKIP_COMMANDS: &[&str] = &[
     "daemon",
     "daemon-control",
     "doctor",
+    "uninstall",
     "models",
     "index",
     // `serve` is the MCP server an editor starts, often several at once. It

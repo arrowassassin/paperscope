@@ -415,7 +415,7 @@ fn install_service(force: bool) -> Result<PathBuf> {
 }
 
 #[cfg(target_os = "linux")]
-fn uninstall_service() -> Result<PathBuf> {
+pub(crate) fn uninstall_service() -> Result<PathBuf> {
     let path = systemd_unit_path()?;
     if let Err(error) = run_checked(Command::new("systemctl").args([
         "--user",
@@ -505,7 +505,7 @@ fn install_service(force: bool) -> Result<PathBuf> {
 }
 
 #[cfg(target_os = "macos")]
-fn uninstall_service() -> Result<PathBuf> {
+pub(crate) fn uninstall_service() -> Result<PathBuf> {
     let path = launchd_plist_path()?;
     let domain = format!("gui/{}", current_uid()?);
     let bootout = run_checked(
@@ -554,7 +554,7 @@ fn install_service(_force: bool) -> Result<PathBuf> {
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-fn uninstall_service() -> Result<PathBuf> {
+pub(crate) fn uninstall_service() -> Result<PathBuf> {
     bail!("OS service management is not yet supported on Windows; use Linux or macOS")
 }
 

@@ -6,6 +6,12 @@ All notable changes to this project are recorded here. This project follows
 
 ## [0.3.1] — 2026-11-25
 
+### Added
+- **`paper uninstall`.** Removes the background service, deletes Paper's data
+  (after asking; `--yes`, `--keep-data` and `--dry-run` are available) and deletes
+  the binary for shell-installer installs. Homebrew, cargo and npm installs print
+  the package-manager command to finish with.
+
 ### Changed
 - **Multilingual embeddings by default.** New installs download
   `multilingual-e5-small` (100+ languages) instead of `bge-small-en-v1.5`.

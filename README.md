@@ -52,6 +52,18 @@ connection or tight disk, `PAPER_NO_RERANKER=1` skips the 1.13 GB second model.
 Prefer to drive it yourself? `PAPER_NO_AUTOSTART=1 paper index --root ~/Documents`,
 or undo everything with `paper daemon-control uninstall`.
 
+### Uninstall
+
+```bash
+paper uninstall            # removes the service, asks before deleting your data, then the binary
+paper uninstall --keep-data   # leave the index, models and config in place
+paper uninstall --dry-run     # show what would happen, change nothing
+```
+
+Add `--yes` to skip the question. Homebrew, cargo and npm installs print the
+package-manager command to finish with (`brew uninstall paper`,
+`cargo uninstall paperscope`, `npm uninstall -g paperscope`).
+
 ### Keeping it current
 
 ```bash

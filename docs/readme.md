@@ -39,6 +39,9 @@ embedder lands, and ranking sharpens once the reranker finishes. Opt out with
 `PAPER_NO_AUTOSTART=1`, skip the reranker with `PAPER_NO_RERANKER=1`, and remove
 the service with `paper daemon-control uninstall`.
 
+To remove Paper, run `paper uninstall` (`--keep-data` keeps your index, `--dry-run`
+previews). Brew, cargo and npm installs print the command that finishes the job.
+
 ## Try it
 
 ```bash
