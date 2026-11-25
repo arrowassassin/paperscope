@@ -73,9 +73,9 @@ impl ModelSpec {
     }
 }
 
-/// Default: small, fast, English. 134 MB total.
+/// Optional English-only alternative: small, fast. 134 MB total.
 pub const DEFAULT_EMBEDDING: &str = "bge-small-en-v1.5";
-/// Opt-in for multilingual households. 488 MB total.
+/// Default, downloaded on first run: 100+ languages. 488 MB total.
 pub const MULTILINGUAL_EMBEDDING: &str = "multilingual-e5-small";
 /// Opt-in cross-encoder for precision. 1.13 GB total, multilingual.
 pub const OPTIONAL_RERANKER: &str = "bge-reranker-base";
@@ -142,7 +142,7 @@ pub fn all_specs() -> Vec<ModelSpec> {
     vec![
         ModelSpec {
             id: DEFAULT_EMBEDDING,
-            name: "BGE small English v1.5 (default, 384 dims)",
+            name: "BGE small English v1.5 (English-only, 384 dims)",
             kind: ModelKind::Embedding,
             repo: "BAAI/bge-small-en-v1.5",
             revision: "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
@@ -156,7 +156,7 @@ pub fn all_specs() -> Vec<ModelSpec> {
         },
         ModelSpec {
             id: MULTILINGUAL_EMBEDDING,
-            name: "Multilingual E5 small (opt-in, 384 dims)",
+            name: "Multilingual E5 small (default, 384 dims)",
             kind: ModelKind::Embedding,
             repo: "intfloat/multilingual-e5-small",
             revision: "614241f622f53c4eeff9890bdc4f31cfecc418b3",

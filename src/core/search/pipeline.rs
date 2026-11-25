@@ -140,7 +140,11 @@ impl SearchPipeline {
         let terms = query_terms(query);
         let mut hits = self.hydrate(&fused, &relevance, &terms)?;
 
-        if let Some(reranker) = &self.reranker {
+        if let Some(reranker) = self
+            .reranker
+            .as_ref()
+            .filter(|_| reranker_understands(query))
+        {
             // Only the top candidates go through the cross-encoder: it is one
             // forward pass per pair, so reranking everything would be far slower.
             let rest = hits.split_off(self.config.rerank_top.min(hits.len()));
@@ -315,4 +319,24 @@ fn why_matched(hit: &Hit, keyword: &[RawHit], semantic: &[RawHit]) -> String {
 /// Used by `Hit::source` serialisation; kept here so `HitSource` stays imported.
 pub fn source_of(hit: &RawHit) -> HitSource {
     hit.source
+}
+
+/// The reranker is trained mainly on English, so it can mis-order other languages.
+// shortcut: ASCII-only queries count as English; an unaccented French/Spanish query still gets reranked. Upgrade to a language-ID check if that matters.
+fn reranker_understands(query: &str) -> bool {
+    query.chars().all(|c| !c.is_alphabetic() || c.is_ascii())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::reranker_understands;
+
+    #[test]
+    fn reranker_only_for_ascii_queries() {
+        assert!(reranker_understands("how do I cancel my subscription"));
+        assert!(reranker_understands("invoice 2026-03"));
+        for q in ["Grüße", "café", "日本語", "привет"] {
+            assert!(!reranker_understands(q), "{q}");
+        }
+    }
 }

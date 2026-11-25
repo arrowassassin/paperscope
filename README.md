@@ -40,7 +40,7 @@ cargo install paperscope               # any platform with Rust 1.94+
 
 1. registers a background indexer as a user service (launchd / systemd), so it
    survives reboots;
-2. downloads the default models in the background, embeddings (134 MB) first,
+2. downloads the default models in the background, multilingual embeddings (488 MB, 100+ languages) first,
    then the reranker (1.13 GB);
 3. indexes `~/Documents`, `~/Downloads` and `~/Desktop`, then keeps them current
    with a five-minute incremental pass and a 3 AM full pass.
@@ -140,16 +140,15 @@ RTF, ODT, XLSX, PPTX, plus PNG, JPEG, TIFF, WebP, BMP and GIF images.
 **Scans are searchable.** OCR runs automatically on pages with no text layer,
 pulling the page bitmap straight out of the PDF, and on standalone images. Text
 found this way is cited as `page 12 (OCR)`, so you always know it came from a
-picture, not a text layer. English by default; `multilingual-e5-small` adds 100
-languages, including cross-lingual search (ask in English, find the Japanese
+picture, not a text layer. Works in 100+ languages (`multilingual-e5-small`, the default embedder), including cross-lingual search (ask in English, find the Japanese
 contract).
 
 ## Models
 
 | Model | Size | Use |
 |---|---|---|
-| `bge-small-en-v1.5` | 134 MB | default English embeddings (auto-downloaded) |
-| `multilingual-e5-small` | 487 MB | 100 languages |
+| `multilingual-e5-small` | 488 MB | default embeddings, 100+ languages (auto-downloaded) |
+| `bge-small-en-v1.5` | 134 MB | optional English-only embeddings |
 | `bge-reranker-base` | 1.13 GB | reranks top hits (auto-downloaded; `PAPER_NO_RERANKER=1` to skip) |
 | PP-OCRv4 det + rec | 16 MB | reads scans and images (auto-downloaded; `--no-ocr` to skip) |
 

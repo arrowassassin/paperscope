@@ -32,7 +32,7 @@ npm i -g paperscope             # any OS with Node 14.18+; fetches the same bina
 ```
 
 The first `paper` command finishes setup by itself: it registers a background
-indexer (launchd / systemd), downloads the 134 MB embedding model and then the
+indexer (launchd / systemd), downloads the 488 MB multilingual embedding model and then the
 1.13 GB reranker, and indexes `~/Documents`, `~/Downloads`, `~/Desktop`.
 Keyword search works from the first second, semantic results appear when the
 embedder lands, and ranking sharpens once the reranker finishes. Opt out with
@@ -81,8 +81,8 @@ or two sentences, and "not found" when the evidence is weak.
 
 | Model | Size | Use |
 |---|---|---|
-| `bge-small-en-v1.5` | 134 MB | default English embeddings (auto-downloaded) |
-| `multilingual-e5-small` | 487 MB | 100 languages |
+| `multilingual-e5-small` | 488 MB | default embeddings, 100+ languages (auto-downloaded) |
+| `bge-small-en-v1.5` | 134 MB | optional English-only embeddings |
 | `bge-reranker-base` | 1.13 GB | reranks top hits (auto-downloaded; `PAPER_NO_RERANKER=1` to skip) |
 | PP-OCRv4 det + rec | 16 MB | reads scans and images (auto-downloaded; `--no-ocr` to skip) |
 

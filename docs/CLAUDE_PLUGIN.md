@@ -27,8 +27,8 @@ The models download on their own on first run. To fetch one explicitly
 (GitHub Release first, Hugging Face fallback; SHA256-verified, resumable):
 
 ```sh
-paper models install bge-small-en-v1.5      # 134 MB, English default
-paper models install multilingual-e5-small  # 487 MB, multilingual
+paper models install bge-small-en-v1.5      # 134 MB, English-only
+paper models install multilingual-e5-small  # 488 MB, multilingual (default)
 paper models install bge-reranker-base      # optional 1.13 GB reranker
 ```
 

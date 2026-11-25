@@ -117,8 +117,8 @@ file**, and verified by downloading the real weights and running inference.
 
 | Model | Role | Size (measured) | Dims | Architecture | Verified |
 | --- | --- | --- | --- | --- | --- |
-| `BAAI/bge-small-en-v1.5` | default embedding | **134 MB** | 384 | BERT | semantic ordering correct |
-| `intfloat/multilingual-e5-small` | opt-in multilingual embedding | **487 MB** | 384 | BERT | English query → French document retrieved |
+| `BAAI/bge-small-en-v1.5` | optional English-only embedding | **134 MB** | 384 | BERT | semantic ordering correct |
+| `intfloat/multilingual-e5-small` | default multilingual embedding (auto-downloaded) | **488 MB** | 384 | BERT | English query → French document retrieved |
 | `BAAI/bge-reranker-base` | opt-in cross-encoder | **1129 MB** | — | XLM-RoBERTa seq-classification | relevant passage ranked first, score > 0.5 |
 
 `paper models install` and `ModelManager` currently download these pinned
@@ -154,7 +154,8 @@ model can serve the same index schema.
    search returns a nearest neighbour for *every* query, including nonsense.
 4. **Tier 2 — RRF (k=60)** over both lists, computed in Rust.
 5. **Tier 3 — optional cross-encoder**, applied to the top `rerank_top` (20) only;
-   remaining hits keep their fused order.
+   remaining hits keep their fused order. The reranker is skipped for queries
+   containing non-ASCII letters (it is trained mainly on English).
 
 `Hit::score` is the normalised relevance (cosine similarity / normalised bm25 /
 reranker sigmoid), **not** the RRF score. RRF values (~0.016) are used for
@@ -305,12 +306,12 @@ is not on disk.
 
 ## Tests
 
-`cargo test` — 209 passing tests (plus 4 ignored: 3 model downloads and one
+`cargo test` — 210 passing tests (plus 4 ignored: 3 model downloads and one
 child-process helper for the setup-lock test), no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 
 ```
-cargo test --test models -- --ignored   # 134 MB / 487 MB / 1.13 GB
+cargo test --test models -- --ignored   # 134 MB / 488 MB / 1.13 GB
 ```
 
 Coverage: schema + triggers + WAL + KNN, schema migration, chunking and

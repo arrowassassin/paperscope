@@ -346,10 +346,12 @@ pub async fn ensure_models(workspace: &crate::cli::Workspace) {
     #[cfg(feature = "embeddings")]
     {
         if !workspace.embedding_model_installed() {
-            tracing::info!("downloading the default embedding model in the background");
+            tracing::info!(
+                "downloading the default multilingual embedding model in the background"
+            );
             if let Err(error) = workspace
                 .model_manager
-                .ensure(crate::core::models::DEFAULT_EMBEDDING)
+                .ensure(crate::core::models::MULTILINGUAL_EMBEDDING)
                 .await
             {
                 tracing::warn!(

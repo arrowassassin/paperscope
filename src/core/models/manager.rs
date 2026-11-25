@@ -1,5 +1,5 @@
 use super::specs::{
-    all_specs, ModelFile, ModelKind, ModelSpec, DEFAULT_EMBEDDING, OPTIONAL_RERANKER,
+    all_specs, ModelFile, ModelKind, ModelSpec, MULTILINGUAL_EMBEDDING, OPTIONAL_RERANKER,
 };
 use super::{Embedder, Reranker};
 use crate::core::paths::Paths;
@@ -237,7 +237,7 @@ impl ModelManager {
                 license: s.license.to_string(),
                 languages: s.languages.to_string(),
                 installed: self.is_installed(s.id),
-                is_default: s.id == DEFAULT_EMBEDDING,
+                is_default: s.id == MULTILINGUAL_EMBEDDING,
             })
             .collect()
     }

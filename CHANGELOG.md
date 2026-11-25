@@ -6,6 +6,14 @@ All notable changes to this project are recorded here. This project follows
 
 ## [0.3.1] — 2026-11-25
 
+### Changed
+- **Multilingual embeddings by default.** New installs download
+  `multilingual-e5-small` (100+ languages) instead of `bge-small-en-v1.5`.
+  Existing installs keep their model; switch with
+  `paper models install multilingual-e5-small`.
+- **Reranker skipped for non-English queries.** Queries containing non-ASCII
+  letters bypass the reranker, which is trained mainly on English.
+
 ### Fixed
 - **MCP tool hints.** Every MCP tool now declares `readOnlyHint`,
   `destructiveHint`, `idempotentHint` and `openWorldHint`. Without them, clients
