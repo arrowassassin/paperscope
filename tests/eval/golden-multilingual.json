@@ -1,0 +1,474 @@
+{
+ "queries": [
+  {
+   "id": "fr-q1",
+   "text": "date d'expiration de la garantie du lave-linge",
+   "qrels": {
+    "2": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "fr-q2",
+   "text": "montant mensuel de l'abonnement internet fibre",
+   "qrels": {
+    "1": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "fr-q3",
+   "text": "à quelle heure part le train pour Lyon",
+   "qrels": {
+    "6": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "fr-q4",
+   "text": "dépôt de garantie du loyer de l'appartement",
+   "qrels": {
+    "4": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "de-q1",
+   "text": "Ablaufdatum der Garantie der Waschmaschine",
+   "qrels": {
+    "9": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "de-q2",
+   "text": "monatlicher Preis für den Glasfaser Internetanschluss",
+   "qrels": {
+    "8": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "de-q3",
+   "text": "wann fährt der Zug nach Berlin ab",
+   "qrels": {
+    "13": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "de-q4",
+   "text": "Höhe der Mietkaution für die Wohnung",
+   "qrels": {
+    "11": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "es-q1",
+   "text": "fecha en que termina la garantía de la lavadora",
+   "qrels": {
+    "16": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "es-q2",
+   "text": "cuánto cuesta al mes la fibra de internet",
+   "qrels": {
+    "15": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "es-q3",
+   "text": "a qué hora sale el tren a Valencia",
+   "qrels": {
+    "20": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "es-q4",
+   "text": "importe de la fianza del piso alquilado",
+   "qrels": {
+    "18": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "hi-q1",
+   "text": "वॉशिंग मशीन की वारंटी कब खत्म होगी",
+   "qrels": {
+    "23": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "hi-q2",
+   "text": "इंटरनेट फाइबर प्लान का मासिक शुल्क कितना है",
+   "qrels": {
+    "22": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "hi-q3",
+   "text": "जयपुर की ट्रेन कितने बजे निकलती है",
+   "qrels": {
+    "27": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "hi-q4",
+   "text": "फ्लैट की सुरक्षा जमा राशि कितनी है",
+   "qrels": {
+    "25": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "ja-q1",
+   "text": "洗濯機の保証はいつまでですか",
+   "qrels": {
+    "30": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "ja-q2",
+   "text": "光回線の月額料金はいくら",
+   "qrels": {
+    "29": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "ja-q3",
+   "text": "大阪行きの新幹線は何時に出発する",
+   "qrels": {
+    "34": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "ja-q4",
+   "text": "賃貸マンションの敷金の金額",
+   "qrels": {
+    "32": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "ar-q1",
+   "text": "متى ينتهي ضمان الغسالة",
+   "qrels": {
+    "37": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "ar-q2",
+   "text": "كم الاشتراك الشهري في الإنترنت بالألياف",
+   "qrels": {
+    "36": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "ar-q3",
+   "text": "متى يغادر القطار إلى الدمام",
+   "qrels": {
+    "41": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  },
+  {
+   "id": "ar-q4",
+   "text": "مبلغ التأمين لإيجار الشقة",
+   "qrels": {
+    "39": 2
+   },
+   "answerable": true,
+   "expected_snippet": null
+  }
+ ],
+ "documents": [
+  {
+   "id": 0,
+   "path": "fr-0.txt",
+   "content": "Facture d'électricité\nClient : Marie Durand. Période de consommation : janvier à février 2026.\nConsommation : 412 kWh. Montant à payer : 87,40 euros avant le 15 mars 2026.\nNuméro de contrat : EL-55021.",
+   "page": 0
+  },
+  {
+   "id": 1,
+   "path": "fr-1.txt",
+   "content": "Facture internet fibre\nAbonné : Marie Durand. Offre fibre 1 Gb/s, mensualité de 29,99 euros.\nPrélèvement automatique le 5 de chaque mois. Numéro de ligne : IN-30417.\nLe routeur reste la propriété de l'opérateur.",
+   "page": 0
+  },
+  {
+   "id": 2,
+   "path": "fr-2.txt",
+   "content": "Garantie du lave-linge\nLe lave-linge Brandt WT-5000 acheté le 12 mai 2024 est garanti 36 mois.\nLa garantie expire le 12 mai 2027 et couvre les pièces et la main d'oeuvre.\nConservez la facture d'achat pour toute réclamation.",
+   "page": 0
+  },
+  {
+   "id": 3,
+   "path": "fr-3.txt",
+   "content": "Garantie du lave-vaisselle\nLe lave-vaisselle Bosch SMS-200 acheté le 3 septembre 2023 est garanti 24 mois.\nLa garantie a expiré le 3 septembre 2025. Une extension payante est possible.\nService client au 0 800 123 456.",
+   "page": 0
+  },
+  {
+   "id": 4,
+   "path": "fr-4.txt",
+   "content": "Contrat de bail d'habitation\nBailleur : Pierre Martin. Locataire : Marie Durand. Appartement de 54 m2 à Lyon.\nLoyer mensuel de 780 euros, charges comprises. Dépôt de garantie : 780 euros.\nLe bail débute le 1er octobre 2025 pour une durée de trois ans.",
+   "page": 0
+  },
+  {
+   "id": 5,
+   "path": "fr-5.txt",
+   "content": "Lettre du médecin\nMadame Durand, vos résultats de prise de sang sont normaux.\nLe taux de cholestérol est de 1,8 g/l. Je vous revois pour un contrôle le 20 juin 2026 à 9 h 30.\nDocteur Lefèvre, cabinet médical de la Croix-Rousse.",
+   "page": 0
+  },
+  {
+   "id": 6,
+   "path": "fr-6.txt",
+   "content": "Réservation de train\nBillet TGV Paris-Lyon, voiture 7, place 42. Départ le 4 avril 2026 à 8 h 12 de la gare de Lyon.\nArrivée à Lyon Part-Dieu à 10 h 14. Numéro de réservation : XK7P9Q.\nBillet échangeable jusqu'à la veille du départ.",
+   "page": 0
+  },
+  {
+   "id": 7,
+   "path": "de-0.txt",
+   "content": "Stromrechnung\nKunde: Hans Becker. Abrechnungszeitraum: Januar bis Februar 2026.\nVerbrauch: 398 kWh. Zu zahlender Betrag: 91,20 Euro bis zum 15. März 2026.\nVertragsnummer: ST-77410.",
+   "page": 0
+  },
+  {
+   "id": 8,
+   "path": "de-1.txt",
+   "content": "Internetrechnung Glasfaser\nKunde: Hans Becker. Tarif Glasfaser 500, monatlich 34,95 Euro.\nDer Betrag wird jeweils am 3. des Monats abgebucht. Anschlussnummer: IN-90213.\nDer Router bleibt Eigentum des Anbieters.",
+   "page": 0
+  },
+  {
+   "id": 9,
+   "path": "de-2.txt",
+   "content": "Garantie Waschmaschine\nDie Waschmaschine Miele WT-5000 wurde am 12. Mai 2024 gekauft und hat 36 Monate Garantie.\nDie Garantie endet am 12. Mai 2027 und deckt Ersatzteile und Arbeitszeit.\nBewahren Sie den Kaufbeleg für Reklamationen auf.",
+   "page": 0
+  },
+  {
+   "id": 10,
+   "path": "de-3.txt",
+   "content": "Garantie Geschirrspüler\nDer Geschirrspüler Bosch SMS-200 wurde am 3. September 2023 gekauft, 24 Monate Garantie.\nDie Garantie ist am 3. September 2025 abgelaufen. Eine kostenpflichtige Verlängerung ist möglich.\nKundendienst: 0800 123 456.",
+   "page": 0
+  },
+  {
+   "id": 11,
+   "path": "de-4.txt",
+   "content": "Mietvertrag Wohnung\nVermieter: Peter Schmidt. Mieter: Hans Becker. Wohnung mit 61 Quadratmetern in München.\nKaltmiete 920 Euro monatlich plus Nebenkosten. Kaution: drei Monatsmieten, 2760 Euro.\nDas Mietverhältnis beginnt am 1. Oktober 2025 und ist unbefristet.",
+   "page": 0
+  },
+  {
+   "id": 12,
+   "path": "de-5.txt",
+   "content": "Arztbrief\nSehr geehrter Herr Becker, Ihre Blutwerte sind unauffällig.\nDer Cholesterinwert liegt bei 185 mg/dl. Ich bestelle Sie zur Kontrolle am 20. Juni 2026 um 9:30 Uhr ein.\nDr. Weber, Hausarztpraxis am Marienplatz.",
+   "page": 0
+  },
+  {
+   "id": 13,
+   "path": "de-6.txt",
+   "content": "Zugbuchung\nICE-Fahrkarte München–Berlin, Wagen 9, Platz 31. Abfahrt am 4. April 2026 um 8:12 Uhr ab München Hbf.\nAnkunft in Berlin Hbf um 12:05 Uhr. Buchungscode: KW3M8D.\nDas Ticket ist bis zum Vortag der Abfahrt umbuchbar.",
+   "page": 0
+  },
+  {
+   "id": 14,
+   "path": "es-0.txt",
+   "content": "Factura de electricidad\nCliente: Lucía Gómez. Periodo de consumo: enero a febrero de 2026.\nConsumo: 405 kWh. Importe a pagar: 84,60 euros antes del 15 de marzo de 2026.\nNúmero de contrato: EL-31877.",
+   "page": 0
+  },
+  {
+   "id": 15,
+   "path": "es-1.txt",
+   "content": "Factura de internet por fibra\nTitular: Lucía Gómez. Tarifa de fibra de 600 Mb, cuota mensual de 31,90 euros.\nEl cargo se domicilia el día 5 de cada mes. Número de línea: IN-60542.\nEl router sigue siendo propiedad del operador.",
+   "page": 0
+  },
+  {
+   "id": 16,
+   "path": "es-2.txt",
+   "content": "Garantía de la lavadora\nLa lavadora Balay WT-5000 comprada el 12 de mayo de 2024 tiene 36 meses de garantía.\nLa garantía termina el 12 de mayo de 2027 y cubre piezas y mano de obra.\nConserve la factura de compra para cualquier reclamación.",
+   "page": 0
+  },
+  {
+   "id": 17,
+   "path": "es-3.txt",
+   "content": "Garantía del lavavajillas\nEl lavavajillas Bosch SMS-200 comprado el 3 de septiembre de 2023 tiene 24 meses de garantía.\nLa garantía caducó el 3 de septiembre de 2025. Existe una ampliación de pago.\nAtención al cliente: 900 123 456.",
+   "page": 0
+  },
+  {
+   "id": 18,
+   "path": "es-4.txt",
+   "content": "Contrato de alquiler de vivienda\nArrendador: Pedro Ruiz. Inquilina: Lucía Gómez. Piso de 58 metros cuadrados en Valencia.\nRenta mensual de 850 euros. Fianza: dos mensualidades, 1700 euros.\nEl contrato comienza el 1 de octubre de 2025 y dura tres años.",
+   "page": 0
+  },
+  {
+   "id": 19,
+   "path": "es-5.txt",
+   "content": "Carta del médico\nEstimada Sra. Gómez, los resultados de su análisis de sangre son normales.\nEl colesterol es de 185 mg/dl. La espero para una revisión el 20 de junio de 2026 a las 9:30.\nDra. Herrera, centro de salud del Carmen.",
+   "page": 0
+  },
+  {
+   "id": 20,
+   "path": "es-6.txt",
+   "content": "Reserva de tren\nBillete AVE Madrid-Valencia, coche 5, asiento 18. Salida el 4 de abril de 2026 a las 8:12 desde Atocha.\nLlegada a Valencia Joaquín Sorolla a las 9:50. Localizador: RB4T7N.\nEl billete se puede cambiar hasta el día anterior a la salida.",
+   "page": 0
+  },
+  {
+   "id": 21,
+   "path": "hi-0.txt",
+   "content": "बिजली का बिल\nग्राहक: सुनीता शर्मा। बिलिंग अवधि: जनवरी से फरवरी 2026।\nखपत: 380 यूनिट। देय राशि: 2,450 रुपये, अंतिम तिथि 15 मार्च 2026।\nखाता संख्या: EL-48820।",
+   "page": 0
+  },
+  {
+   "id": 22,
+   "path": "hi-1.txt",
+   "content": "इंटरनेट फाइबर बिल\nग्राहक: सुनीता शर्मा। फाइबर 300 एमबीपीएस प्लान, मासिक शुल्क 999 रुपये।\nहर महीने की 5 तारीख को ऑटो-डेबिट होता है। लाइन संख्या: IN-27135।\nराउटर कंपनी की संपत्ति रहता है।",
+   "page": 0
+  },
+  {
+   "id": 23,
+   "path": "hi-2.txt",
+   "content": "वॉशिंग मशीन की वारंटी\nएलजी WT-5000 वॉशिंग मशीन 12 मई 2024 को खरीदी गई थी और उस पर 36 महीने की वारंटी है।\nवारंटी 12 मई 2027 को समाप्त होगी और इसमें पुर्जे और मरम्मत का खर्च शामिल है।\nकिसी भी दावे के लिए खरीद का बिल संभालकर रखें।",
+   "page": 0
+  },
+  {
+   "id": 24,
+   "path": "hi-3.txt",
+   "content": "डिशवॉशर की वारंटी\nबॉश SMS-200 डिशवॉशर 3 सितंबर 2023 को खरीदा गया था, 24 महीने की वारंटी थी।\nवारंटी 3 सितंबर 2025 को समाप्त हो चुकी है। सशुल्क विस्तार उपलब्ध है।\nग्राहक सेवा: 1800 123 456।",
+   "page": 0
+  },
+  {
+   "id": 25,
+   "path": "hi-4.txt",
+   "content": "किराये का अनुबंध\nमकान मालिक: राजेश वर्मा। किरायेदार: सुनीता शर्मा। पुणे में 650 वर्ग फुट का फ्लैट।\nमासिक किराया 22,000 रुपये। सुरक्षा जमा राशि: दो महीने का किराया, 44,000 रुपये।\nअनुबंध 1 अक्टूबर 2025 से शुरू होकर तीन साल के लिए है।",
+   "page": 0
+  },
+  {
+   "id": 26,
+   "path": "hi-5.txt",
+   "content": "डॉक्टर का पत्र\nप्रिय श्रीमती शर्मा, आपकी खून की जाँच के नतीजे सामान्य हैं।\nकोलेस्ट्रॉल 185 mg/dl है। मैं आपको 20 जून 2026 को सुबह 9:30 बजे जाँच के लिए बुलाता हूँ।\nडॉ. गुप्ता, शांति क्लिनिक।",
+   "page": 0
+  },
+  {
+   "id": 27,
+   "path": "hi-6.txt",
+   "content": "ट्रेन आरक्षण\nशताब्दी एक्सप्रेस दिल्ली-जयपुर टिकट, कोच C3, सीट 24। प्रस्थान 4 अप्रैल 2026 को सुबह 6:05 बजे नई दिल्ली स्टेशन से।\nजयपुर पहुँचने का समय सुबह 10:30 बजे। पीएनआर: 4521098763।\nटिकट रद्द करने पर शुल्क लगेगा।",
+   "page": 0
+  },
+  {
+   "id": 28,
+   "path": "ja-0.txt",
+   "content": "電気料金のお知らせ\nお客様: 田中花子様。使用期間: 2026年1月から2月。\n使用量は402キロワット時、お支払い金額は8,740円、支払期限は2026年3月15日です。\n契約番号: EL-66310。",
+   "page": 0
+  },
+  {
+   "id": 29,
+   "path": "ja-1.txt",
+   "content": "光回線のご請求書\nお客様: 田中花子様。光ファイバー1ギガプラン、月額料金は5,200円です。\n毎月5日に口座から自動引き落としされます。回線番号: IN-81204。\nルーターは事業者の所有物です。",
+   "page": 0
+  },
+  {
+   "id": 30,
+   "path": "ja-2.txt",
+   "content": "洗濯機の保証書\n洗濯機 パナソニック WT-5000 は2024年5月12日に購入され、保証期間は36か月です。\n保証は2027年5月12日に終了し、部品代と修理費用が対象です。\n請求の際は購入時の領収書を保管してください。",
+   "page": 0
+  },
+  {
+   "id": 31,
+   "path": "ja-3.txt",
+   "content": "食器洗い機の保証書\n食器洗い機 ボッシュ SMS-200 は2023年9月3日に購入、保証期間は24か月でした。\n保証は2025年9月3日に終了しました。有償の延長保証があります。\nお客様相談室: 0120-123-456。",
+   "page": 0
+  },
+  {
+   "id": 32,
+   "path": "ja-4.txt",
+   "content": "賃貸借契約書\n貸主: 佐藤一郎。借主: 田中花子。大阪市内の55平方メートルのマンション。\n月額家賃は98,000円、敷金は家賃2か月分の196,000円です。\n契約期間は2025年10月1日から2年間です。",
+   "page": 0
+  },
+  {
+   "id": 33,
+   "path": "ja-5.txt",
+   "content": "診察のお知らせ\n田中様、血液検査の結果は正常でした。\nコレステロール値は185です。経過観察のため、2026年6月20日午前9時30分にご来院ください。\n鈴木医師、さくらクリニック。",
+   "page": 0
+  },
+  {
+   "id": 34,
+   "path": "ja-6.txt",
+   "content": "新幹線の予約\n東海道新幹線 東京から新大阪、7号車12番A席。2026年4月4日 8時12分に東京駅を出発します。\n新大阪駅には10時32分に到着します。予約番号: 5839201。\n出発前日まで変更できます。",
+   "page": 0
+  },
+  {
+   "id": 35,
+   "path": "ar-0.txt",
+   "content": "فاتورة الكهرباء\nالعميل: سارة الأحمد. فترة الاستهلاك: من يناير إلى فبراير 2026.\nالاستهلاك: 420 كيلوواط ساعة. المبلغ المستحق: 310 ريال قبل 15 مارس 2026.\nرقم العقد: EL-72048.",
+   "page": 0
+  },
+  {
+   "id": 36,
+   "path": "ar-1.txt",
+   "content": "فاتورة الإنترنت بالألياف\nالمشترك: سارة الأحمد. باقة الألياف 500 ميغابت، الاشتراك الشهري 199 ريال.\nيتم الخصم تلقائيا في الخامس من كل شهر. رقم الخط: IN-15960.\nيبقى الجهاز ملكا للمشغل.",
+   "page": 0
+  },
+  {
+   "id": 37,
+   "path": "ar-2.txt",
+   "content": "ضمان الغسالة\nتم شراء الغسالة سامسونج WT-5000 في 12 مايو 2024 ومدة الضمان 36 شهرا.\nينتهي الضمان في 12 مايو 2027 ويشمل قطع الغيار وتكاليف الإصلاح.\nاحتفظ بفاتورة الشراء لأي مطالبة.",
+   "page": 0
+  },
+  {
+   "id": 38,
+   "path": "ar-3.txt",
+   "content": "ضمان غسالة الصحون\nتم شراء غسالة الصحون بوش SMS-200 في 3 سبتمبر 2023 ومدة الضمان 24 شهرا.\nانتهى الضمان في 3 سبتمبر 2025. يتوفر تمديد مدفوع.\nخدمة العملاء: 800 123 456.",
+   "page": 0
+  },
+  {
+   "id": 39,
+   "path": "ar-4.txt",
+   "content": "عقد إيجار شقة\nالمؤجر: خالد العلي. المستأجرة: سارة الأحمد. شقة مساحتها 90 مترا مربعا في الرياض.\nالإيجار الشهري 3500 ريال. مبلغ التأمين: شهران، 7000 ريال.\nيبدأ العقد في 1 أكتوبر 2025 ولمدة ثلاث سنوات.",
+   "page": 0
+  },
+  {
+   "id": 40,
+   "path": "ar-5.txt",
+   "content": "رسالة الطبيب\nالسيدة سارة المحترمة، نتائج تحليل الدم طبيعية.\nمستوى الكوليسترول 185. أرجو مراجعتي للفحص الدوري يوم 20 يونيو 2026 الساعة 9:30 صباحا.\nالدكتور الحسن، عيادة النخيل.",
+   "page": 0
+  },
+  {
+   "id": 41,
+   "path": "ar-6.txt",
+   "content": "حجز القطار\nتذكرة قطار الرياض-الدمام، العربة 3، المقعد 14. المغادرة في 4 أبريل 2026 الساعة 8:12 صباحا من محطة الرياض.\nالوصول إلى الدمام الساعة 10:45. رقم الحجز: QR8841.\nيمكن تعديل التذكرة حتى اليوم السابق للمغادرة.",
+   "page": 0
+  }
+ ]
+}

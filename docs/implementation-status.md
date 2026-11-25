@@ -122,13 +122,39 @@ file**, and verified by downloading the real weights and running inference.
 | `BAAI/bge-small-en-v1.5` | optional English-only embedding | **134 MB** | 384 | BERT | semantic ordering correct |
 | `intfloat/multilingual-e5-small` | default multilingual embedding (auto-downloaded) | **488 MB** | 384 | BERT | English query → French document retrieved |
 | `BAAI/bge-reranker-base` | opt-in cross-encoder (English, Chinese) | **1129 MB** | — | XLM-RoBERTa seq-classification | relevant passage ranked first, score > 0.5 |
-| `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` | multilingual cross-encoder (release-mirrored) | **488 MB** | — | XLM-RoBERTa seq-classification | pinned; weights not yet run through inference |
-| `BAAI/bge-reranker-v2-m3` | large multilingual cross-encoder (Hugging Face only) | **2.29 GB** | — | XLM-RoBERTa seq-classification | pinned; weights not yet run through inference |
+| `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` | multilingual cross-encoder (release-mirrored) | **488 MB** | — | XLM-RoBERTa seq-classification | pinned; inference verified by the evaluation gate below |
+| `BAAI/bge-reranker-v2-m3` | large multilingual cross-encoder (Hugging Face only) | **2.29 GB** | — | XLM-RoBERTa seq-classification | pinned; inference verified by the evaluation gate below |
 
 `paper models install` and `ModelManager` currently download these pinned
 Hugging Face URLs directly; they do not yet construct GitHub Release asset
 URLs. The release assets use `<model-id>-<file>` names to avoid basename
 collisions.
+
+### Reranker evaluation gate (spec section 9)
+
+`cargo test --release --test rerank_eval -- --ignored --nocapture` with
+`PAPER_HOME` set to a scratch dir (downloads about 4.4 GB). Embedder
+`multilingual-e5-small`; corpora `tests/eval/golden.json` (English, answerable
+queries only) and `tests/eval/golden-multilingual.json` (fr, de, es, hi, ja, ar:
+7 documents and 4 queries each, 24 queries, each in the language of its one
+relevant document). Every query is reranked, bypassing the language-coverage
+skip. Release build, CPU. Latency is the median per-query search time with the
+reranker minus the same search without it.
+
+| Reranker | English MRR@10 | English hit@1 | Non-English MRR@10 | Non-English hit@1 | Median rerank ms/query (en, non-en) |
+| --- | --- | --- | --- | --- | --- |
+| none | 1.000 | 1.000 | 1.000 | 1.000 | - |
+| `bge-reranker-base` | 1.000 | 1.000 | 0.894 | 0.833 | 3932, 3109 |
+| `mmarco` | 0.978 | 0.957 | 0.944 | 0.917 | 1693, 1517 |
+| `bge-reranker-v2-m3` | 1.000 | 1.000 | 0.979 | 0.958 | 11326, 9236 |
+
+**Gate: FAIL.** `mmarco` English MRR@10 (0.978) is within 5% of `bge-reranker-base`
+(1.000), but its non-English MRR@10 (0.944) does not beat the no-reranker
+baseline (1.000). The defaults are unchanged: `bge-reranker-base` stays the
+built-in reranker, the language skip stays, `v2-m3` remains opt-in. Caveat: the
+no-reranker baseline is at the ceiling on this small corpus (retrieval alone
+already ranks every relevant document first), so the set cannot show a reranker
+gain; a harder corpus would be needed to test that.
 
 ### Why not EmbeddingGemma / bge-reranker-v2-m3 (the original spec)
 
@@ -334,8 +360,8 @@ only, never fetched by the CLI or MCP, and an expired one contributes nothing.
 
 ## Tests
 
-`cargo test` — 259 passing tests (plus 4 ignored: 3 model downloads and one
-child-process helper for the setup-lock test), no network access, no model downloads.
+`cargo test` — 259 passing tests (plus 5 ignored: 3 model downloads, the reranker evaluation gate
+and one child-process helper for the setup-lock test), no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 
 ```
