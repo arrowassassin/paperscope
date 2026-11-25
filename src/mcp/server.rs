@@ -123,9 +123,9 @@ impl PaperMcp {
                 embedder: ws.embedder(),
                 reranker: ws
                     .model_manager
-                    .reranker_if_installed(crate::core::models::OPTIONAL_RERANKER)
+                    .reranker_if_installed(&ws.effective.reranker)
                     .map(Arc::new),
-                config: ws.config.search(),
+                config: ws.config.search(ws.remote.as_ref()),
                 roots: std::sync::RwLock::new(roots),
             }),
         })

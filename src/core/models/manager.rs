@@ -1,6 +1,9 @@
-use super::specs::{all_specs, ModelFile, ModelKind, ModelSpec, MULTILINGUAL_EMBEDDING};
+use super::specs::{
+    all_specs, LanguageCoverage, ModelFile, ModelKind, ModelSpec, MULTILINGUAL_EMBEDDING,
+};
 use super::{Embedder, Reranker};
 use crate::core::paths::Paths;
+use crate::core::remote_config::{RemoteConfig, RemoteModel};
 use anyhow::{bail, Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::Client;
@@ -44,6 +47,15 @@ impl ModelManager {
             offline,
             installed_cache: Mutex::new(HashSet::new()),
         }
+    }
+
+    /// Add the models a verified remote config carries (already validated by
+    /// `remote_config`, so ids never collide with built-ins).
+    pub fn with_remote(mut self, remote: Option<&RemoteConfig>) -> Self {
+        for m in remote.into_iter().flat_map(|r| &r.models) {
+            self.specs.push(remote_spec(m));
+        }
+        self
     }
 
     pub fn cache_dir(&self) -> &Path {
@@ -290,6 +302,54 @@ impl ModelManager {
             tokio::fs::remove_dir_all(&dir).await?;
         }
         Ok(())
+    }
+}
+
+fn remote_spec(m: &RemoteModel) -> ModelSpec {
+    // shortcut: leaks a few strings once per process; switch ModelSpec to owned strings if specs ever reload in-process.
+    let leak = |s: &str| -> &'static str { Box::leak(s.to_string().into_boxed_str()) };
+    let files: Vec<ModelFile> = m
+        .files
+        .iter()
+        .map(|f| ModelFile {
+            name: leak(&f.name),
+            sha256: leak(&f.sha256),
+            size: f.size,
+        })
+        .collect();
+    let embedder = m.kind == "embedder";
+    // Same query/document prefixes as the built-in model family of that org.
+    let (query_prefix, document_prefix) = match (embedder, m.repo.split('/').next()) {
+        (true, Some("intfloat")) => ("query: ", "passage: "),
+        (true, Some("BAAI")) => (
+            "Represent this sentence for searching relevant passages: ",
+            "",
+        ),
+        _ => ("", ""),
+    };
+    ModelSpec {
+        id: leak(&m.id),
+        name: leak(&format!("{} (remote)", m.id)),
+        kind: if embedder {
+            ModelKind::Embedding
+        } else {
+            ModelKind::Reranker
+        },
+        repo: leak(&m.repo),
+        revision: leak(&m.revision),
+        files: Box::leak(files.into_boxed_slice()),
+        license: "see model card",
+        languages: leak(&m.languages),
+        coverage: match m.languages.as_str() {
+            "en" => LanguageCoverage::English,
+            "en-zh" => LanguageCoverage::EnglishChinese,
+            _ => LanguageCoverage::Multilingual,
+        },
+        mirrored: false,
+        dims: m.dims.unwrap_or(0),
+        max_tokens: 512,
+        query_prefix,
+        document_prefix,
     }
 }
 

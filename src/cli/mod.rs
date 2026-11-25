@@ -16,11 +16,11 @@ pub use uninstall::UninstallArgs;
 pub use update::UpdateArgs;
 
 use crate::core::config::Config;
+use crate::core::effective::{load_live_remote, resolve, Effective};
 use crate::core::index::{init_db, Connection};
-use crate::core::models::{
-    ModelManager, DEFAULT_EMBEDDING, MULTILINGUAL_EMBEDDING, OPTIONAL_RERANKER,
-};
+use crate::core::models::{ModelManager, DEFAULT_EMBEDDING, MULTILINGUAL_EMBEDDING};
 use crate::core::paths::Paths;
+use crate::core::remote_config::RemoteConfig;
 use crate::core::search::{SearchFilters, SearchPipeline, SharedEmbedder};
 use anyhow::Result;
 use clap::{Args, Subcommand};
@@ -38,6 +38,9 @@ pub struct Workspace {
     /// Single `ModelManager`, constructed once so search/model checks don't
     /// rebuild the client and spec list on every call (M2).
     pub model_manager: ModelManager,
+    /// Verified, unexpired remote config from the local cache (never fetched here).
+    pub remote: Option<RemoteConfig>,
+    pub effective: Effective,
 }
 
 impl Default for Workspace {
@@ -48,10 +51,15 @@ impl Default for Workspace {
 
 impl Workspace {
     pub fn new() -> Self {
+        let config = Config::load().unwrap_or_default();
+        let today = chrono::Local::now().date_naive();
+        let remote = load_live_remote(today);
         Self {
             paths: Paths::new(),
-            config: Config::load().unwrap_or_default(),
-            model_manager: ModelManager::new(),
+            effective: resolve(&config, remote.as_ref(), today),
+            model_manager: ModelManager::new().with_remote(remote.as_ref()),
+            config,
+            remote,
         }
     }
 
@@ -99,11 +107,15 @@ impl Workspace {
     }
 
     /// Load the embedder only when it is already on disk: searching must never
-    /// trigger a surprise download. If both embedding models are present the
-    /// multilingual one wins, since it also covers English.
+    /// trigger a surprise download. The effective embedder is tried first, then
+    /// any other installed one (multilingual before English-only).
     pub fn embedder(&self) -> Option<SharedEmbedder> {
         let manager = &self.model_manager;
-        for candidate in [MULTILINGUAL_EMBEDDING, DEFAULT_EMBEDDING] {
+        for candidate in [
+            self.effective.embedder.as_str(),
+            MULTILINGUAL_EMBEDDING,
+            DEFAULT_EMBEDDING,
+        ] {
             if !manager.is_installed(candidate) {
                 continue;
             }
@@ -119,9 +131,9 @@ impl Workspace {
             self.open_index()?,
             self.embedder(),
             self.model_manager
-                .reranker_if_installed(OPTIONAL_RERANKER)
+                .reranker_if_installed(&self.effective.reranker)
                 .map(std::sync::Arc::new),
-            self.config.search(),
+            self.config.search(self.remote.as_ref()),
         ))
     }
 
@@ -136,7 +148,7 @@ impl Workspace {
     }
 
     pub fn reranker_installed(&self) -> bool {
-        self.model_manager.is_installed(OPTIONAL_RERANKER)
+        self.model_manager.is_installed(&self.effective.reranker)
     }
 }
 

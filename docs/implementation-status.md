@@ -314,9 +314,19 @@ is not on disk.
   size and mtime still match; otherwise it hashes once and re-stamps. `is_verified`
   and `paper doctor` always hash in full, as does every download.
 
+## Settings precedence
+
+Local pin > remote default > built-in. `config.toml` accepts optional `embedder`
+and `reranker` keys (a pin that remote defaults never move) and optional search
+values (`keyword_sufficiency_threshold`, `rerank_top`, `rrf_k`,
+`semantic_min_score`); only fields the user wrote are saved. `core::effective`
+resolves the models and holds the built-in defaults; `Config::search(remote)`
+resolves search values. The remote config is read from the verified local cache
+only, never fetched by the CLI or MCP, and an expired one contributes nothing.
+
 ## Tests
 
-`cargo test` — 238 passing tests (plus 4 ignored: 3 model downloads and one
+`cargo test` — 244 passing tests (plus 4 ignored: 3 model downloads and one
 child-process helper for the setup-lock test), no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 

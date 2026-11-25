@@ -1,4 +1,5 @@
 use super::paths::{create_private_dir, Paths};
+use super::remote_config::RemoteConfig;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::path::PathBuf;
@@ -6,9 +7,21 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
-    pub keyword_sufficiency_threshold: usize,
-    pub rerank_top: usize,
-    pub rrf_k: i32,
+    /// Pins a model: remote defaults never move it. Unset means follow defaults.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub embedder: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reranker: Option<String>,
+    /// Search values are `Option`s so only what the user wrote overrides remote
+    /// config; the built-ins live in `SearchConfig::default()`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub keyword_sufficiency_threshold: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rerank_top: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rrf_k: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub semantic_min_score: Option<f32>,
     pub max_chunk_tokens: usize,
     pub chunk_overlap: usize,
     pub roots: Vec<PathBuf>,
@@ -67,9 +80,12 @@ impl Default for OpenRouterConfig {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            keyword_sufficiency_threshold: 10,
-            rerank_top: 20,
-            rrf_k: 60,
+            embedder: None,
+            reranker: None,
+            keyword_sufficiency_threshold: None,
+            rerank_top: None,
+            rrf_k: None,
+            semantic_min_score: None,
             max_chunk_tokens: 400,
             chunk_overlap: 40,
             roots: vec![],
@@ -145,12 +161,24 @@ impl Config {
         }
     }
 
-    pub fn search(&self) -> SearchConfig {
+    /// Local value > remote value > built-in default. The caller passes only an
+    /// unexpired remote config.
+    pub fn search(&self, remote: Option<&RemoteConfig>) -> SearchConfig {
+        let d = SearchConfig::default();
         SearchConfig {
-            keyword_sufficiency_threshold: self.keyword_sufficiency_threshold,
-            rerank_top: self.rerank_top,
-            rrf_k: self.rrf_k,
-            ..SearchConfig::default()
+            keyword_sufficiency_threshold: self
+                .keyword_sufficiency_threshold
+                .unwrap_or(d.keyword_sufficiency_threshold),
+            rerank_top: self
+                .rerank_top
+                .or(remote.and_then(|r| r.search.rerank_top))
+                .unwrap_or(d.rerank_top),
+            rrf_k: self.rrf_k.unwrap_or(d.rrf_k),
+            semantic_min_score: self
+                .semantic_min_score
+                .or(remote.and_then(|r| r.search.semantic_min_score))
+                .unwrap_or(d.semantic_min_score),
+            ..d
         }
     }
 }
