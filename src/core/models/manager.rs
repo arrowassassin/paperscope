@@ -1,6 +1,4 @@
-use super::specs::{
-    all_specs, ModelFile, ModelKind, ModelSpec, MULTILINGUAL_EMBEDDING, OPTIONAL_RERANKER,
-};
+use super::specs::{all_specs, ModelFile, ModelKind, ModelSpec, MULTILINGUAL_EMBEDDING};
 use super::{Embedder, Reranker};
 use crate::core::paths::Paths;
 use anyhow::{bail, Context, Result};
@@ -264,19 +262,22 @@ impl ModelManager {
         }
     }
 
-    pub fn load_reranker(&self) -> Result<Reranker> {
-        let spec = self.spec(OPTIONAL_RERANKER)?;
-        if !self.is_installed(OPTIONAL_RERANKER) {
-            bail!("{OPTIONAL_RERANKER} is not installed or failed verification");
+    pub fn load_reranker(&self, model_id: &str) -> Result<Reranker> {
+        let spec = self.spec(model_id)?;
+        if spec.kind != ModelKind::Reranker {
+            bail!("{model_id} is not a reranker");
         }
-        Reranker::new(&self.model_dir(OPTIONAL_RERANKER), spec)
+        if !self.is_installed(model_id) {
+            bail!("{model_id} is not installed or failed verification");
+        }
+        Reranker::new(&self.model_dir(model_id), spec)
     }
 
-    pub fn reranker_if_installed(&self) -> Option<Reranker> {
-        match self.load_reranker() {
+    pub fn reranker_if_installed(&self, model_id: &str) -> Option<Reranker> {
+        match self.load_reranker(model_id) {
             Ok(r) => Some(r),
             Err(e) => {
-                tracing::debug!("reranker unavailable: {e:#}");
+                tracing::debug!("reranker {model_id} unavailable: {e:#}");
                 None
             }
         }

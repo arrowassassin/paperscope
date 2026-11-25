@@ -6,7 +6,7 @@
 //! every attempt to load a model fails with an actionable message instead of a
 //! missing symbol.
 
-use super::specs::ModelSpec;
+use super::specs::{LanguageCoverage, ModelSpec};
 use crate::core::search::Hit;
 use anyhow::{bail, Result};
 use std::path::Path;
@@ -48,6 +48,10 @@ pub struct Reranker;
 impl Reranker {
     pub fn new(_model_dir: &Path, _spec: &ModelSpec) -> Result<Self> {
         bail!(MESSAGE)
+    }
+
+    pub fn coverage(&self) -> LanguageCoverage {
+        LanguageCoverage::Multilingual // unreachable: `new` always fails
     }
 
     pub fn rerank(&self, _query: &str, _hits: Vec<Hit>) -> Result<Vec<Hit>> {

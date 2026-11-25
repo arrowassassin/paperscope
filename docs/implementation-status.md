@@ -71,7 +71,7 @@ the tarball.
   hashes, and stages unique `<model-id>-<file>` release asset names under
   `models/release/`; `scripts/prepare-release.sh` prints the local build and
   tag-driven release commands. Models are not bundled into platform archives.
-  The nine unique assets are confirmed by `dist plan`; a real tag run is still
+  The twelve unique assets are confirmed by `dist plan`; a real tag run is still
   pending.
 - **Not** built: `.deb`/`.rpm`/`.apk`, AppImage, MSI/pkg; no code signing or
   notarization (no certificate is configured, so artifacts are unsigned but
@@ -119,7 +119,9 @@ file**, and verified by downloading the real weights and running inference.
 | --- | --- | --- | --- | --- | --- |
 | `BAAI/bge-small-en-v1.5` | optional English-only embedding | **134 MB** | 384 | BERT | semantic ordering correct |
 | `intfloat/multilingual-e5-small` | default multilingual embedding (auto-downloaded) | **488 MB** | 384 | BERT | English query → French document retrieved |
-| `BAAI/bge-reranker-base` | opt-in cross-encoder | **1129 MB** | — | XLM-RoBERTa seq-classification | relevant passage ranked first, score > 0.5 |
+| `BAAI/bge-reranker-base` | opt-in cross-encoder (English, Chinese) | **1129 MB** | — | XLM-RoBERTa seq-classification | relevant passage ranked first, score > 0.5 |
+| `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` | multilingual cross-encoder (release-mirrored) | **488 MB** | — | XLM-RoBERTa seq-classification | pinned; weights not yet run through inference |
+| `BAAI/bge-reranker-v2-m3` | large multilingual cross-encoder (Hugging Face only) | **2.29 GB** | — | XLM-RoBERTa seq-classification | pinned; weights not yet run through inference |
 
 `paper models install` and `ModelManager` currently download these pinned
 Hugging Face URLs directly; they do not yet construct GitHub Release asset
@@ -312,7 +314,7 @@ is not on disk.
 
 ## Tests
 
-`cargo test` — 219 passing tests (plus 4 ignored: 3 model downloads and one
+`cargo test` — 221 passing tests (plus 4 ignored: 3 model downloads and one
 child-process helper for the setup-lock test), no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 

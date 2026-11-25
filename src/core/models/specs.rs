@@ -6,6 +6,14 @@ pub enum ModelKind {
     Reranker,
 }
 
+/// Which query languages a model was trained to handle well.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LanguageCoverage {
+    English,
+    EnglishChinese,
+    Multilingual,
+}
+
 /// One downloadable artifact, pinned by content hash.
 #[derive(Debug, Clone)]
 pub struct ModelFile {
@@ -27,6 +35,10 @@ pub struct ModelSpec {
     pub files: &'static [ModelFile],
     pub license: &'static str,
     pub languages: &'static str,
+    pub coverage: LanguageCoverage,
+    /// Whether this crate's GitHub Release carries the files. When false, only
+    /// the Hugging Face URL is offered.
+    pub mirrored: bool,
     /// Embedding width. `0` for rerankers, which produce a scalar.
     pub dims: usize,
     pub max_tokens: usize,
@@ -58,6 +70,13 @@ impl ModelSpec {
     /// yet. Both sources are verified against the same SHA256 pin, so either
     /// is safe to consume.
     pub fn download_urls(&self, file_name: &str) -> Vec<String> {
+        let hf = format!(
+            "https://huggingface.co/{}/resolve/{}/{}",
+            self.repo, self.revision, file_name
+        );
+        if !self.mirrored {
+            return vec![hf];
+        }
         vec![
             format!(
                 "https://github.com/kintsugi-tools/paperscope/releases/download/v{}/{}-{}",
@@ -65,10 +84,7 @@ impl ModelSpec {
                 self.id,
                 file_name
             ),
-            format!(
-                "https://huggingface.co/{}/resolve/{}/{}",
-                self.repo, self.revision, file_name
-            ),
+            hf,
         ]
     }
 }
@@ -79,6 +95,10 @@ pub const DEFAULT_EMBEDDING: &str = "bge-small-en-v1.5";
 pub const MULTILINGUAL_EMBEDDING: &str = "multilingual-e5-small";
 /// Opt-in cross-encoder for precision. 1.13 GB total, multilingual.
 pub const OPTIONAL_RERANKER: &str = "bge-reranker-base";
+/// Small multilingual cross-encoder. 488 MB total.
+pub const MMARCO_RERANKER: &str = "mmarco-mminilmv2-l12-h384";
+/// Large multilingual cross-encoder, Hugging Face only. 2.29 GB total.
+pub const LARGE_RERANKER: &str = "bge-reranker-v2-m3";
 
 /// Width of the vectors in `chunks_vec`. Both supported embedders are 384-dim,
 /// so one index can be rebuilt from either without a schema change.
@@ -138,6 +158,42 @@ const BGE_RERANKER_FILES: &[ModelFile] = &[
     },
 ];
 
+const MMARCO_FILES: &[ModelFile] = &[
+    ModelFile {
+        name: "model.safetensors",
+        sha256: "5daeca2481a76b5976a2bdc32f0a78532b6716da4f8cd3ff59460ef8d2f359b4",
+        size: 470_592_698,
+    },
+    ModelFile {
+        name: "config.json",
+        sha256: "cc2cfe51aa3fd759d21d21acf5dfd6994aa67a3c9210636d22e143699d336c77",
+        size: 891,
+    },
+    ModelFile {
+        name: "tokenizer.json",
+        sha256: "62c24cdc13d4c9952d63718d6c9fa4c287974249e16b7ade6d5a85e7bbb75626",
+        size: 17_082_660,
+    },
+];
+
+const BGE_V2_M3_FILES: &[ModelFile] = &[
+    ModelFile {
+        name: "model.safetensors",
+        sha256: "d9e3e081faff1eefb84019509b2f5558fd74c1a05a2c7db22f74174fcedb5286",
+        size: 2_271_071_852,
+    },
+    ModelFile {
+        name: "config.json",
+        sha256: "13dcd6c31d9fec9d1d8e158702072f62d7fa7d312a64b9fe057bec9a08cfe41a",
+        size: 795,
+    },
+    ModelFile {
+        name: "tokenizer.json",
+        sha256: "69564b696052886ed0ac63fa393e928384e0f8caada38c1f4864a9bfbf379c15",
+        size: 17_098_273,
+    },
+];
+
 pub fn all_specs() -> Vec<ModelSpec> {
     vec![
         ModelSpec {
@@ -149,6 +205,8 @@ pub fn all_specs() -> Vec<ModelSpec> {
             files: BGE_SMALL_FILES,
             license: "MIT",
             languages: "English",
+            coverage: LanguageCoverage::English,
+            mirrored: true,
             dims: 384,
             max_tokens: 512,
             query_prefix: "Represent this sentence for searching relevant passages: ",
@@ -163,6 +221,8 @@ pub fn all_specs() -> Vec<ModelSpec> {
             files: E5_SMALL_FILES,
             license: "MIT",
             languages: "100+ languages",
+            coverage: LanguageCoverage::Multilingual,
+            mirrored: true,
             dims: 384,
             max_tokens: 512,
             query_prefix: "query: ",
@@ -176,7 +236,41 @@ pub fn all_specs() -> Vec<ModelSpec> {
             revision: "2cfc18c9415c912f9d8155881c133215df768a70",
             files: BGE_RERANKER_FILES,
             license: "MIT",
+            languages: "English, Chinese",
+            coverage: LanguageCoverage::EnglishChinese,
+            mirrored: true,
+            dims: 0,
+            max_tokens: 512,
+            query_prefix: "",
+            document_prefix: "",
+        },
+        ModelSpec {
+            id: MMARCO_RERANKER,
+            name: "mMARCO multilingual MiniLM reranker",
+            kind: ModelKind::Reranker,
+            repo: "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1",
+            revision: "1427fd652930e4ba29e8149678df786c240d8825",
+            files: MMARCO_FILES,
+            license: "Apache-2.0",
             languages: "Multilingual",
+            coverage: LanguageCoverage::Multilingual,
+            mirrored: true,
+            dims: 0,
+            max_tokens: 512,
+            query_prefix: "",
+            document_prefix: "",
+        },
+        ModelSpec {
+            id: LARGE_RERANKER,
+            name: "BGE reranker v2 m3 (large, multilingual)",
+            kind: ModelKind::Reranker,
+            repo: "BAAI/bge-reranker-v2-m3",
+            revision: "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e",
+            files: BGE_V2_M3_FILES,
+            license: "Apache-2.0",
+            languages: "Multilingual",
+            coverage: LanguageCoverage::Multilingual,
+            mirrored: false,
             dims: 0,
             max_tokens: 512,
             query_prefix: "",
@@ -210,5 +304,29 @@ mod tests {
         // Hugging Face stays the fallback, pinned to the same revision.
         assert!(urls[1].starts_with("https://huggingface.co/BAAI/bge-small-en-v1.5/resolve/"));
         assert!(urls[1].ends_with("/model.safetensors"));
+    }
+
+    #[test]
+    fn new_rerankers_are_pinned_and_mirrored_as_designed() {
+        let hex = |s: &str, n: usize| s.len() == n && s.chars().all(|c| c.is_ascii_hexdigit());
+        for id in [MMARCO_RERANKER, LARGE_RERANKER] {
+            let s = spec(id).unwrap();
+            assert!(hex(s.revision, 40), "{id}");
+            assert_eq!(s.files.len(), 3);
+            for f in s.files {
+                assert!(hex(f.sha256, 64) && f.size > 0, "{id} {}", f.name);
+            }
+            assert_eq!(s.coverage, LanguageCoverage::Multilingual);
+        }
+        assert_eq!(
+            spec(MMARCO_RERANKER)
+                .unwrap()
+                .download_urls("config.json")
+                .len(),
+            2
+        );
+        let large = spec(LARGE_RERANKER).unwrap().download_urls("config.json");
+        assert_eq!(large.len(), 1);
+        assert!(large[0].starts_with("https://huggingface.co/BAAI/bge-reranker-v2-m3/resolve/"));
     }
 }

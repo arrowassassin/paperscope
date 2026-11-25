@@ -17,7 +17,7 @@ fi
 tag="${1:-v0.1.0}"
 bash "$root/scripts/fetch-models.sh"
 
-# Assert that the exact nine paths in dist-workspace.toml now exist and that
+# Assert that the exact twelve paths in dist-workspace.toml now exist and that
 # every release asset has a unique basename (GitHub Releases cannot disambiguate
 # three assets all named model.safetensors/config.json/tokenizer.json).
 python3 - "$root" <<'PY'
@@ -29,6 +29,7 @@ model_ids = (
     "bge-small-en-v1.5",
     "multilingual-e5-small",
     "bge-reranker-base",
+    "mmarco-mminilmv2-l12-h384",
 )
 file_names = ("model.safetensors", "config.json", "tokenizer.json")
 assets = [
@@ -61,6 +62,6 @@ uploads every artifact to GitHub Releases. To start that release flow:
   git tag "$tag"
   git push origin "$tag"
 
-After CI completes, verify the nine model assets at:
+After CI completes, verify the twelve model assets at:
   https://github.com/arrowassassin/paperscope/releases/tag/$tag
 EOF

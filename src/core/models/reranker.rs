@@ -1,4 +1,4 @@
-use super::specs::ModelSpec;
+use super::specs::{LanguageCoverage, ModelSpec};
 use crate::core::search::Hit;
 use anyhow::{Context, Result};
 use candle_core::{DType, Device, IndexOp, Tensor};
@@ -9,12 +9,13 @@ use candle_transformers::models::xlm_roberta::{
 use std::path::Path;
 use tokenizers::Tokenizer;
 
-/// `BAAI/bge-reranker-base`: an XLM-RoBERTa sequence classifier producing one
+/// An XLM-RoBERTa sequence classifier producing one
 /// relevance logit per `(query, passage)` pair. Runs on the local CPU.
 pub struct Reranker {
     model: XLMRobertaForSequenceClassification,
     tokenizer: Tokenizer,
     device: Device,
+    coverage: LanguageCoverage,
 }
 
 impl Reranker {
@@ -44,7 +45,12 @@ impl Reranker {
             model,
             tokenizer,
             device,
+            coverage: spec.coverage,
         })
+    }
+
+    pub fn coverage(&self) -> LanguageCoverage {
+        self.coverage
     }
 
     /// Re-score hits with the cross-encoder, best first. `Hit::score` becomes a
