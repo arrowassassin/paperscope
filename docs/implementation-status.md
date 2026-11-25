@@ -312,7 +312,7 @@ is not on disk.
 
 ## Tests
 
-`cargo test` — 220 passing tests (plus 4 ignored: 3 model downloads and one
+`cargo test` — 219 passing tests (plus 4 ignored: 3 model downloads and one
 child-process helper for the setup-lock test), no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 
