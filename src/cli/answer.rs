@@ -18,6 +18,7 @@ pub async fn run(args: AnswerArgs) -> Result<i32> {
         .search_with(&args.question, &roots, &filters)?;
     let mut answer = Answer::from_hits(&args.question, &hits);
     ws.note_setup_in_progress();
+    crate::core::effective::note_deprecations(ws.remote.as_ref(), &ws.effective);
 
     if args.polish && !answer.not_found {
         match polish_answer(&args, &hits).await {

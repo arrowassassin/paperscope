@@ -6,7 +6,7 @@
 use crate::core::models::{all_specs, ModelKind};
 use base64::Engine;
 use chrono::NaiveDate;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::path::Path;
 
@@ -59,6 +59,11 @@ pub struct RemoteModel {
     /// "en" | "en-zh" | "multilingual"
     pub languages: String,
     pub dims: Option<usize>,
+    /// Embedders only; when absent the prefixes follow the Hugging Face org.
+    #[serde(default)]
+    pub query_prefix: Option<String>,
+    #[serde(default)]
+    pub document_prefix: Option<String>,
     pub files: Vec<RemoteFile>,
 }
 
@@ -193,6 +198,14 @@ fn validate(cfg: &RemoteConfig) -> Result<(), RemoteConfigError> {
                 m.id, m.repo
             ));
         }
+        for (name, p) in [
+            ("query_prefix", &m.query_prefix),
+            ("document_prefix", &m.document_prefix),
+        ] {
+            if p.as_ref().is_some_and(|p| p.chars().count() > 64) {
+                return invalid(format!("model '{}': {name} is longer than 64 chars", m.id));
+            }
+        }
         if !is_hex(&m.revision, 40) {
             return invalid(format!(
                 "model '{}': revision must be a 40-hex commit",
@@ -319,6 +332,30 @@ pub fn load_cached(dir: &Path, keys: &[[u8; 32]], today: NaiveDate) -> Option<Re
     let toml_bytes = std::fs::read(dir.join(CONFIG_FILE)).ok()?;
     let sig = std::fs::read_to_string(dir.join(SIG_FILE)).ok()?;
     verify_and_parse(&toml_bytes, &sig, keys, None, today, true).ok()
+}
+
+const STATE_FILE: &str = "remote-config.state";
+
+/// Last fetch outcome, written by the daemon and read by doctor and MCP.
+/// `outcome` is "updated" | "unchanged" | "rejected" | "fetch_failed" | "offline".
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct FetchState {
+    pub outcome: String,
+    #[serde(default)]
+    pub detail: Option<String>,
+    /// RFC 3339 timestamp.
+    pub at: String,
+}
+
+/// Best effort: missing or garbled means `None`.
+pub fn read_fetch_state(dir: &Path) -> Option<FetchState> {
+    toml::from_str(&std::fs::read_to_string(dir.join(STATE_FILE)).ok()?).ok()
+}
+
+pub fn write_fetch_state(dir: &Path, state: &FetchState) -> std::io::Result<()> {
+    std::fs::create_dir_all(dir)?;
+    let body = toml::to_string(state).map_err(std::io::Error::other)?;
+    write_atomic(dir, STATE_FILE, body.as_bytes())
 }
 
 #[cfg(test)]
@@ -641,5 +678,36 @@ mod tests {
         let after = compiled_keys();
         std::env::remove_var("PAPER_REMOTE_CONFIG_TEST_PUBKEY");
         assert_eq!(before, after);
+    }
+
+    #[test]
+    fn fetch_state_round_trips_and_garbage_reads_as_none() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(read_fetch_state(dir.path()), None);
+        let st = FetchState {
+            outcome: "rejected".into(),
+            detail: Some("bad \"signature\"".into()),
+            at: "2026-11-25T10:00:00+00:00".into(),
+        };
+        write_fetch_state(dir.path(), &st).unwrap();
+        assert_eq!(read_fetch_state(dir.path()), Some(st));
+        std::fs::write(dir.path().join(STATE_FILE), "not [ toml").unwrap();
+        assert_eq!(read_fetch_state(dir.path()), None);
+    }
+
+    #[test]
+    fn model_prefixes_are_optional_and_capped_at_64_chars() {
+        let with = |extra: &str| {
+            base(&format!(
+                "[[models]]\nid=\"p-emb\"\nkind=\"embedder\"\narch=\"bert\"\ndims=384\nrepo=\"intfloat/p\"\nrevision=\"{REV}\"\nlanguages=\"multilingual\"\n{extra}\nfiles=[{{name=\"model.safetensors\",sha256=\"{SHA}\",size=10}}]\n"
+            ))
+        };
+        let ok = check(&with("query_prefix=\"q: \"\ndocument_prefix=\"d: \"")).unwrap();
+        assert_eq!(ok.models[0].query_prefix.as_deref(), Some("q: "));
+        assert_eq!(ok.models[0].document_prefix.as_deref(), Some("d: "));
+        assert!(check(&with("")).unwrap().models[0].query_prefix.is_none());
+        let long = "x".repeat(65);
+        assert_invalid(&with(&format!("query_prefix=\"{long}\"")));
+        assert_invalid(&with(&format!("document_prefix=\"{long}\"")));
     }
 }

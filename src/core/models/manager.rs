@@ -348,8 +348,8 @@ fn remote_spec(m: &RemoteModel) -> ModelSpec {
         mirrored: false,
         dims: m.dims.unwrap_or(0),
         max_tokens: 512,
-        query_prefix,
-        document_prefix,
+        query_prefix: m.query_prefix.as_deref().map_or(query_prefix, leak),
+        document_prefix: m.document_prefix.as_deref().map_or(document_prefix, leak),
     }
 }
 

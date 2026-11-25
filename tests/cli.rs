@@ -1,3 +1,5 @@
+mod common;
+
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
@@ -201,4 +203,70 @@ fn uninstall_dry_run_keeps_data_and_yes_removes_it() {
     let out = run(&["--yes"]);
     assert!(out.status.success(), "{out:?}");
     assert!(!data.exists());
+}
+
+const DEPRECATING_CONFIG: &str = r#"
+schema = 1
+version = 7
+expires = "2099-01-01"
+[[deprecated]]
+id = "bge-reranker-base"
+message = "superseded"
+"#;
+
+fn paper_trusting(home: &Path, key: &str, args: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_paper"))
+        .args(args)
+        .env("PAPER_HOME", home)
+        .env("PAPER_REMOTE_CONFIG_TEST_PUBKEY", key)
+        .env_remove("PAPER_OFFLINE")
+        .output()
+        .unwrap()
+}
+
+#[test]
+fn cli_search_notes_a_deprecated_model_on_stderr_only() {
+    let fx = Fixture::new();
+    let plain = fx.run(&["search", "fridge warranty", "--json"]);
+    let key = common::install_signed_config(fx.home.path(), DEPRECATING_CONFIG);
+    let out = paper_trusting(
+        fx.home.path(),
+        &key,
+        &["search", "fridge warranty", "--json"],
+    );
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    let err = String::from_utf8_lossy(&out.stderr);
+    let note = "note: bge-reranker-base is deprecated: superseded";
+    assert_eq!(err.matches(note).count(), 1, "{err}");
+    assert_eq!(out.stdout, plain.stdout);
+    assert!(!String::from_utf8_lossy(&out.stdout).contains("deprecated"));
+    assert!(!String::from_utf8_lossy(&plain.stderr).contains("deprecated"));
+}
+
+#[test]
+fn doctor_shows_remote_config_sources_and_deprecations() {
+    let fx = Fixture::new();
+    let out = fx.run(&["doctor"]);
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("remote config: none yet"), "{text}");
+    assert!(
+        text.contains("embedder:   multilingual-e5-small (built-in)") || text.contains("embedder:"),
+        "{text}"
+    );
+
+    let key = common::install_signed_config(fx.home.path(), DEPRECATING_CONFIG);
+    let out = paper_trusting(fx.home.path(), &key, &["doctor"]);
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        text.contains("remote config: v7, expires 2099-01-01, last fetch none yet"),
+        "{text}"
+    );
+    assert!(
+        text.contains("reranker:   bge-reranker-base (built-in)"),
+        "{text}"
+    );
+    assert!(
+        text.contains("deprecated: bge-reranker-base: superseded"),
+        "{text}"
+    );
 }

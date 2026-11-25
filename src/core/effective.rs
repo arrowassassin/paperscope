@@ -3,7 +3,7 @@
 
 use super::config::Config;
 use super::models::{MULTILINGUAL_EMBEDDING, OPTIONAL_RERANKER};
-use super::remote_config::RemoteConfig;
+use super::remote_config::{Deprecation, RemoteConfig};
 use chrono::NaiveDate;
 
 /// The one place the built-in defaults live.
@@ -60,4 +60,33 @@ pub fn load_live_remote(today: NaiveDate) -> Option<RemoteConfig> {
     let dir = super::paths::Paths::new().base_dir();
     super::remote_config::load_cached(&dir, &super::remote_config::compiled_keys(), today)
         .filter(|r| !r.is_expired(today))
+}
+
+impl Source {
+    pub fn label(self) -> &'static str {
+        match self {
+            Source::Pinned => "pinned",
+            Source::Remote => "remote",
+            Source::BuiltIn => "built-in",
+        }
+    }
+}
+
+/// Deprecations naming the embedder or reranker actually in use.
+pub fn deprecations_in_use<'a>(
+    remote: Option<&'a RemoteConfig>,
+    effective: &Effective,
+) -> Vec<&'a Deprecation> {
+    remote
+        .into_iter()
+        .flat_map(|r| &r.deprecated)
+        .filter(|d| d.id == effective.embedder || d.id == effective.reranker)
+        .collect()
+}
+
+/// The CLI notice: one stderr line per deprecated in-use model.
+pub fn note_deprecations(remote: Option<&RemoteConfig>, effective: &Effective) {
+    for d in deprecations_in_use(remote, effective) {
+        eprintln!("note: {} is deprecated: {}", d.id, d.message);
+    }
 }

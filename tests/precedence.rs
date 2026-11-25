@@ -126,3 +126,38 @@ fn remote_models_appear_in_models_list() {
     assert!(!m.installed);
     assert!(manager.spec("remote-rerank").is_ok());
 }
+
+#[test]
+fn remote_embedder_prefixes_override_the_org_guess() {
+    let model = |extra: &str| -> RemoteConfig {
+        toml::from_str(&format!(
+            r#"
+schema = 1
+version = 1
+expires = "2027-01-01"
+[[models]]
+id = "remote-emb"
+kind = "embedder"
+arch = "bert"
+dims = 384
+repo = "intfloat/remote-emb"
+revision = "{REV}"
+languages = "multilingual"
+{extra}
+files = [ {{ name = "model.safetensors", sha256 = "{SHA}", size = 10 }} ]
+"#
+        ))
+        .unwrap()
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let spec_prefixes = |cfg: &RemoteConfig| {
+        let m = ModelManager::with_cache_dir(dir.path().to_path_buf()).with_remote(Some(cfg));
+        let s = m.spec("remote-emb").unwrap();
+        (s.query_prefix, s.document_prefix)
+    };
+    assert_eq!(spec_prefixes(&model("")), ("query: ", "passage: "));
+    assert_eq!(
+        spec_prefixes(&model("query_prefix = \"Q> \"\ndocument_prefix = \"\"")),
+        ("Q> ", "")
+    );
+}

@@ -23,6 +23,7 @@ struct Inner {
     /// downloaded here.
     reranker: Option<Arc<crate::core::models::Reranker>>,
     config: crate::core::config::SearchConfig,
+    effective: crate::core::effective::Effective,
     /// Read/write: the agent can add or remove indexed roots at runtime, and
     /// the same list is the read allow-list for citations.
     roots: std::sync::RwLock<Vec<PathBuf>>,
@@ -126,9 +127,42 @@ impl PaperMcp {
                     .reranker_if_installed(&ws.effective.reranker)
                     .map(Arc::new),
                 config: ws.config.search(ws.remote.as_ref()),
+                effective: ws.effective.clone(),
                 roots: std::sync::RwLock::new(roots),
             }),
         })
+    }
+
+    /// `remote_config` and `deprecations` for `index_status`, read from the
+    /// local cache at call time (never the network).
+    fn remote_status(&self) -> (serde_json::Value, Vec<serde_json::Value>) {
+        use crate::core::remote_config::{compiled_keys, load_cached, read_fetch_state};
+        let dir = crate::core::Paths::new().base_dir();
+        let today = chrono::Local::now().date_naive();
+        let cached = load_cached(&dir, &compiled_keys(), today);
+        let last_fetch = read_fetch_state(&dir).map(|s| s.outcome);
+        let status = match &cached {
+            Some(c) => serde_json::json!({
+                "version": c.version,
+                "expires": c.expires.to_string(),
+                "expired": c.is_expired(today),
+                "last_fetch": last_fetch,
+            }),
+            None => serde_json::Value::Null,
+        };
+        let live = cached.filter(|c| !c.is_expired(today));
+        let deprecations =
+            crate::core::effective::deprecations_in_use(live.as_ref(), &self.inner.effective)
+                .into_iter()
+                .map(|d| {
+                    serde_json::json!({
+                        "id": d.id,
+                        "message": d.message,
+                        "replacement": d.replacement,
+                    })
+                })
+                .collect();
+        (status, deprecations)
     }
 
     fn allowed(&self, path: &str) -> bool {
@@ -621,6 +655,7 @@ impl PaperMcp {
             }),
             _ => serde_json::json!({ "running": false }),
         };
+        let (remote_config, deprecations) = self.remote_status();
         Self::json(serde_json::json!({
             "indexed_files": files,
             "chunks": chunks,
@@ -628,6 +663,8 @@ impl PaperMcp {
             "roots": self.inner.roots(),
             "daemon": daemon,
             "setup_in_progress": self.inner.setup_status(),
+            "remote_config": remote_config,
+            "deprecations": deprecations,
         }))
     }
 
