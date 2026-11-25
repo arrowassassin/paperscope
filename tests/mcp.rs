@@ -427,6 +427,8 @@ fn mcp_refuses_to_empty_the_persisted_roots() {
     assert_eq!(std::fs::read_to_string(&config_path).unwrap(), config);
 }
 
+// Setup status is written by the daemon; keyword-only builds have none.
+#[cfg(feature = "daemon")]
 #[test]
 fn mcp_reports_background_setup_only_while_it_runs() {
     let (home, docs) = fixture();
