@@ -39,6 +39,8 @@ pub async fn run() -> Result<i32> {
         Err(e) => println!("  database:   unavailable ({e:#})"),
     }
 
+    print_remote_config(&ws);
+
     let manager = ModelManager::new();
     for model in manager.list() {
         println!(
@@ -87,4 +89,54 @@ pub async fn run() -> Result<i32> {
     println!();
     println!("{}", NOTICE);
     Ok(EXIT_FOUND)
+}
+
+fn print_remote_config(ws: &Workspace) {
+    use crate::core::remote_config::{compiled_keys, load_cached, read_fetch_state};
+    let dir = ws.paths.base_dir();
+    let today = chrono::Local::now().date_naive();
+    // Read the cache directly: `ws.remote` drops an expired copy, doctor still shows it.
+    match load_cached(&dir, &compiled_keys(), today) {
+        Some(cfg) => {
+            let fetch = match read_fetch_state(&dir) {
+                Some(s) => format!(
+                    "{} at {}{}",
+                    s.outcome,
+                    s.at,
+                    s.detail.map(|d| format!(" ({d})")).unwrap_or_default()
+                ),
+                None => "none yet".into(),
+            };
+            println!(
+                "  remote config: v{}, expires {}{}, last fetch {fetch}",
+                cfg.version,
+                cfg.expires,
+                if cfg.is_expired(today) {
+                    " (EXPIRED)"
+                } else {
+                    ""
+                },
+            );
+        }
+        None => println!("  remote config: none yet"),
+    }
+    let e = &ws.effective;
+    println!(
+        "  embedder:   {} ({})",
+        e.embedder,
+        e.embedder_source.label()
+    );
+    println!(
+        "  reranker:   {} ({})",
+        e.reranker,
+        e.reranker_source.label()
+    );
+    for d in crate::core::effective::deprecations_in_use(ws.remote.as_ref(), e) {
+        let hint = d
+            .replacement
+            .as_ref()
+            .map(|r| format!(" (replacement: {r})"))
+            .unwrap_or_default();
+        println!("  deprecated: {}: {}{hint}", d.id, d.message);
+    }
 }

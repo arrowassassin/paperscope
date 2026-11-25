@@ -386,26 +386,29 @@ pub async fn ensure_models(workspace: &crate::cli::Workspace) {
     }
 }
 
-/// Download the optional reranker (~1.1 GB) if missing. Only search processes
+/// Download the effective reranker (up to ~1.1 GB) if missing. Only search processes
 /// use it and it only improves ordering, so the daemon spawns this instead of
 /// delaying the first index pass. A failed or skipped download costs accuracy,
 /// never functionality. `PAPER_NO_RERANKER=1` keeps it off disk entirely.
-pub async fn ensure_reranker(manager: &crate::core::models::ModelManager) {
+pub async fn ensure_reranker(manager: &crate::core::models::ModelManager, reranker_id: &str) {
     let switches = Switches::from_process();
     if switches.offline || switches.no_autostart {
         return;
     }
     #[cfg(feature = "embeddings")]
-    if std::env::var_os("PAPER_NO_RERANKER").is_none()
-        && !manager.is_installed(crate::core::models::OPTIONAL_RERANKER)
-    {
-        tracing::info!("downloading the optional reranker in the background");
-        if let Err(error) = manager.ensure(crate::core::models::OPTIONAL_RERANKER).await {
+    if std::env::var_os("PAPER_NO_RERANKER").is_none() && !manager.is_installed(reranker_id) {
+        tracing::info!("downloading the reranker in the background");
+        if let Err(error) = manager.ensure(reranker_id).await {
             tracing::warn!("reranker download failed ({error:#}); results stay dense+keyword");
         }
     }
     #[cfg(not(feature = "embeddings"))]
-    let _ = manager;
+    let _ = (manager, reranker_id);
+}
+
+/// `PAPER_OFFLINE` is set: nothing may touch the network.
+pub fn is_offline() -> bool {
+    Switches::from_process().offline
 }
 
 const SETUP_STATUS_FILE: &str = "setup-status";

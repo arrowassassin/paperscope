@@ -8,7 +8,14 @@ fn every_model_is_pinned_ungated_and_complete() {
     for spec in all_specs() {
         assert_eq!(spec.revision.len(), 40, "{} must pin a commit", spec.id);
         assert!(
-            spec.repo.starts_with("BAAI/") || spec.repo.starts_with("intfloat/"),
+            [
+                "BAAI/",
+                "intfloat/",
+                "cross-encoder/",
+                "sentence-transformers/"
+            ]
+            .iter()
+            .any(|org| spec.repo.starts_with(org)),
             "{} must come from a first-party publisher",
             spec.id
         );
@@ -247,7 +254,7 @@ fn reranker_scores_relevant_passage_higher() {
         .unwrap()
         .block_on(manager.ensure(OPTIONAL_RERANKER))
         .unwrap();
-    let reranker = manager.load_reranker().unwrap();
+    let reranker = manager.load_reranker(OPTIONAL_RERANKER).unwrap();
 
     let hit = |id: i64, snippet: &str| Hit {
         source_id: id,

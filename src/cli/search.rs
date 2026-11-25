@@ -25,6 +25,7 @@ pub async fn run(args: SearchArgs) -> Result<i32> {
     let mut hits = pipeline.search_with(&args.query, &roots, &filters)?;
     hits.truncate(args.limit);
     ws.note_setup_in_progress();
+    crate::core::effective::note_deprecations(ws.remote.as_ref(), &ws.effective);
 
     if args.json {
         println!("{}", serde_json::to_string_pretty(&hits)?);

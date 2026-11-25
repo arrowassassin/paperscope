@@ -4,9 +4,10 @@ use paper::core::paths::Paths;
 #[test]
 fn default_config_matches_spec() {
     let config = Config::default();
-    assert_eq!(config.keyword_sufficiency_threshold, 10);
-    assert_eq!(config.rerank_top, 20);
-    assert_eq!(config.rrf_k, 60);
+    let search = config.search(None);
+    assert_eq!(search.keyword_sufficiency_threshold, 10);
+    assert_eq!(search.rerank_top, 20);
+    assert_eq!(search.rrf_k, 60);
     assert_eq!(config.max_chunk_tokens, 400);
     assert_eq!(config.chunk_overlap, 40);
     assert!(config.roots.is_empty());
@@ -38,17 +39,17 @@ fn config_round_trips_through_toml() {
     let path = dir.path().join("config.toml");
     let root = dir.path().join("docs");
     let mut config = paper::Config {
-        rrf_k: 42,
+        rrf_k: Some(42),
         ..Default::default()
     };
     config.roots.push(root.clone());
     std::fs::write(&path, toml::to_string_pretty(&config).unwrap()).unwrap();
 
     let loaded = Config::load_from(&path).unwrap();
-    assert_eq!(loaded.rrf_k, 42);
+    assert_eq!(loaded.rrf_k, Some(42));
     assert_eq!(loaded.roots, vec![root]);
     // Unspecified fields fall back to defaults rather than failing to parse.
-    assert_eq!(loaded.search().keyword_limit, 20);
+    assert_eq!(loaded.search(None).keyword_limit, 20);
 }
 
 #[test]
@@ -57,16 +58,16 @@ fn partial_config_uses_defaults_for_missing_keys() {
     let path = dir.path().join("config.toml");
     std::fs::write(&path, "rrf_k = 12\n").unwrap();
     let loaded = Config::load_from(&path).unwrap();
-    assert_eq!(loaded.rrf_k, 12);
-    assert_eq!(loaded.rerank_top, 20);
-    assert_eq!(loaded.search().keyword_limit, 20);
+    assert_eq!(loaded.rrf_k, Some(12));
+    assert_eq!(loaded.rerank_top, None);
+    assert_eq!(loaded.search(None).keyword_limit, 20);
 }
 
 #[test]
 fn missing_config_file_is_defaults_not_an_error() {
     let dir = tempfile::tempdir().unwrap();
     let loaded = Config::load_from(&dir.path().join("nope.toml")).unwrap();
-    assert_eq!(loaded.rrf_k, 60);
+    assert_eq!(loaded.rrf_k, None);
 }
 
 #[cfg(unix)]
@@ -94,7 +95,7 @@ fn a_new_config_file_and_its_directory_are_owner_only() {
     Config::default().save_to(&path).unwrap();
     assert_eq!(mode(&path), 0o600);
     assert_eq!(mode(&config_dir), 0o700);
-    assert_eq!(Config::load_from(&path).unwrap().rrf_k, 60);
+    assert_eq!(Config::load_from(&path).unwrap().rrf_k, None);
 }
 
 #[cfg(unix)]
@@ -108,12 +109,12 @@ fn saving_tightens_an_existing_world_readable_config() {
     let before = mode(dir.path());
 
     let config = Config {
-        rrf_k: 7,
+        rrf_k: Some(7),
         ..Default::default()
     };
     config.save_to(&path).unwrap();
     assert_eq!(mode(&path), 0o600);
-    assert_eq!(Config::load_from(&path).unwrap().rrf_k, 7);
+    assert_eq!(Config::load_from(&path).unwrap().rrf_k, Some(7));
     // An existing directory is never chmodded.
     assert_eq!(mode(dir.path()), before);
 }
@@ -133,11 +134,11 @@ fn save_is_atomic_leaves_no_temp_files_and_writes_through_a_symlink() {
     let link = real.clone();
 
     let config = Config {
-        rrf_k: 9,
+        rrf_k: Some(9),
         ..Default::default()
     };
     config.save_to(&link).unwrap();
-    assert_eq!(Config::load_from(&real).unwrap().rrf_k, 9);
+    assert_eq!(Config::load_from(&real).unwrap().rrf_k, Some(9));
     #[cfg(unix)]
     assert!(std::fs::symlink_metadata(&link).unwrap().is_symlink());
     let names: Vec<_> = std::fs::read_dir(dir.path())

@@ -4,7 +4,7 @@ use super::tier0::{tier0_search_filtered, HitSource, RawHit, MIN_QUERY_LEN};
 use super::tier1::tier1_search_filtered;
 use crate::core::config::SearchConfig;
 use crate::core::index::Connection;
-use crate::core::models::{Embedder, Reranker};
+use crate::core::models::{Embedder, LanguageCoverage, Reranker};
 use crate::core::text::{excerpt, is_searchable_query, query_terms, SNIPPET_CHARS};
 use anyhow::{bail, Result};
 use std::collections::HashMap;
@@ -143,7 +143,7 @@ impl SearchPipeline {
         if let Some(reranker) = self
             .reranker
             .as_ref()
-            .filter(|_| reranker_understands(query))
+            .filter(|r| reranker_handles(r.coverage(), query))
         {
             // Only the top candidates go through the cross-encoder: it is one
             // forward pass per pair, so reranking everything would be far slower.
@@ -321,22 +321,37 @@ pub fn source_of(hit: &RawHit) -> HitSource {
     hit.source
 }
 
-/// The reranker is trained mainly on English, so it can mis-order other languages.
-// shortcut: ASCII-only queries count as English; an unaccented French/Spanish query still gets reranked. Upgrade to a language-ID check if that matters.
-fn reranker_understands(query: &str) -> bool {
-    query.chars().all(|c| !c.is_alphabetic() || c.is_ascii())
+/// Whether a reranker with this language coverage should score this query.
+// shortcut: ASCII-only counts as English; an unaccented French/Spanish query still gets an English-only reranker. Upgrade to a language-ID check if that matters.
+pub fn reranker_handles(coverage: LanguageCoverage, query: &str) -> bool {
+    let cjk = |c: char| matches!(c, '\u{3040}'..='\u{30FF}' | '\u{3400}'..='\u{4DBF}' | '\u{4E00}'..='\u{9FFF}' | '\u{AC00}'..='\u{D7AF}');
+    match coverage {
+        LanguageCoverage::Multilingual => true,
+        LanguageCoverage::EnglishChinese => query
+            .chars()
+            .all(|c| !c.is_alphabetic() || c.is_ascii() || cjk(c)),
+        LanguageCoverage::English => query.chars().all(|c| !c.is_alphabetic() || c.is_ascii()),
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::reranker_understands;
+    use super::reranker_handles;
+    use crate::core::models::LanguageCoverage::*;
 
     #[test]
-    fn reranker_only_for_ascii_queries() {
-        assert!(reranker_understands("how do I cancel my subscription"));
-        assert!(reranker_understands("invoice 2026-03"));
-        for q in ["Grüße", "café", "日本語", "привет"] {
-            assert!(!reranker_understands(q), "{q}");
+    fn reranker_handles_by_coverage() {
+        for (q, zh) in [
+            ("invoice 2026", true),
+            ("日本語", true),
+            ("发票", true),
+            ("Grüße", false),
+            ("привет", false),
+        ] {
+            assert_eq!(reranker_handles(EnglishChinese, q), zh, "{q}");
+            assert!(reranker_handles(Multilingual, q), "{q}");
         }
+        assert!(!reranker_handles(English, "日本語"));
+        assert!(reranker_handles(English, "invoice 2026"));
     }
 }

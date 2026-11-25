@@ -4,6 +4,41 @@ All notable changes to this project are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html); while the version is
 `0.x`, minor releases may change behaviour.
 
+## [0.4.0] — 2026-11-25
+
+### Added
+- **Remote config.** The background service fetches a small signed settings file
+  (`config/remote-config.toml` on the `remote-config` branch) once a day. It can
+  change the default embedder and reranker, add hash-pinned models from allowed
+  Hugging Face organisations, retire models, and tune `rerank_top` and
+  `semantic_min_score`. It is ignored unless its Ed25519 signature verifies
+  against a key built into the binary, its version is newer than the saved copy,
+  and it has not expired. Search, CLI and MCP only read the saved copy; nothing is
+  sent, and `PAPER_OFFLINE=1` disables the fetch.
+- **Local pins.** `embedder` and `reranker` keys in `config.toml` pin a model;
+  remote defaults never move a pinned model. Settings resolve as local
+  `config.toml`, then remote config, then built-in defaults.
+- **`bge-reranker-v2-m3`** as an optional best-quality reranker (100+ languages,
+  2.3 GB, much slower; downloaded from Hugging Face only).
+- `paper doctor` shows the remote-config version, expiry and last fetch, which
+  models are in use and why (pinned, remote or built-in), and retired models.
+  Search and answer print a one-line stderr note when a model in use is retired;
+  MCP `index_status` adds `remote_config` and `deprecations`.
+- Signing scripts and CI: changes to the config are signed after merge by an
+  approval-gated workflow (see `docs/remote-config.md`).
+
+### Changed
+- **Default reranker: `mmarco-mMiniLMv2-L12-H384`** (488 MB, about 14 languages)
+  replaces `bge-reranker-base` (1.13 GB, English and Chinese). In our evaluation
+  it was better on non-English queries, about twice as fast, and lost one English
+  query in 23. Existing installs switch automatically and the old model is
+  deleted once the new one verifies, unless you pinned it. Queries in any
+  language are now reranked.
+- **Changing the embedding model re-embeds from stored text.** Chunks stay, so
+  keyword search keeps working while new embeddings are filled in, in resumable
+  batches; nothing is re-parsed or re-OCR'd. The setup note shows progress.
+  Chunks indexed before an embedder was installed now get embeddings too.
+
 ## [0.3.1] — 2026-11-25
 
 ### Added

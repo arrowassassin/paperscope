@@ -20,7 +20,7 @@ API keys, no telemetry, no cloud.
 > 15+ formats · 100+ languages · hybrid keyword + vector search · MCP server for
 > Claude and other agents · runs fully offline.
 
-Latest release: **[0.3.1](https://github.com/kintsugi-tools/paperscope/releases/tag/v0.3.1)**
+Latest release: **[0.4.0](https://github.com/kintsugi-tools/paperscope/releases/tag/v0.4.0)**
 · [changelog](CHANGELOG.md)
 
 ## Install
@@ -45,10 +45,10 @@ cargo install paperscope               # any platform with Rust 1.94+
    with a five-minute incremental pass and a 3 AM full pass.
 
 Until the first index finishes, searches print (CLI) or report (MCP
-`setup_in_progress`) that setup is still running. The reranker (1.13 GB) then
+`setup_in_progress`) that setup is still running. The reranker (488 MB) then
 downloads in the background without delaying indexing, and ranking sharpens
 when it lands. On a metered
-connection or tight disk, `PAPER_NO_RERANKER=1` skips the 1.13 GB second model.
+connection or tight disk, `PAPER_NO_RERANKER=1` skips the 488 MB second model.
 Prefer to drive it yourself? `PAPER_NO_AUTOSTART=1 paper index --root ~/Documents`,
 or undo everything with `paper daemon-control uninstall`.
 
@@ -104,8 +104,10 @@ source first, then a short answer, and never invents one.
 - **Citations, not vibes.** Hybrid FTS5 + `sqlite-vec` retrieval with rank
   fusion; low-confidence matches are dropped instead of answered.
 - **Private by construction.** Embeddings and the index live in `~/Library` /
-  `~/.local/share`; nothing leaves the machine. `PAPER_OFFLINE=1` blocks the
-  network entirely.
+  `~/.local/share`; your documents never leave the machine. The background
+  service downloads models and, once a day, a small signed settings file
+  (default models, retired models); nothing is sent. `PAPER_OFFLINE=1` blocks
+  the network entirely.
 - **Agent-ready.** Ships with an MCP server. Claude (or any MCP client) can
   search, read, index new folders and report index status, with path vetting so
   a prompt injection cannot reach `.ssh` or `.aws`.
@@ -162,7 +164,9 @@ contract).
 |---|---|---|
 | `multilingual-e5-small` | 488 MB | default embeddings, 100+ languages (auto-downloaded) |
 | `bge-small-en-v1.5` | 134 MB | optional English-only embeddings |
-| `bge-reranker-base` | 1.13 GB | reranks top hits (auto-downloaded; `PAPER_NO_RERANKER=1` to skip) |
+| `mmarco-mminilmv2-l12-h384` | 488 MB | reranks top hits, ~14 languages (auto-downloaded; `PAPER_NO_RERANKER=1` to skip) |
+| `bge-reranker-v2-m3` | 2.3 GB | optional best-quality reranker, 100+ languages, much slower |
+| `bge-reranker-base` | 1.13 GB | previous default reranker (English, Chinese); retired |
 | PP-OCRv4 det + rec | 16 MB | reads scans and images (auto-downloaded; `--no-ocr` to skip) |
 
 ```bash

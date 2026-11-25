@@ -1,0 +1,65 @@
+name: Sign remote config
+
+# After a config change lands on main, sign it with the key held in the
+# `config-signing` environment (required reviewer: the maintainer) and publish
+# the signed pair to the `remote-config` branch, which is what Paper fetches.
+on:
+  push:
+    branches: [main]
+    paths: ['config/remote-config.toml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sign-remote-config
+  cancel-in-progress: false
+
+jobs:
+  sign:
+    runs-on: ubuntu-latest
+    environment: config-signing
+    permissions:
+      contents: write
+    steps:
+      # First-party action only, pinned to a commit: this job holds the key.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Sign
+        env:
+          SIGNING_KEY: ${{ secrets.REMOTE_CONFIG_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$SIGNING_KEY" || { echo "REMOTE_CONFIG_SIGNING_KEY is not set"; exit 1; }
+          umask 077
+          key="$RUNNER_TEMP/primary.pem"
+          printf '%s\n' "$SIGNING_KEY" > "$key"
+          scripts/sign-remote-config.sh "$key"
+          rm -f "$key"
+          scripts/verify-remote-config.sh
+      - name: Publish to the remote-config branch
+        run: |
+          set -euo pipefail
+          cp config/remote-config.toml config/remote-config.toml.sig "$RUNNER_TEMP/"
+          # The fresh .sig is untracked here but tracked on remote-config; drop it so the switch works.
+          rm config/remote-config.toml.sig
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code origin refs/heads/remote-config >/dev/null; then
+            git fetch origin remote-config
+            git switch remote-config
+          else
+            git switch --orphan remote-config
+            git rm -rf --quiet . || true
+          fi
+          mkdir -p config
+          cp "$RUNNER_TEMP/remote-config.toml" "$RUNNER_TEMP/remote-config.toml.sig" config/
+          git add config/remote-config.toml config/remote-config.toml.sig
+          if git diff --cached --quiet; then
+            echo "already published"; exit 0
+          fi
+          git commit -m "remote config v$(grep -m1 '^version' config/remote-config.toml | tr -dc 0-9) signed from ${GITHUB_SHA::7}"
+          git push origin remote-config

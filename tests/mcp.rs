@@ -1,3 +1,5 @@
+mod common;
+
 use serde_json::{json, Value};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -455,4 +457,58 @@ fn mcp_reports_background_setup_only_while_it_runs() {
     assert!(note.contains(phase), "{raw}");
     let answer = client.call_tool("answer_documents", json!({"question": "fridge warranty"}));
     assert_eq!(answer["setup_in_progress"], phase);
+}
+
+const DEPRECATING_CONFIG: &str = r#"
+schema = 1
+version = 7
+expires = "2099-01-01"
+[[deprecated]]
+id = "mmarco-mminilmv2-l12-h384"
+message = "superseded"
+replacement = "bge-reranker-v2-m3"
+[[deprecated]]
+id = "some-unused-model"
+message = "not in use"
+"#;
+
+#[test]
+fn mcp_index_status_reports_remote_config_and_deprecations() {
+    let (home, docs) = fixture();
+    let key = common::install_signed_config(home.path(), DEPRECATING_CONFIG);
+    paper::core::remote_config::write_fetch_state(
+        home.path(),
+        &paper::core::remote_config::FetchState {
+            outcome: "updated".into(),
+            detail: None,
+            at: "2026-11-25T10:00:00+00:00".into(),
+        },
+    )
+    .unwrap();
+    let mut client = McpClient::spawn_with_env(
+        home.path(),
+        &docs,
+        "2024-11-05",
+        &[("PAPER_REMOTE_CONFIG_TEST_PUBKEY", Path::new(&key))],
+    );
+    let status = client.call_tool("index_status", json!({}));
+    assert_eq!(
+        status["remote_config"],
+        json!({"version": 7, "expires": "2099-01-01", "expired": false, "last_fetch": "updated"}),
+        "{status}"
+    );
+    assert_eq!(
+        status["deprecations"],
+        json!([{"id": "mmarco-mminilmv2-l12-h384", "message": "superseded", "replacement": "bge-reranker-v2-m3"}]),
+        "{status}"
+    );
+}
+
+#[test]
+fn index_status_remote_config_is_null_without_a_cache() {
+    let (home, docs) = fixture();
+    let mut client = McpClient::spawn(home.path(), &docs);
+    let status = client.call_tool("index_status", json!({}));
+    assert!(status["remote_config"].is_null(), "{status}");
+    assert_eq!(status["deprecations"], json!([]), "{status}");
 }

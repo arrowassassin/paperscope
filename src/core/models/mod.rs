@@ -14,8 +14,8 @@ mod without_embeddings;
 
 pub use manager::{verify_sha256 as verify_sha256_public, ModelInfo, ModelManager};
 pub use specs::{
-    all_specs, spec, ModelKind, ModelSpec, DEFAULT_EMBEDDING, EMBEDDING_DIMS,
-    MULTILINGUAL_EMBEDDING, OPTIONAL_RERANKER,
+    all_specs, spec, LanguageCoverage, ModelKind, ModelSpec, DEFAULT_EMBEDDING, EMBEDDING_DIMS,
+    LARGE_RERANKER, MMARCO_RERANKER, MULTILINGUAL_EMBEDDING, OPTIONAL_RERANKER,
 };
 
 #[cfg(feature = "embeddings")]

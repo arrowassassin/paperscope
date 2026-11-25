@@ -38,6 +38,8 @@ the crates.io page renders `docs/readme.md`. The allow-list paths are rooted
 matched `site/node_modules/**/CHANGELOG.md` and pulled three unrelated files into
 the tarball.
 
+Remote-config maintainer guide (keys, signing, CI): [remote-config.md](remote-config.md).
+
 ## Packaging and release (verified)
 
 - `cargo publish --dry-run` succeeds: **72 files, ~155 KiB compressed**, and the
@@ -71,7 +73,7 @@ the tarball.
   hashes, and stages unique `<model-id>-<file>` release asset names under
   `models/release/`; `scripts/prepare-release.sh` prints the local build and
   tag-driven release commands. Models are not bundled into platform archives.
-  The nine unique assets are confirmed by `dist plan`; a real tag run is still
+  The twelve unique assets are confirmed by `dist plan`; a real tag run is still
   pending.
 - **Not** built: `.deb`/`.rpm`/`.apk`, AppImage, MSI/pkg; no code signing or
   notarization (no certificate is configured, so artifacts are unsigned but
@@ -119,12 +121,44 @@ file**, and verified by downloading the real weights and running inference.
 | --- | --- | --- | --- | --- | --- |
 | `BAAI/bge-small-en-v1.5` | optional English-only embedding | **134 MB** | 384 | BERT | semantic ordering correct |
 | `intfloat/multilingual-e5-small` | default multilingual embedding (auto-downloaded) | **488 MB** | 384 | BERT | English query → French document retrieved |
-| `BAAI/bge-reranker-base` | opt-in cross-encoder | **1129 MB** | — | XLM-RoBERTa seq-classification | relevant passage ranked first, score > 0.5 |
+| `BAAI/bge-reranker-base` | opt-in cross-encoder (English, Chinese) | **1129 MB** | — | XLM-RoBERTa seq-classification | relevant passage ranked first, score > 0.5 |
+| `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` | multilingual cross-encoder (release-mirrored) | **488 MB** | — | XLM-RoBERTa seq-classification | pinned; inference verified by the evaluation gate below |
+| `BAAI/bge-reranker-v2-m3` | large multilingual cross-encoder (Hugging Face only) | **2.29 GB** | — | XLM-RoBERTa seq-classification | pinned; inference verified by the evaluation gate below |
 
 `paper models install` and `ModelManager` currently download these pinned
 Hugging Face URLs directly; they do not yet construct GitHub Release asset
 URLs. The release assets use `<model-id>-<file>` names to avoid basename
 collisions.
+
+### Reranker evaluation gate (spec section 9)
+
+`cargo test --release --test rerank_eval -- --ignored --nocapture` with
+`PAPER_HOME` set to a scratch dir (downloads about 4.4 GB). Embedder
+`multilingual-e5-small`; corpora `tests/eval/golden.json` (English, answerable
+queries only) and `tests/eval/golden-multilingual.json` (fr, de, es, hi, ja, ar:
+7 documents and 4 queries each, 24 queries, each in the language of its one
+relevant document). Every query is reranked, bypassing the language-coverage
+skip. Release build, CPU. Latency is the median per-query search time with the
+reranker minus the same search without it.
+
+| Reranker | English MRR@10 | English hit@1 | Non-English MRR@10 | Non-English hit@1 | Median rerank ms/query (en, non-en) |
+| --- | --- | --- | --- | --- | --- |
+| none | 1.000 | 1.000 | 1.000 | 1.000 | - |
+| `bge-reranker-base` | 1.000 | 1.000 | 0.894 | 0.833 | 3932, 3109 |
+| `mmarco` | 0.978 | 0.957 | 0.944 | 0.917 | 1693, 1517 |
+| `bge-reranker-v2-m3` | 1.000 | 1.000 | 0.979 | 0.958 | 11326, 9236 |
+
+**Gate: FAIL.** `mmarco` English MRR@10 (0.978) is within 5% of `bge-reranker-base`
+(1.000), but its non-English MRR@10 (0.944) does not beat the no-reranker
+baseline (1.000). Caveat: the no-reranker baseline is at the ceiling on this small corpus
+(retrieval alone already ranks every relevant document first), so the set cannot
+show a reranker gain; a harder corpus would be needed to test that.
+
+**Decision (maintainer, 0.4.0): `mmarco` is the default reranker anyway.** Head
+to head it beats `bge-reranker-base` on non-English (0.944 vs 0.894), is about
+twice as fast and less than half the download, and loses one English query in
+23. `bge-reranker-base` is retired via the remote config (`[[deprecated]]`);
+`v2-m3` stays opt-in.
 
 ### Why not EmbeddingGemma / bge-reranker-v2-m3 (the original spec)
 
@@ -294,6 +328,14 @@ is not on disk.
 
 - The daemon's passes over the configured roots also prune deleted files, and
   indexing jobs run one at a time (a mutex in the daemon state).
+- The daemon fetches the signed remote config (`src/daemon/remote.rs`) at start
+  and every 24 hours unless `PAPER_OFFLINE` is set, records the outcome in
+  `remote-config.state`, then follows the effective defaults: it downloads a new
+  default reranker or embedder, re-embeds from stored text (resumable, status
+  line "re-embedding your documents for the new model (N of M)"), and removes
+  the old model only if it was Paper's own default, never a pinned one. A
+  built-in effective default, which an expired config falls back to, never
+  moves an index.
 - A failed or timed-out extraction keeps the file's previous chunks; the file is
   counted as skipped with warnings and retried on the next pass.
 - Recording a different embedding model than the one stored drops every chunk and
@@ -310,10 +352,20 @@ is not on disk.
   size and mtime still match; otherwise it hashes once and re-stamps. `is_verified`
   and `paper doctor` always hash in full, as does every download.
 
+## Settings precedence
+
+Local pin > remote default > built-in. `config.toml` accepts optional `embedder`
+and `reranker` keys (a pin that remote defaults never move) and optional search
+values (`keyword_sufficiency_threshold`, `rerank_top`, `rrf_k`,
+`semantic_min_score`); only fields the user wrote are saved. `core::effective`
+resolves the models and holds the built-in defaults; `Config::search(remote)`
+resolves search values. The remote config is read from the verified local cache
+only, never fetched by the CLI or MCP, and an expired one contributes nothing.
+
 ## Tests
 
-`cargo test` — 219 passing tests (plus 4 ignored: 3 model downloads and one
-child-process helper for the setup-lock test), no network access, no model downloads.
+`cargo test` — 259 passing tests (plus 5 ignored: 3 model downloads, the reranker evaluation gate
+and one child-process helper for the setup-lock test), no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 
 ```

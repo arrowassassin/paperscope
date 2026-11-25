@@ -1,5 +1,6 @@
 pub mod answer;
 pub mod config;
+pub mod effective;
 pub mod eval;
 pub mod extract;
 pub mod fields;
@@ -7,6 +8,7 @@ pub mod index;
 pub mod models;
 pub mod paths;
 pub mod platform;
+pub mod remote_config;
 pub mod search;
 pub mod text;
 

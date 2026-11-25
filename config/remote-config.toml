@@ -1,0 +1,12 @@
+schema = 1
+version = 2
+expires = "2027-11-25"
+
+[defaults]
+embedder = "multilingual-e5-small"
+reranker = "mmarco-mminilmv2-l12-h384"
+
+[[deprecated]]
+id = "bge-reranker-base"
+message = "Replaced by mmarco-mminilmv2-l12-h384: multilingual, half the size, twice as fast."
+replacement = "mmarco-mminilmv2-l12-h384"

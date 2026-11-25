@@ -28,6 +28,9 @@ entries=(
   "bge-reranker-base|BAAI/bge-reranker-base|2cfc18c9415c912f9d8155881c133215df768a70|model.safetensors|ced967c45fd1902eb92716c9ceeca7c95a936770ea9db611f5a841b926e33fbd|1112206140"
   "bge-reranker-base|BAAI/bge-reranker-base|2cfc18c9415c912f9d8155881c133215df768a70|config.json|289adf7ada1eb6b4afa7589a48a032d45a076cf2e46dcdb3b4cabc33be14f708|799"
   "bge-reranker-base|BAAI/bge-reranker-base|2cfc18c9415c912f9d8155881c133215df768a70|tokenizer.json|9eb652ac4e40cc093272bbbe0f55d521cf67570060227109b5cdc20945a4489e|17098107"
+  "mmarco-mminilmv2-l12-h384|cross-encoder/mmarco-mMiniLMv2-L12-H384-v1|1427fd652930e4ba29e8149678df786c240d8825|model.safetensors|5daeca2481a76b5976a2bdc32f0a78532b6716da4f8cd3ff59460ef8d2f359b4|470592698"
+  "mmarco-mminilmv2-l12-h384|cross-encoder/mmarco-mMiniLMv2-L12-H384-v1|1427fd652930e4ba29e8149678df786c240d8825|config.json|cc2cfe51aa3fd759d21d21acf5dfd6994aa67a3c9210636d22e143699d336c77|891"
+  "mmarco-mminilmv2-l12-h384|cross-encoder/mmarco-mMiniLMv2-L12-H384-v1|1427fd652930e4ba29e8149678df786c240d8825|tokenizer.json|62c24cdc13d4c9952d63718d6c9fa4c287974249e16b7ade6d5a85e7bbb75626|17082660"
 )
 
 verify() {
