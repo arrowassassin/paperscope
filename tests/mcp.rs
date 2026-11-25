@@ -464,9 +464,9 @@ schema = 1
 version = 7
 expires = "2099-01-01"
 [[deprecated]]
-id = "bge-reranker-base"
+id = "mmarco-mminilmv2-l12-h384"
 message = "superseded"
-replacement = "mmarco-mminilmv2-l12-h384"
+replacement = "bge-reranker-v2-m3"
 [[deprecated]]
 id = "some-unused-model"
 message = "not in use"
@@ -499,7 +499,7 @@ fn mcp_index_status_reports_remote_config_and_deprecations() {
     );
     assert_eq!(
         status["deprecations"],
-        json!([{"id": "bge-reranker-base", "message": "superseded", "replacement": "mmarco-mminilmv2-l12-h384"}]),
+        json!([{"id": "mmarco-mminilmv2-l12-h384", "message": "superseded", "replacement": "bge-reranker-v2-m3"}]),
         "{status}"
     );
 }

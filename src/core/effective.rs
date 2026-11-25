@@ -2,13 +2,13 @@
 //! > built-in (spec §4).
 
 use super::config::Config;
-use super::models::{MULTILINGUAL_EMBEDDING, OPTIONAL_RERANKER};
+use super::models::{MMARCO_RERANKER, MULTILINGUAL_EMBEDDING};
 use super::remote_config::{Deprecation, RemoteConfig};
 use chrono::NaiveDate;
 
 /// The one place the built-in defaults live.
 pub const BUILTIN_EMBEDDER: &str = MULTILINGUAL_EMBEDDING;
-pub const BUILTIN_RERANKER: &str = OPTIONAL_RERANKER;
+pub const BUILTIN_RERANKER: &str = MMARCO_RERANKER;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Source {

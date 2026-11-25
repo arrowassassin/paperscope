@@ -210,7 +210,7 @@ schema = 1
 version = 7
 expires = "2099-01-01"
 [[deprecated]]
-id = "bge-reranker-base"
+id = "mmarco-mminilmv2-l12-h384"
 message = "superseded"
 "#;
 
@@ -236,7 +236,7 @@ fn cli_search_notes_a_deprecated_model_on_stderr_only() {
     );
     assert_eq!(out.status.code(), Some(0), "{out:?}");
     let err = String::from_utf8_lossy(&out.stderr);
-    let note = "note: bge-reranker-base is deprecated: superseded";
+    let note = "note: mmarco-mminilmv2-l12-h384 is deprecated: superseded";
     assert_eq!(err.matches(note).count(), 1, "{err}");
     assert_eq!(out.stdout, plain.stdout);
     assert!(!String::from_utf8_lossy(&out.stdout).contains("deprecated"));
@@ -262,11 +262,11 @@ fn doctor_shows_remote_config_sources_and_deprecations() {
         "{text}"
     );
     assert!(
-        text.contains("reranker:   bge-reranker-base (built-in)"),
+        text.contains("reranker:   mmarco-mminilmv2-l12-h384 (built-in)"),
         "{text}"
     );
     assert!(
-        text.contains("deprecated: bge-reranker-base: superseded"),
+        text.contains("deprecated: mmarco-mminilmv2-l12-h384: superseded"),
         "{text}"
     );
 }

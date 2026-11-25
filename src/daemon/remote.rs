@@ -5,11 +5,9 @@
 use super::{ClearSetupStatus, DaemonState};
 use crate::cli::Workspace;
 use crate::core::config::Config;
-use crate::core::effective::{
-    load_live_remote, resolve, Source, BUILTIN_EMBEDDER, BUILTIN_RERANKER,
-};
+use crate::core::effective::{load_live_remote, resolve, Source, BUILTIN_EMBEDDER};
 use crate::core::index::{init_db, reembed_pending, Connection, Indexer};
-use crate::core::models::ModelManager;
+use crate::core::models::{ModelManager, OPTIONAL_RERANKER};
 use crate::core::remote_config::{self, RemoteConfig, RemoteConfigError};
 use crate::core::search::SharedEmbedder;
 use anyhow::{Context, Result};
@@ -296,10 +294,12 @@ async fn follow(
     // Reranker. `ensure_reranker` honours PAPER_OFFLINE and PAPER_NO_RERANKER.
     crate::bootstrap::ensure_reranker(manager, &eff.reranker).await;
     if manager.is_installed(&eff.reranker) {
-        let prev = meta(&conn, "reranker_in_use").unwrap_or_else(|| BUILTIN_RERANKER.to_string());
+        // Installs from before 0.4 have no record; the only reranker they ever
+        // downloaded automatically was bge-reranker-base.
+        let prev = meta(&conn, "reranker_in_use").unwrap_or_else(|| OPTIONAL_RERANKER.to_string());
         let prev_default = meta(&conn, "reranker_in_use_default").is_none_or(|v| v == "1");
         if prev != eff.reranker
-            && eff.reranker_source == Source::Remote
+            && eff.reranker_source != Source::Pinned
             && prev_default
             && config.reranker.as_deref() != Some(prev.as_str())
         {

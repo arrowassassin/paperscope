@@ -1,6 +1,6 @@
 use chrono::NaiveDate;
 use paper::core::config::{Config, SearchConfig};
-use paper::core::effective::{resolve, Source};
+use paper::core::effective::{resolve, Source, BUILTIN_RERANKER};
 use paper::core::models::{
     ModelKind, ModelManager, MMARCO_RERANKER, MULTILINGUAL_EMBEDDING, OPTIONAL_RERANKER,
 };
@@ -83,7 +83,7 @@ fn unset_local_search_values_take_remote_then_builtin() {
 #[test]
 fn expired_remote_contributes_nothing() {
     let e = resolve(&Config::default(), Some(&remote("2026-11-24")), today());
-    assert_eq!(e.reranker, OPTIONAL_RERANKER);
+    assert_eq!(e.reranker, BUILTIN_RERANKER);
     assert_eq!(e.reranker_source, Source::BuiltIn);
 }
 

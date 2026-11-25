@@ -150,11 +150,15 @@ reranker minus the same search without it.
 
 **Gate: FAIL.** `mmarco` English MRR@10 (0.978) is within 5% of `bge-reranker-base`
 (1.000), but its non-English MRR@10 (0.944) does not beat the no-reranker
-baseline (1.000). The defaults are unchanged: `bge-reranker-base` stays the
-built-in reranker, the language skip stays, `v2-m3` remains opt-in. Caveat: the
-no-reranker baseline is at the ceiling on this small corpus (retrieval alone
-already ranks every relevant document first), so the set cannot show a reranker
-gain; a harder corpus would be needed to test that.
+baseline (1.000). Caveat: the no-reranker baseline is at the ceiling on this small corpus
+(retrieval alone already ranks every relevant document first), so the set cannot
+show a reranker gain; a harder corpus would be needed to test that.
+
+**Decision (maintainer, 0.4.0): `mmarco` is the default reranker anyway.** Head
+to head it beats `bge-reranker-base` on non-English (0.944 vs 0.894), is about
+twice as fast and less than half the download, and loses one English query in
+23. `bge-reranker-base` is retired via the remote config (`[[deprecated]]`);
+`v2-m3` stays opt-in.
 
 ### Why not EmbeddingGemma / bge-reranker-v2-m3 (the original spec)
 

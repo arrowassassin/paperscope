@@ -29,7 +29,7 @@ The models download on their own on first run. To fetch one explicitly
 ```sh
 paper models install bge-small-en-v1.5      # 134 MB, English-only
 paper models install multilingual-e5-small  # 488 MB, multilingual (default)
-paper models install bge-reranker-base      # optional 1.13 GB reranker
+paper models install bge-reranker-v2-m3     # optional 2.3 GB best-quality reranker
 ```
 
 `PAPER_OFFLINE=1` works completely once models are cached: no network is ever
