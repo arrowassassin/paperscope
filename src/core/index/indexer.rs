@@ -113,9 +113,9 @@ impl Indexer {
     /// indexer is created with an embedder, so the index knows which model
     /// produced its vectors.
     fn record_embedding_model(conn: &Connection, model_id: &str) -> Result<()> {
-        // Vectors from a different model are meaningless next to the new one
-        // and unchanged files would keep them: drop every chunk so the next
-        // pass re-extracts and re-embeds everything.
+        // Vectors from a different model are meaningless next to the new one:
+        // drop only the vectors and keep the chunks, so keyword search keeps
+        // working and `reembed_missing` refills them from the stored text.
         let stored: Option<String> = conn
             .inner()
             .query_row(
@@ -127,8 +127,18 @@ impl Indexer {
         if stored.as_deref().is_some_and(|old| old != model_id) {
             let tx = conn.inner().unchecked_transaction()?;
             tx.execute("DELETE FROM chunks_vec", [])?;
-            tx.execute("DELETE FROM chunks", [])?;
+            tx.execute(
+                "INSERT INTO index_meta (key, value) VALUES ('embedding_model', ?)
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                [model_id],
+            )?;
+            tx.execute(
+                "INSERT INTO index_meta (key, value) VALUES ('reembed_pending', '1')
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                [],
+            )?;
             tx.commit()?;
+            return Ok(());
         }
         conn.inner().execute(
             "INSERT INTO index_meta (key, value) VALUES ('embedding_model', ?)
@@ -136,6 +146,56 @@ impl Indexer {
             [model_id],
         )?;
         Ok(())
+    }
+
+    /// Embed every chunk that has no vector, from the stored text, `batch`
+    /// chunks per transaction. Resumable: each batch commits on its own.
+    /// Returns the number embedded; a no-op without an embedder.
+    pub fn reembed_missing(
+        &self,
+        batch: usize,
+        mut progress: impl FnMut(usize, usize),
+    ) -> Result<usize> {
+        let Some(embedder) = &self.embedder else {
+            return Ok(0);
+        };
+        let batch = batch.max(1);
+        let conn = self.conn.inner();
+        let total = conn.query_row(
+            "SELECT COUNT(*) FROM chunks WHERE id NOT IN (SELECT rowid FROM chunks_vec)",
+            [],
+            |r| r.get::<_, i64>(0),
+        )? as usize;
+        let mut done = 0;
+        loop {
+            let rows: Vec<(i64, String)> = conn
+                .prepare(
+                    "SELECT id, content FROM chunks
+                     WHERE id NOT IN (SELECT rowid FROM chunks_vec) ORDER BY id LIMIT ?",
+                )?
+                .query_map([batch as i64], |r| Ok((r.get(0)?, r.get(1)?)))?
+                .collect::<rusqlite::Result<_>>()?;
+            if rows.is_empty() {
+                break;
+            }
+            // Embed before opening the write transaction, as indexing does.
+            let vectors = rows
+                .iter()
+                .map(|(_, content)| embedder.embed(content))
+                .collect::<Result<Vec<_>>>()?;
+            let tx = conn.unchecked_transaction()?;
+            for ((id, _), vector) in rows.iter().zip(&vectors) {
+                tx.execute(
+                    "INSERT INTO chunks_vec (rowid, embedding) VALUES (?, ?)",
+                    rusqlite::params![id, serialize_f32_vec(vector)],
+                )?;
+            }
+            tx.commit()?;
+            done += rows.len();
+            progress(done, total);
+        }
+        conn.execute("DELETE FROM index_meta WHERE key = 'reembed_pending'", [])?;
+        Ok(done)
     }
 
     pub fn connection(&self) -> &Connection {
@@ -702,6 +762,19 @@ use rusqlite::OptionalExtension;
 /// Without this, upgrading Paper would leave chunks produced by an older parser
 /// in place, and their anchors could point at text the current parser no longer
 /// produces. A full reindex is the honest outcome; it happens once per upgrade.
+/// Whether a model switch left chunks still waiting for a vector.
+pub fn reembed_pending(conn: &Connection) -> Result<bool> {
+    let value: Option<String> = conn
+        .inner()
+        .query_row(
+            "SELECT value FROM index_meta WHERE key = 'reembed_pending'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+    Ok(value.as_deref() == Some("1"))
+}
+
 fn invalidate_on_upgrade(conn: &Connection) -> Result<()> {
     let stored: Option<String> = conn
         .inner()
