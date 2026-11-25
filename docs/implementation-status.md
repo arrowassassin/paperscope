@@ -38,6 +38,8 @@ the crates.io page renders `docs/readme.md`. The allow-list paths are rooted
 matched `site/node_modules/**/CHANGELOG.md` and pulled three unrelated files into
 the tarball.
 
+Remote-config maintainer guide (keys, signing, CI): [remote-config.md](remote-config.md).
+
 ## Packaging and release (verified)
 
 - `cargo publish --dry-run` succeeds: **72 files, ~155 KiB compressed**, and the

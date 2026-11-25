@@ -1,0 +1,19 @@
+name: Remote config
+
+on:
+  pull_request:
+    paths: ['config/**', 'scripts/verify-remote-config.sh']
+  push:
+    branches: [main]
+    paths: ['config/**', 'scripts/verify-remote-config.sh']
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Verify remote-config signature
+        run: scripts/verify-remote-config.sh
