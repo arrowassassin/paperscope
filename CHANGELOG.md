@@ -4,6 +4,15 @@ All notable changes to this project are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html); while the version is
 `0.x`, minor releases may change behaviour.
 
+## [0.3.1] — 2026-11-25
+
+### Fixed
+- **MCP tool hints.** Every MCP tool now declares `readOnlyHint`,
+  `destructiveHint`, `idempotentHint` and `openWorldHint`. Without them, clients
+  treated every tool as potentially destructive (the MCP default), and
+  directories such as OpenAI's reject the server. Only `remove_index_root` is
+  destructive; no tool reaches the network.
+
 ## [0.3.0] — 2026-11-24
 
 ### Security

@@ -13,7 +13,7 @@ plain language, get the answer *and* the file, page and line it came from. One
 binary: a CLI and an MCP server for Claude and other agents. No account, no API
 keys, no telemetry, and it works offline.
 
-Latest release: **0.3.0**
+Latest release: **0.3.1**
 
 ![Animated demo](https://raw.githubusercontent.com/kintsugi-tools/paperscope/main/docs/assets/demo.svg)
 
