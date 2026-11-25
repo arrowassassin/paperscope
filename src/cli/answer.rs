@@ -17,6 +17,7 @@ pub async fn run(args: AnswerArgs) -> Result<i32> {
         .pipeline()?
         .search_with(&args.question, &roots, &filters)?;
     let mut answer = Answer::from_hits(&args.question, &hits);
+    ws.note_setup_in_progress();
 
     if args.polish && !answer.not_found {
         match polish_answer(&args, &hits).await {

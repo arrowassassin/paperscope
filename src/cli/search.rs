@@ -24,6 +24,7 @@ pub async fn run(args: SearchArgs) -> Result<i32> {
     let pipeline = ws.pipeline()?;
     let mut hits = pipeline.search_with(&args.query, &roots, &filters)?;
     hits.truncate(args.limit);
+    ws.note_setup_in_progress();
 
     if args.json {
         println!("{}", serde_json::to_string_pretty(&hits)?);

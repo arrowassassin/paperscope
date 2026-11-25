@@ -12,6 +12,10 @@ pub async fn run() -> Result<i32> {
     println!("  database:   {}", ws.paths.db_path().display());
     println!("  config:     {}", ws.paths.config_path().display());
 
+    if let Some(phase) = ws.setup_status() {
+        println!("  setup:      in progress, {phase}");
+    }
+
     match Connection::open(&ws.paths.db_path()) {
         Ok(conn) => {
             crate::core::index::init_db(&conn)?;

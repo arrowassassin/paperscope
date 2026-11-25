@@ -40,13 +40,14 @@ cargo install paperscope               # any platform with Rust 1.94+
 
 1. registers a background indexer as a user service (launchd / systemd), so it
    survives reboots;
-2. downloads the default models in the background, multilingual embeddings (488 MB, 100+ languages) first,
-   then the reranker (1.13 GB);
-3. indexes `~/Documents`, `~/Downloads` and `~/Desktop`, then keeps them current
+2. downloads the multilingual embedding model (488 MB, 100+ languages) in the background;
+3. once it is in, indexes `~/Documents`, `~/Downloads` and `~/Desktop`, then keeps them current
    with a five-minute incremental pass and a 3 AM full pass.
 
-Keyword search works immediately, semantic results appear as soon as the
-embedder lands, and ranking sharpens once the reranker finishes. On a metered
+Until the first index finishes, searches print (CLI) or report (MCP
+`setup_in_progress`) that setup is still running. The reranker (1.13 GB) then
+downloads in the background without delaying indexing, and ranking sharpens
+when it lands. On a metered
 connection or tight disk, `PAPER_NO_RERANKER=1` skips the 1.13 GB second model.
 Prefer to drive it yourself? `PAPER_NO_AUTOSTART=1 paper index --root ~/Documents`,
 or undo everything with `paper daemon-control uninstall`.

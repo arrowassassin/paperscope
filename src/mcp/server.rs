@@ -42,6 +42,14 @@ impl Inner {
         ))
     }
 
+    /// The daemon's background-setup phase, read fresh (PAPER_HOME honoured).
+    fn setup_status(&self) -> Option<String> {
+        #[cfg(feature = "daemon")]
+        return crate::bootstrap::setup_status(&crate::core::paths::Paths::new());
+        #[cfg(not(feature = "daemon"))]
+        None
+    }
+
     fn roots(&self) -> Vec<PathBuf> {
         self.roots.read().expect("roots lock poisoned").clone()
     }
@@ -372,7 +380,14 @@ impl PaperMcp {
             .search(&req.query, &roots)
             .map_err(|e| McpError::invalid_params(e.to_string(), None))?;
         hits.truncate(req.limit.unwrap_or(10));
-        Self::json(hits)
+        // The results stay a bare array; during setup a second text block says why they may be thin.
+        let mut result = Self::json(hits)?;
+        if let Some(phase) = self.inner.setup_status() {
+            result.content.push(ContentBlock::text(format!(
+                "setup_in_progress: Paper is still setting up in the background: {phase}. Results will fill in when it finishes."
+            )));
+        }
+        Ok(result)
     }
 
     /// Read the full text of one search result, optionally with neighbours.
@@ -527,7 +542,12 @@ impl PaperMcp {
             .search(&req.question, &roots)
             .map_err(|e| McpError::invalid_params(e.to_string(), None))?;
         hits.truncate(req.limit.unwrap_or(3));
-        Self::json(Answer::from_hits(&req.question, &hits))
+        let mut answer = serde_json::to_value(Answer::from_hits(&req.question, &hits))
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+        if let (Some(phase), Some(object)) = (self.inner.setup_status(), answer.as_object_mut()) {
+            object.insert("setup_in_progress".into(), phase.into());
+        }
+        Self::json(answer)
     }
 
     /// Index a file or directory, recursively. This is how an agent adds
@@ -604,6 +624,7 @@ impl PaperMcp {
             "model": model,
             "roots": self.inner.roots(),
             "daemon": daemon,
+            "setup_in_progress": self.inner.setup_status(),
         }))
     }
 

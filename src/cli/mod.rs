@@ -53,6 +53,23 @@ impl Workspace {
         }
     }
 
+    /// One stderr line when the daemon is still setting up (stdout stays clean).
+    pub fn note_setup_in_progress(&self) {
+        if let Some(phase) = self.setup_status() {
+            eprintln!(
+                "note: Paper is still setting up in the background: {phase}. Results will fill in when it finishes."
+            );
+        }
+    }
+
+    /// Background-setup phase; the status file belongs to the daemon feature.
+    pub fn setup_status(&self) -> Option<String> {
+        #[cfg(feature = "daemon")]
+        return crate::bootstrap::setup_status(&self.paths);
+        #[cfg(not(feature = "daemon"))]
+        None
+    }
+
     /// Search scope: `--root` flags, then the config file, then *everything* in
     /// the index. Searching must not silently depend on the current directory.
     pub fn search_roots(&self, flags: &[String]) -> Vec<PathBuf> {

@@ -13,6 +13,11 @@ All notable changes to this project are recorded here. This project follows
   `paper models install multilingual-e5-small`.
 - **Reranker skipped for non-English queries.** Queries containing non-ASCII
   letters bypass the reranker, which is trained mainly on English.
+- **First-run setup no longer waits on the reranker.** The daemon indexes as soon
+  as the embedding model is in and fetches the 1.13 GB reranker in the
+  background. While it works, a `setup-status` file makes `paper search`/`answer`
+  print a stderr note, `paper doctor` show a line, and MCP `index_status` (plus
+  `search_documents`/`answer_documents` during setup) report `setup_in_progress`.
 
 ### Fixed
 - **MCP tool hints.** Every MCP tool now declares `readOnlyHint`,

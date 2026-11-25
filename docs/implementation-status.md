@@ -299,6 +299,9 @@ is not on disk.
   wipe the index, only a change to extraction or chunking does.
 - Chunks and embeddings for a file are computed before its write transaction.
 - The MCP server loads the reranker once at start if installed (never downloads).
+- A `setup-status` file in the data dir tells the CLI, `paper doctor` and MCP
+  (`setup_in_progress`) that the daemon is still downloading or first-indexing;
+  the reranker downloads in a background task and never delays the first index.
 - `ModelManager::is_installed` (the gate for every model load) requires size, a
   matching SHA-256 and, to skip re-hashing, a `<file>.verified` stamp whose hash,
   size and mtime still match; otherwise it hashes once and re-stamps. `is_verified`
@@ -306,7 +309,7 @@ is not on disk.
 
 ## Tests
 
-`cargo test` — 210 passing tests (plus 4 ignored: 3 model downloads and one
+`cargo test` — 212 passing tests (plus 4 ignored: 3 model downloads and one
 child-process helper for the setup-lock test), no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 

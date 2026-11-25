@@ -86,6 +86,20 @@ struct DaemonState {
     /// Held for a whole `IndexRoots` job so scheduler, watcher and IPC runs
     /// queue instead of overlapping and hitting SQLITE_BUSY.
     index_lock: Mutex<()>,
+    /// Where the setup-status line lives; cleared when an index pass ends.
+    #[cfg(feature = "daemon")]
+    paths: crate::core::paths::Paths,
+}
+
+/// Clears the setup-status line on every exit path of an index request.
+#[cfg(feature = "daemon")]
+struct ClearSetupStatus<'a>(&'a crate::core::paths::Paths);
+
+#[cfg(feature = "daemon")]
+impl Drop for ClearSetupStatus<'_> {
+    fn drop(&mut self) {
+        crate::bootstrap::clear_setup_status(self.0);
+    }
 }
 
 /// One indexing pass. When it covers exactly the configured roots (the
@@ -123,6 +137,8 @@ impl DaemonHandler for DaemonHandlerImpl {
     async fn handle(&self, request: DaemonRequest) -> DaemonResponse {
         match request {
             DaemonRequest::IndexRoots { roots } => {
+                #[cfg(feature = "daemon")]
+                let _clear_status = ClearSetupStatus(&self.state.paths);
                 let roots_to_index = if roots.is_empty() {
                     self.state.roots.read().await.clone()
                 } else {
@@ -284,6 +300,27 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
     #[cfg(feature = "daemon")]
     crate::bootstrap::ensure_models(&workspace).await;
 
+    // The reranker is ~1.1 GB and only search uses it: fetch it without
+    // delaying the first index pass.
+    #[cfg(feature = "daemon")]
+    tokio::spawn(async {
+        crate::bootstrap::ensure_reranker(&crate::core::models::ModelManager::new()).await;
+    });
+
+    // The first pass (queued below) clears this line when it ends; with no
+    // first pass to wait for, the download step was the last background work.
+    #[cfg(feature = "daemon")]
+    let first_pass = !args.no_schedule && crate::bootstrap::index_is_empty(&workspace.paths);
+    #[cfg(feature = "daemon")]
+    if first_pass {
+        crate::bootstrap::set_setup_status(
+            &workspace.paths,
+            "indexing your documents for the first time",
+        );
+    } else {
+        crate::bootstrap::clear_setup_status(&workspace.paths);
+    }
+
     // Load the embedder once, after the download step above.
     let embedder = workspace.embedder();
     let db_path = workspace.paths.db_path();
@@ -300,6 +337,8 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
         db_path,
         embedder,
         index_lock: Mutex::new(()),
+        #[cfg(feature = "daemon")]
+        paths: crate::core::paths::Paths::new(),
     });
 
     // Create scheduler
@@ -347,7 +386,7 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
         // First install: index now rather than waiting for the first
         // incremental tick (the scheduler skips its immediate tick on start).
         #[cfg(feature = "daemon")]
-        if crate::bootstrap::index_is_empty(&workspace.paths) {
+        if first_pass {
             tracing::info!("empty index — starting the first indexing pass");
             scheduler.trigger_incremental().await;
         }
