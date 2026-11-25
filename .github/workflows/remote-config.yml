@@ -1,19 +1,37 @@
 name: Remote config
 
+# Pull-request check: the config parses and its version goes up. Signing happens
+# in sign-remote-config.yml after merge, so PRs carry no signature.
 on:
   pull_request:
-    paths: ['config/**', 'scripts/verify-remote-config.sh']
-  push:
-    branches: [main]
-    paths: ['config/**', 'scripts/verify-remote-config.sh']
+    paths: ['config/remote-config.toml']
 
 permissions:
   contents: read
 
 jobs:
-  verify:
+  check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - name: Verify remote-config signature
-        run: scripts/verify-remote-config.sh
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Parse and check the version bump
+        env:
+          BASE: ${{ github.base_ref }}
+        run: |
+          python3 - <<'PY'
+          import os, subprocess, tomllib
+          head = tomllib.load(open("config/remote-config.toml", "rb"))
+          for key in ("schema", "version", "expires", "defaults"):
+              assert key in head, f"missing {key}"
+          try:
+              raw = subprocess.check_output(
+                  ["git", "show", f"origin/{os.environ['BASE']}:config/remote-config.toml"])
+              base = tomllib.loads(raw.decode())
+          except subprocess.CalledProcessError:
+              base = None
+          if base is not None and head["version"] <= base["version"]:
+              raise SystemExit(f"version must go up: {base['version']} -> {head['version']}")
+          print("ok: version", head["version"])
+          PY

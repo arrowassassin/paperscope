@@ -1,6 +1,6 @@
 # Remote config (maintainer guide)
 
-Installs follow `config/remote-config.toml` (fetched by the daemon only; search, CLI and MCP never touch the network). It is trusted only if `config/remote-config.toml.sig` verifies against a public key compiled into the binary (`config/keys/primary.pub` or `backup.pub`).
+Installs follow the signed copy of `config/remote-config.toml` on the `remote-config` branch (fetched by the daemon only; search, CLI and MCP never touch the network). It is trusted only if `config/remote-config.toml.sig` verifies against a public key compiled into the binary (`config/keys/primary.pub` or `backup.pub`).
 
 ## Keys (once)
 
@@ -8,11 +8,23 @@ Installs follow `config/remote-config.toml` (fetched by the daemon only; search,
 2. Keep the backup `.pem` offline. Commit only the `.pub` files. `*.pem` is gitignored; never commit a private key.
 3. Public keys are 64 lowercase hex chars (raw Ed25519), one line. The `.sig` is base64 (no wrap) of the raw 64-byte signature over the exact bytes of the toml.
 
+## One-time GitHub setup
+
+1. Settings → Environments → New environment `config-signing`.
+   - Required reviewers: yourself. Untick "Prevent self-review".
+   - Deployment branches and tags: "Selected branches" → `main`.
+   - Environment secret `REMOTE_CONFIG_SIGNING_KEY`: paste the whole contents of `~/paper-keys/primary.pem`, including the BEGIN/END lines.
+2. Optional: a ruleset on `remote-config` that blocks deletion and force pushes. Don't restrict normal pushes: the signing workflow pushes there.
+
 ## Publishing a change
 
-1. Edit `config/remote-config.toml`, increase `version`, push `expires` out.
-2. `scripts/sign-remote-config.sh ~/paper-keys/primary.pem` (also verifies the result).
-3. Commit the toml and `.sig` together and push to main. CI (`remote-config.yml`) runs `scripts/verify-remote-config.sh`: it passes with a notice while both `.pub` files are empty, and fails if a key exists and the `.sig` is missing or does not verify. Run the same script locally, optionally with hex keys as arguments.
+1. Edit `config/remote-config.toml` in a PR. Increase `version`, and push `expires` out. The PR check (`remote-config.yml`) confirms the file parses and the version went up.
+2. Merge to main. `sign-remote-config.yml` starts and waits for your approval: Actions → the run → Review deployments → Approve.
+3. After approval it signs with the environment key, verifies the result against `config/keys/*.pub`, and publishes the toml and `.sig` to the `remote-config` branch. That branch is what installs fetch. A merged but unapproved change is never served.
+
+The workflow can also be started by hand (Actions → Sign remote config → Run workflow) to re-publish main's current file.
+
+**Manual fallback** (for example while GitHub Actions is down): run `scripts/sign-remote-config.sh ~/paper-keys/primary.pem` on your machine, then push the toml and `.sig` to the `remote-config` branch. `scripts/verify-remote-config.sh` checks a signature locally, optionally with hex keys as arguments.
 
 ## Fields
 
