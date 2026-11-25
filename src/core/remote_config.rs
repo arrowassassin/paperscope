@@ -32,8 +32,6 @@ pub struct RemoteConfig {
     pub models: Vec<RemoteModel>,
     #[serde(default)]
     pub deprecated: Vec<Deprecation>,
-    #[serde(default)]
-    pub trusted_primary: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq)]
@@ -268,13 +266,6 @@ fn validate(cfg: &RemoteConfig) -> Result<(), RemoteConfigError> {
     {
         return invalid("semantic_min_score must be within 0.0..=1.0");
     }
-    if cfg
-        .trusted_primary
-        .as_deref()
-        .is_some_and(|k| parse_key(k).is_none())
-    {
-        return invalid("trusted_primary must be 64 hex characters");
-    }
     Ok(())
 }
 
@@ -282,8 +273,9 @@ fn parse_key(s: &str) -> Option<[u8; 32]> {
     hex::decode(s.trim()).ok()?.try_into().ok()
 }
 
-/// Compiled-in keys (blank file = none), a persisted rotated primary, and, in
-/// debug builds only, `PAPER_REMOTE_CONFIG_TEST_PUBKEY`.
+/// Compiled-in keys (blank file = none) and, in debug builds only,
+/// `PAPER_REMOTE_CONFIG_TEST_PUBKEY`. Rotating a key takes a release: nothing on
+/// disk can add a trusted key.
 pub fn compiled_keys() -> Vec<[u8; 32]> {
     let mut keys: Vec<[u8; 32]> = [
         include_str!("../../config/keys/primary.pub"),
@@ -292,12 +284,6 @@ pub fn compiled_keys() -> Vec<[u8; 32]> {
     .iter()
     .filter_map(|s| parse_key(s))
     .collect();
-    let persisted = crate::core::Paths::new().base_dir().join("trusted-primary");
-    keys.extend(
-        std::fs::read_to_string(persisted)
-            .ok()
-            .and_then(|s| parse_key(&s)),
-    );
     if cfg!(debug_assertions) {
         keys.extend(
             std::env::var("PAPER_REMOTE_CONFIG_TEST_PUBKEY")

@@ -76,29 +76,20 @@ pub enum RefreshOutcome {
 /// `<data_dir>/remote-config.state`, read by doctor and MCP. Swap for
 /// `remote_config::write_fetch_state` once that lands.
 fn write_state(data_dir: &Path, outcome: &RefreshOutcome) {
-    #[derive(serde::Serialize)]
-    struct State<'a> {
-        outcome: &'a str,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        detail: Option<&'a str>,
-        at: String,
-    }
     let (name, detail) = match outcome {
         RefreshOutcome::Updated(_) => ("updated", None),
         RefreshOutcome::Unchanged => ("unchanged", None),
-        RefreshOutcome::Rejected(d) => ("rejected", Some(d.as_str())),
-        RefreshOutcome::FetchFailed(d) => ("fetch_failed", Some(d.as_str())),
+        RefreshOutcome::Rejected(d) => ("rejected", Some(d.clone())),
+        RefreshOutcome::FetchFailed(d) => ("fetch_failed", Some(d.clone())),
         RefreshOutcome::Offline => ("offline", None),
     };
-    let state = State {
-        outcome: name,
+    let state = crate::core::remote_config::FetchState {
+        outcome: name.to_string(),
         detail,
         at: chrono::Utc::now().to_rfc3339(),
     };
-    if let Ok(text) = toml::to_string(&state) {
-        let _ = std::fs::create_dir_all(data_dir);
-        let _ = std::fs::write(data_dir.join("remote-config.state"), text);
-    }
+    let _ = std::fs::create_dir_all(data_dir);
+    let _ = crate::core::remote_config::write_fetch_state(data_dir, &state);
 }
 
 pub async fn refresh(
