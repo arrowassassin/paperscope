@@ -74,3 +74,12 @@ artifacts = [
     "models/release/bge-reranker-base-tokenizer.json",
 ]
 build = ["scripts/fetch-models.sh"]
+
+[[dist.extra-artifacts]]
+# mMARCO multilingual MiniLM reranker (~488 MB total)
+artifacts = [
+    "models/release/mmarco-mminilmv2-l12-h384-model.safetensors",
+    "models/release/mmarco-mminilmv2-l12-h384-config.json",
+    "models/release/mmarco-mminilmv2-l12-h384-tokenizer.json",
+]
+build = ["scripts/fetch-models.sh"]

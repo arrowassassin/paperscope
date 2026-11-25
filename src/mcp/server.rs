@@ -121,7 +121,10 @@ impl PaperMcp {
             inner: Arc::new(Inner {
                 db_path: ws.paths.db_path(),
                 embedder: ws.embedder(),
-                reranker: ws.model_manager.reranker_if_installed().map(Arc::new),
+                reranker: ws
+                    .model_manager
+                    .reranker_if_installed(crate::core::models::OPTIONAL_RERANKER)
+                    .map(Arc::new),
                 config: ws.config.search(),
                 roots: std::sync::RwLock::new(roots),
             }),

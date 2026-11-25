@@ -119,7 +119,7 @@ impl Workspace {
             self.open_index()?,
             self.embedder(),
             self.model_manager
-                .reranker_if_installed()
+                .reranker_if_installed(OPTIONAL_RERANKER)
                 .map(std::sync::Arc::new),
             self.config.search(),
         ))
