@@ -160,7 +160,12 @@ log first.
 - [ ] `cargo publish --dry-run` green
 - [ ] `actionlint` clean
 - [ ] `version` bumped in `Cargo.toml`
-- [ ] `CHANGELOG.md` updated
+- [ ] `version` bumped in `paperscope-plugin/.claude-plugin/plugin.json` and
+      `.claude-plugin/marketplace.json` (both entries)
+- [ ] `version` bumped in `README.md` and `docs/readme.md` ("Latest release"),
+      and in the Homebrew tap's `Formula/paper.rb` after the tag
+- [ ] `CHANGELOG.md` updated (dated section, not `Unreleased`)
+- [ ] npm published (`npm publish` from the release's npm tarball)
 - [ ] Tag pushed (`git push origin vX.Y.Z`)
 - [ ] Release assets present, `sha256sum -c sha256.sum` passes
 - [ ] SBOMs attached

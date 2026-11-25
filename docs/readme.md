@@ -3,13 +3,17 @@
 ![Paper, local-first AI document search with exact citations](https://raw.githubusercontent.com/kintsugi-tools/paperscope/main/docs/assets/banner.svg)
 
 [![crates.io](https://img.shields.io/crates/v/paperscope.svg)](https://crates.io/crates/paperscope)
+[![npm](https://img.shields.io/npm/v/paperscope.svg)](https://www.npmjs.com/package/paperscope)
 [![downloads](https://img.shields.io/crates/d/paperscope.svg)](https://crates.io/crates/paperscope)
+[![M8ven Score](https://m8ven.ai/badge/mcp/kintsugi-tools-paperscope-mv88sq?v=fe587d3f0bf2c46c74cf5815e8f6dd24)](https://m8ven.ai/mcp/kintsugi-tools-paperscope-mv88sq?s=readme)
 [![Licence](https://img.shields.io/badge/licence-MIT%20OR%20Apache--2.0-blue)](#licence)
 
 **Local-first AI document search with exact page and line citations.** Ask in
 plain language, get the answer *and* the file, page and line it came from. One
 binary: a CLI and an MCP server for Claude and other agents. No account, no API
 keys, no telemetry, and it works offline.
+
+Latest release: **0.3.0**
 
 ![Animated demo](https://raw.githubusercontent.com/kintsugi-tools/paperscope/main/docs/assets/demo.svg)
 
@@ -24,6 +28,7 @@ Or the prebuilt binary:
 ```bash
 curl -fsSL https://kintsugi.tools/paper.sh | sh
 brew install kintsugi-tools/tap/paper
+npm i -g paperscope             # any OS with Node 14.18+; fetches the same binary
 ```
 
 The first `paper` command finishes setup by itself: it registers a background
@@ -92,8 +97,11 @@ paper update                # install it
 
 - [GitHub repository](https://github.com/kintsugi-tools/paperscope)
 - [Website](https://kintsugi.tools/paperscope.html)
+- [crates.io](https://crates.io/crates/paperscope) · [npm](https://www.npmjs.com/package/paperscope)
+- [Changelog](https://github.com/kintsugi-tools/paperscope/blob/main/CHANGELOG.md)
 - [Implementation status](https://github.com/kintsugi-tools/paperscope/blob/main/docs/implementation-status.md)
 - [MCP setup](https://github.com/kintsugi-tools/paperscope/blob/main/docs/CLAUDE_PLUGIN.md)
+- [M8ven score](https://m8ven.ai/mcp/kintsugi-tools-paperscope-mv88sq?s=readme)
 - Claude Code: `/plugin marketplace add kintsugi-tools/paperscope` then
   `/plugin install paperscope@paperscope`
 

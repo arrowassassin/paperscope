@@ -4,7 +4,9 @@
 
 [![CI](https://img.shields.io/github/actions/workflow/status/kintsugi-tools/paperscope/ci.yml?branch=main&label=CI)](https://github.com/kintsugi-tools/paperscope/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/paperscope.svg)](https://crates.io/crates/paperscope)
+[![npm](https://img.shields.io/npm/v/paperscope.svg)](https://www.npmjs.com/package/paperscope)
 [![downloads](https://img.shields.io/crates/d/paperscope.svg)](https://crates.io/crates/paperscope)
+[![M8ven Score](https://m8ven.ai/badge/mcp/kintsugi-tools-paperscope-mv88sq?v=fe587d3f0bf2c46c74cf5815e8f6dd24)](https://m8ven.ai/mcp/kintsugi-tools-paperscope-mv88sq?s=readme)
 [![Licence](https://img.shields.io/badge/licence-MIT%20OR%20Apache--2.0-blue)](#licence)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-black)](#install)
 
@@ -18,6 +20,9 @@ API keys, no telemetry, no cloud.
 > 15+ formats · 100+ languages · hybrid keyword + vector search · MCP server for
 > Claude and other agents · runs fully offline.
 
+Latest release: **[0.3.0](https://github.com/kintsugi-tools/paperscope/releases/tag/v0.3.0)**
+· [changelog](CHANGELOG.md)
+
 ## Install
 
 ```bash
@@ -27,6 +32,7 @@ curl -fsSL https://kintsugi.tools/paper.sh | sh
 
 ```bash
 brew install kintsugi-tools/tap/paper   # macOS / Linux, Homebrew
+npm i -g paperscope                    # any OS with Node 14.18+; fetches the same binary
 cargo install paperscope               # any platform with Rust 1.94+
 ```
 
@@ -55,6 +61,10 @@ paper update           # install it, using the same installer as a fresh install
 If the version does not change after updating, two copies are installed and
 another one comes first in `PATH`. `paper update` and `paper doctor` name the
 copy that is shadowing you and how to fix it.
+
+`paper update` is for the installer, Homebrew and cargo installs. If you came in
+through npm, upgrade the way you installed: `npm i -g paperscope@latest`; through
+Homebrew, `brew upgrade paper`.
 
 ## Try it
 
@@ -152,6 +162,8 @@ paper models install multilingual-e5-small
 
 - [Implementation status](docs/implementation-status.md)
 - [MCP setup per client](docs/CLAUDE_PLUGIN.md)
+- [Packaging](docs/PACKAGING.md) · [Cutting a release](docs/RELEASE.md)
+- [npm](https://www.npmjs.com/package/paperscope) · [crates.io](https://crates.io/crates/paperscope)
 - [Website](https://kintsugi.tools/paperscope.html) · [Changelog](CHANGELOG.md)
 
 ## Build from source
@@ -165,4 +177,6 @@ cargo test                     # offline, no model downloads
 
 ## Licence
 
-MIT OR Apache-2.0. Licence texts in `LICENSE-MIT` and `LICENSE-APACHE`.
+MIT OR Apache-2.0. Licence texts in `docs/LICENSE-MIT` and
+`docs/LICENSE-APACHE` — the root `LICENSE-*` files belong to unrelated work in
+this repository and are not part of the crate.
