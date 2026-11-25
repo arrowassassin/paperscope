@@ -41,6 +41,7 @@ include = [
     "/docs/implementation-status.md",
     "/docs/LICENSE-MIT",
     "/docs/LICENSE-APACHE",
+    "/config/keys/*.pub",
     "/NOTICE",
 ]
 
