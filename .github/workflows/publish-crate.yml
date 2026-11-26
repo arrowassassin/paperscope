@@ -123,6 +123,14 @@ jobs:
         run: |
           version="${TAG#v}"
           jq --arg v "$version" '.version = $v | .packages[0].version = $v' server.json > s.json && mv s.json server.json
+      - name: Wait for npm to serve the version
+        run: |
+          version="${TAG#v}"
+          for i in $(seq 1 60); do
+            if curl -fsS "https://registry.npmjs.org/paperscope/$version" >/dev/null; then exit 0; fi
+            sleep 20
+          done
+          echo "paperscope@$version not visible on npm after 20 minutes" >&2; exit 1
       - name: Publish
         run: |
           ./mcp-publisher login github-oidc
