@@ -7,6 +7,7 @@
 [![npm](https://img.shields.io/npm/v/paperscope.svg)](https://www.npmjs.com/package/paperscope)
 [![downloads](https://img.shields.io/crates/d/paperscope.svg)](https://crates.io/crates/paperscope)
 [![M8ven Score](https://m8ven.ai/badge/mcp/kintsugi-tools-paperscope-mv88sq?v=fe587d3f0bf2c46c74cf5815e8f6dd24)](https://m8ven.ai/mcp/kintsugi-tools-paperscope-mv88sq?s=readme)
+[![Glama MCP server](https://glama.ai/mcp/servers/kintsugi-tools/paperscope/badges/score.svg)](https://glama.ai/mcp/servers/kintsugi-tools/paperscope)
 [![Licence](https://img.shields.io/badge/licence-MIT%20OR%20Apache--2.0-blue)](#licence)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-black)](#install)
 
