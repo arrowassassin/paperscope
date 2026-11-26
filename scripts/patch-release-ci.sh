@@ -84,7 +84,7 @@ sbom_job = """
           # (<name>.cdx.json on 0.5), so locate whatever it wrote instead of
           # assuming a filename.
           cargo cyclonedx --format json --override-filename sbom
-          found=$(find . -maxdepth 2 -name '*.json' ! -path './target/*' ! -path './.git/*' \
+          found=$(find . -maxdepth 2 -name '*.json' ! -path './target/*' ! -path './.git/*' \\
             | grep -Ei 'bom|cdx|sbom' | head -n1)
           if [ -z "$found" ]; then
             echo "::error::cargo-cyclonedx produced no JSON SBOM"

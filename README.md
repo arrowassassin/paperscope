@@ -79,6 +79,10 @@ copy that is shadowing you and how to fix it.
 through npm, upgrade the way you installed: `npm i -g paperscope@latest`; through
 Homebrew, `brew upgrade paper`.
 
+### Updates
+
+Paper updates itself by default, once a version has been approved by the maintainer (it never jumps to an unapproved release). It uses the same method you installed with: the installer script, `brew upgrade paper`, or `cargo install`; npm installs are told the command to run. Opt out with `PAPER_NO_AUTO_UPDATE=1` or `auto_update = false` in `config.toml`.
+
 ## Try it
 
 ```bash

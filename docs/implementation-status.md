@@ -77,8 +77,14 @@ Remote-config maintainer guide (keys, signing, CI): [remote-config.md](remote-co
   pending.
 - **Not** built: `.deb`/`.rpm`/`.apk`, AppImage, MSI/pkg; no code signing or
   notarization (no certificate is configured, so artifacts are unsigned but
-  checksummed); no SLSA provenance; no Homebrew-tap or npm publish job (the
-  formula and tarball are attached to the release for manual publishing).
+  checksummed); no SLSA provenance; no npm publish job (the tarball is attached to
+  the release for manual publishing).
+- Publishing: dist's `publish-homebrew-formula` job pushes `Formula/paper.rb`
+  (`formula = "paper"`, `tap = "kintsugi-tools/homebrew-tap"`, secret
+  `HOMEBREW_TAP_TOKEN`), and `publish-crate.yml` runs `cargo publish --locked`
+  after approval in the `config-signing` environment (secret
+  `CARGO_REGISTRY_TOKEN`). Auto-update only installs the version approved in
+  the signed remote config's `[update]` table, so all methods roll out together.
 - The stale hand-written `packaging/` templates were removed: they were never
   built by CI, carried placeholder SHA256 values, declared a system SQLite
   dependency the binary does not have, and referenced a `paper completion`

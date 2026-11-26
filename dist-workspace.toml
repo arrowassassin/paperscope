@@ -15,12 +15,14 @@ ci = "github"
 # and the SBOM job). Without this, dist would refuse to run because the
 # committed file differs from what it would generate.
 allow-dirty = ["ci"]
-# Package-manager publishing. dist can publish the Homebrew formula and the
-# npm package itself, but both need accounts we do not control yet:
-#   publish-jobs = ["homebrew", "npm"]
-# Until then the formula and the npm tarball are attached to the GitHub
-# Release, so they can be published by hand.
-publish-jobs = []
+# Package-manager publishing. Homebrew is published by dist from the release
+# workflow (secret HOMEBREW_TAP_TOKEN, contents:write on the tap only). The npm
+# tarball is still only attached to the GitHub Release.
+publish-jobs = ["homebrew"]
+tap = "kintsugi-tools/homebrew-tap"
+# The tap's formula is Formula/paper.rb with `class Paper`; dist would
+# otherwise name it after the package (paperscope.rb / class Paperscope).
+formula = "paper"
 # The installers to generate for each app.
 # dist supports shell, powershell, npm, homebrew and msi — it does *not*
 # produce deb/rpm/apk packages.

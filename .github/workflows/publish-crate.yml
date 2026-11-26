@@ -1,0 +1,43 @@
+name: Publish crate
+
+# Publish `paperscope` to crates.io when a release is published, so
+# `cargo install paperscope` and `paper update` (cargo installs) can see it.
+# It runs in the `config-signing` environment, so the maintainer approves it
+# (Actions -> the run -> Review deployments) before the token is exposed.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish (for example v0.4.1)
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: config-signing
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+      - name: Install stable Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - name: Publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          if curl -fsS https://index.crates.io/pa/pe/paperscope | grep -q "\"vers\":\"${version}\""; then
+            echo "::notice::paperscope ${version} is already on crates.io; nothing to do"
+            exit 0
+          fi
+          test -n "$CARGO_REGISTRY_TOKEN" || { echo "CARGO_REGISTRY_TOKEN is not set"; exit 1; }
+          cargo publish --locked
