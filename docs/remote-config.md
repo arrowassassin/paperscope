@@ -26,7 +26,7 @@ Release secrets: `HOMEBREW_TAP_TOKEN` (repository secret; fine-grained token wit
 
 ### Per-release flow
 
-1. Tag the release. `release.yml` builds and publishes the GitHub Release and the Homebrew formula; `publish-crate.yml` then waits for your approval (same `config-signing` environment) and publishes the crate to crates.io.
+1. Tag the release from a terminal: `git tag -a vX.Y.Z origin/main -m "Paper vX.Y.Z" && git push origin vX.Y.Z`. Do not create the release in the GitHub UI: `release.yml` creates it and fails if one already exists. `release.yml` builds and publishes the GitHub Release and the Homebrew formula; `publish-crate.yml` then waits for your approval (same `config-signing` environment) and publishes the crate to crates.io.
 2. Once the release is live everywhere, open a PR that sets `[update] version` to the new release and raises `version` in `config/remote-config.toml`. Merge it and approve the signing run. Installs only update to the version named here, so nothing rolls out before you approve it.
 
 The workflow can also be started by hand (Actions → Sign remote config → Run workflow) to re-publish main's current file.

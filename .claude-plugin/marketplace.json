@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Local-first document search for Claude: exact file, page and line citations from your own files, with no cloud and no API keys.",
-    "version": "0.4.0"
+    "version": "0.4.1"
   },
   "plugins": [
     {
       "name": "paperscope",
       "source": "./paperscope-plugin",
       "description": "Search your documents and get the exact page and line each answer came from. Runs the paper MCP server locally; requires the paper CLI on PATH (curl -fsSL https://kintsugi.tools/paper.sh | sh).",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "author": {
         "name": "kintsugi-tools",
         "url": "https://github.com/kintsugi-tools/paperscope"

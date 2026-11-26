@@ -4,6 +4,27 @@ All notable changes to this project are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html); while the version is
 `0.x`, minor releases may change behaviour.
 
+## [0.4.1] — 2026-11-26
+
+### Added
+- **Auto-update.** The background service updates Paper to the version the
+  signed remote config approves (`[update] version`), using the install
+  method's own tool: the shell installer for that exact version,
+  `brew upgrade`, `npm install -g paperscope@<version>`, or
+  `cargo install paperscope --locked` (only while the machine is idle, at the
+  lowest priority, if Rust is installed). It then restarts itself and confirms
+  the new version is running; a shell install restores the previous binary if
+  it is not. It never downgrades, never uses `sudo`, and retries a failed or
+  unavailable update the next day. On by default; turn it off with
+  `PAPER_NO_AUTO_UPDATE=1` or `auto_update = false` in `config.toml`.
+  `PAPER_OFFLINE=1` disables it too.
+- `paper doctor` shows an `update:` line, search and answer print a one-line
+  note when an update is available but could not be installed, and MCP
+  `index_status` adds `update`.
+- Releases publish everywhere from CI: the Homebrew tap formula
+  (`Formula/paper.rb`) and crates.io (after maintainer approval), alongside the
+  GitHub release and npm.
+
 ## [0.4.0] — 2026-11-25
 
 ### Added
