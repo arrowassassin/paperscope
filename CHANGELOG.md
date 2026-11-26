@@ -4,6 +4,19 @@ All notable changes to this project are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html); while the version is
 `0.x`, minor releases may change behaviour.
 
+## [0.4.2] — 2026-11-26
+
+### Added
+- **Listed in the official MCP Registry** as `io.github.kintsugi-tools/paperscope`
+  (`npx paperscope serve --mcp`). Each release publishes there automatically
+  after the npm package, authenticated with GitHub OIDC.
+- `glama.json`, so the Glama listing can be claimed by the maintainer.
+
+### Changed
+- Releases publish to every channel from CI: the Homebrew tap (deploy key on
+  the tap repo), crates.io and npm (both after one maintainer approval). The
+  crate and npm jobs start when the Release workflow succeeds for a tag.
+
 ## [0.4.1] — 2026-11-26
 
 ### Added
