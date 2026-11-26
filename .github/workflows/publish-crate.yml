@@ -1,12 +1,15 @@
 name: Publish crate
 
-# Publish `paperscope` to crates.io when a release is published, so
-# `cargo install paperscope` and `paper update` (cargo installs) can see it.
-# It runs in the `config-signing` environment, so the maintainer approves it
-# (Actions -> the run -> Review deployments) before the token is exposed.
+# Publish `paperscope` to crates.io after the Release workflow succeeds for a
+# version tag, so `cargo install paperscope` and auto-update (cargo installs)
+# can see it. Not `release: published`: the release is created with
+# GITHUB_TOKEN, and GitHub does not start workflows from events that token
+# makes. Runs in the `config-signing` environment, so the maintainer approves
+# it (Actions -> the run -> Review deployments) before the token is exposed.
 on:
-  release:
-    types: [published]
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
   workflow_dispatch:
     inputs:
       tag:
@@ -18,10 +21,17 @@ permissions:
 
 jobs:
   publish:
+    # workflow_run: only a successful tag-push release (the Release workflow
+    # also runs on pull requests and branches, where head_branch is not a tag).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
     runs-on: ubuntu-latest
     environment: config-signing
     env:
-      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      TAG: ${{ github.event.workflow_run.head_branch || inputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
