@@ -19,6 +19,15 @@ pub async fn run(args: AnswerArgs) -> Result<i32> {
     let mut answer = Answer::from_hits(&args.question, &hits);
     ws.note_setup_in_progress();
     crate::core::effective::note_deprecations(ws.remote.as_ref(), &ws.effective);
+    if let Some(n) = crate::core::update_state::UpdateSummary::load(
+        &ws.paths.base_dir(),
+        &ws.config,
+        ws.remote.as_ref(),
+    )
+    .cli_note()
+    {
+        eprintln!("{n}");
+    }
 
     if args.polish && !answer.not_found {
         match polish_answer(&args, &hits).await {

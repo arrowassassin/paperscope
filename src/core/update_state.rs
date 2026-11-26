@@ -1,7 +1,7 @@
 //! Shared auto-update contract: opt-out check, version order, `update.state`.
 
 use super::config::Config;
-use super::remote_config::write_atomic;
+use super::remote_config::{write_atomic, RemoteConfig};
 use serde::{Deserialize, Serialize};
 use std::io;
 use std::path::Path;
@@ -57,6 +57,92 @@ pub fn write_update_state(dir: &Path, s: &UpdateState) -> io::Result<()> {
     std::fs::create_dir_all(dir)?;
     let body = toml::to_string(s).map_err(io::Error::other)?;
     write_atomic(dir, STATE_FILE, body.as_bytes())
+}
+
+/// What the surfaces (doctor, CLI note, MCP) say about updates; reads local files only.
+pub struct UpdateSummary {
+    pub current: &'static str,
+    /// The signed-approved version, only when newer than `current`.
+    pub approved: Option<String>,
+    /// Outcome recorded for that approved version.
+    pub state: Option<UpdateState>,
+    pub auto_update: bool,
+}
+
+impl UpdateSummary {
+    pub fn load(dir: &Path, config: &Config, remote: Option<&RemoteConfig>) -> Self {
+        let current = env!("CARGO_PKG_VERSION");
+        let approved = remote
+            .and_then(|r| r.update.as_ref())
+            .map(|u| u.version.clone())
+            .filter(|v| version_newer(v, current));
+        let state =
+            read_update_state(dir).filter(|s| s.approved.is_some() && s.approved == approved);
+        Self {
+            current,
+            approved,
+            state,
+            auto_update: auto_update_enabled(config),
+        }
+    }
+
+    pub fn outcome(&self) -> Option<&str> {
+        self.state.as_ref().map(|s| s.outcome.as_str())
+    }
+
+    /// Recorded manual command, else the generic one.
+    pub fn manual_command(&self) -> &str {
+        self.state
+            .as_ref()
+            .and_then(|s| s.manual_command.as_deref())
+            .unwrap_or("paper update")
+    }
+
+    /// The one stderr line CLI search and answer print, if any.
+    pub fn cli_note(&self) -> Option<String> {
+        let approved = self.approved.as_deref()?;
+        if self.outcome() == Some("updated") {
+            return Some(format!(
+                "note: Paper was updated to {approved}; restart this command or your MCP client to use it"
+            ));
+        }
+        let stuck = matches!(self.outcome(), Some("failed" | "unavailable"));
+        (stuck || !self.auto_update).then(|| {
+            format!(
+                "note: Paper {approved} is available \u{2014} run: {}",
+                self.manual_command()
+            )
+        })
+    }
+
+    /// Doctor lines (the second only for a stuck update with a manual command).
+    pub fn doctor_lines(&self) -> Vec<String> {
+        let off = if self.auto_update {
+            ""
+        } else {
+            " (auto-update off)"
+        };
+        let Some(approved) = &self.approved else {
+            return vec![format!("  update:     {} (up to date){off}", self.current)];
+        };
+        let text = match self.outcome() {
+            Some("updated") => "updated; restart to use it",
+            Some("failed") => "update failed",
+            Some("unavailable") => "not yet available for your install method",
+            _ => "available",
+        };
+        let mut lines = vec![format!(
+            "  update:     {} \u{2192} {approved} {text}{off}",
+            self.current
+        )];
+        if let (Some("failed" | "unavailable"), Some(cmd)) = (
+            self.outcome(),
+            self.state.as_ref().and_then(|s| s.manual_command.as_ref()),
+        ) {
+            lines.push(format!("              run: {cmd}"));
+        }
+        lines
+    }
 }
 
 #[cfg(test)]

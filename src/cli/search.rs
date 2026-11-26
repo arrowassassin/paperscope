@@ -26,6 +26,15 @@ pub async fn run(args: SearchArgs) -> Result<i32> {
     hits.truncate(args.limit);
     ws.note_setup_in_progress();
     crate::core::effective::note_deprecations(ws.remote.as_ref(), &ws.effective);
+    if let Some(n) = crate::core::update_state::UpdateSummary::load(
+        &ws.paths.base_dir(),
+        &ws.config,
+        ws.remote.as_ref(),
+    )
+    .cli_note()
+    {
+        eprintln!("{n}");
+    }
 
     if args.json {
         println!("{}", serde_json::to_string_pretty(&hits)?);

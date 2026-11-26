@@ -512,3 +512,40 @@ fn index_status_remote_config_is_null_without_a_cache() {
     assert!(status["remote_config"].is_null(), "{status}");
     assert_eq!(status["deprecations"], json!([]), "{status}");
 }
+
+#[test]
+fn mcp_index_status_reports_update() {
+    let (home, docs) = fixture();
+    let key = common::install_signed_config(
+        home.path(),
+        "schema = 1\nversion = 8\nexpires = \"2099-01-01\"\n[update]\nversion = \"99.0.0\"\n",
+    );
+    paper::core::update_state::write_update_state(
+        home.path(),
+        &paper::core::update_state::UpdateState {
+            outcome: "unavailable".into(),
+            approved: Some("99.0.0".into()),
+            method: "cargo".into(),
+            manual_command: Some("cargo install paperscope --version 99.0.0".into()),
+            detail: None,
+            at: "2026-11-26T10:00:00+00:00".into(),
+        },
+    )
+    .unwrap();
+    let mut client = McpClient::spawn_with_env(
+        home.path(),
+        &docs,
+        "2024-11-05",
+        &[("PAPER_REMOTE_CONFIG_TEST_PUBKEY", Path::new(&key))],
+    );
+    let status = client.call_tool("index_status", json!({}));
+    assert_eq!(
+        status["update"],
+        json!({"current": env!("CARGO_PKG_VERSION"), "approved": "99.0.0", "outcome": "unavailable",
+               "manual_command": "cargo install paperscope --version 99.0.0", "auto_update": true}),
+        "{status}"
+    );
+    let mut plain = McpClient::spawn(home.path(), &docs);
+    let status = plain.call_tool("index_status", json!({}));
+    assert_eq!(status["update"]["approved"], json!(null), "{status}");
+}
