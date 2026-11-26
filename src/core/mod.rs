@@ -11,6 +11,7 @@ pub mod platform;
 pub mod remote_config;
 pub mod search;
 pub mod text;
+pub mod update_state;
 
 pub use config::{Config, SearchConfig};
 pub use eval::{

@@ -11,6 +11,7 @@ use anyhow::{bail, Context, Result};
 use clap::Args;
 
 use super::{EXIT_FOUND, EXIT_NOT_FOUND};
+use crate::core::update_state::version_newer;
 
 const REPO: &str = "kintsugi-tools/paperscope";
 const API_LATEST: &str = "https://api.github.com/repos/kintsugi-tools/paperscope/releases/latest";
@@ -35,7 +36,7 @@ pub async fn run(args: UpdateArgs) -> Result<i32> {
         }
     };
 
-    if !is_newer(&latest, current) {
+    if !version_newer(&latest, current) {
         println!("up to date (latest release is {latest})");
         warn_if_shadowed();
         return Ok(EXIT_FOUND);
@@ -72,25 +73,6 @@ async fn latest_release() -> Result<String> {
         .and_then(|value| value.as_str())
         .context("release metadata has no tag_name")?;
     Ok(tag.trim_start_matches('v').to_string())
-}
-
-/// Numeric comparison of `major.minor.patch`; a pre-release suffix sorts low.
-fn is_newer(candidate: &str, current: &str) -> bool {
-    let parse = |value: &str| -> (u64, u64, u64, bool) {
-        let (core, pre) = match value.split_once('-') {
-            Some((core, _)) => (core, true),
-            None => (value, false),
-        };
-        let mut parts = core.split('.').map(|part| part.parse::<u64>().unwrap_or(0));
-        (
-            parts.next().unwrap_or(0),
-            parts.next().unwrap_or(0),
-            parts.next().unwrap_or(0),
-            pre,
-        )
-    };
-    let (a, b) = (parse(candidate), parse(current));
-    (a.0, a.1, a.2) > (b.0, b.1, b.2) || ((a.0, a.1, a.2) == (b.0, b.1, b.2) && b.3 && !a.3)
 }
 
 /// Run the platform installer from the latest release.
@@ -218,8 +200,6 @@ fn version_of(binary: &Path) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::is_newer;
-
     #[test]
     fn temp_script_directory_is_fresh_and_private() {
         let root = tempfile::tempdir().expect("tempdir");
@@ -250,14 +230,5 @@ mod tests {
         let path = std::env::join_paths(["", ".", "bin", abs.to_str().expect("utf-8"), ""])
             .expect("join PATH");
         assert_eq!(super::absolute_dirs(&path).collect::<Vec<_>>(), [abs]);
-    }
-
-    #[test]
-    fn compares_versions_numerically() {
-        assert!(is_newer("0.2.10", "0.2.9"));
-        assert!(is_newer("0.3.0", "0.2.99"));
-        assert!(!is_newer("0.2.7", "0.2.7"));
-        assert!(!is_newer("0.2.6", "0.2.7"));
-        assert!(is_newer("0.2.7", "0.2.7-beta.1"));
     }
 }

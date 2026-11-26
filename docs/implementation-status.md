@@ -359,12 +359,15 @@ and `reranker` keys (a pin that remote defaults never move) and optional search
 values (`keyword_sufficiency_threshold`, `rerank_top`, `rrf_k`,
 `semantic_min_score`); only fields the user wrote are saved. `core::effective`
 resolves the models and holds the built-in defaults; `Config::search(remote)`
-resolves search values. The remote config is read from the verified local cache
+resolves search values. `auto_update = false` in `config.toml`, or a non-empty
+`PAPER_NO_AUTO_UPDATE` other than `0`, stops the daemon installing the version
+the remote config's `[update]` approves (`core::update_state::auto_update_enabled`).
+The remote config is read from the verified local cache
 only, never fetched by the CLI or MCP, and an expired one contributes nothing.
 
 ## Tests
 
-`cargo test` — 259 passing tests (plus 5 ignored: 3 model downloads, the reranker evaluation gate
+`cargo test` — 262 passing tests (plus 5 ignored: 3 model downloads, the reranker evaluation gate
 and one child-process helper for the setup-lock test), no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 

@@ -22,6 +22,9 @@ pub struct Config {
     pub rrf_k: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub semantic_min_score: Option<f32>,
+    /// `false` stops the daemon installing approved updates.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_update: Option<bool>,
     pub max_chunk_tokens: usize,
     pub chunk_overlap: usize,
     pub roots: Vec<PathBuf>,
@@ -86,6 +89,7 @@ impl Default for Config {
             rerank_top: None,
             rrf_k: None,
             semantic_min_score: None,
+            auto_update: None,
             max_chunk_tokens: 400,
             chunk_overlap: 40,
             roots: vec![],

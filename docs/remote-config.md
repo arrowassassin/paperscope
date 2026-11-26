@@ -34,6 +34,7 @@ The workflow can also be started by hand (Actions → Sign remote config → Run
 - `[defaults]` `embedder`, `reranker`: model ids installs should use.
 - `[search]` (optional): `rerank_top` 1..=100, `semantic_min_score` 0.0..=1.0.
 - `[[models]]` (optional): extra models. `id` must not equal a built-in id; `arch` is `bert` (embedder, `dims = 384`) or `xlm-roberta-seq-cls` (reranker); the Hugging Face org must be `BAAI`, `intfloat`, `cross-encoder` or `sentence-transformers`; every file is pinned to a 40-hex commit and 64-hex sha256. Embedders may set `query_prefix` and `document_prefix` (each at most 64 chars); when absent they follow the Hugging Face org (`intfloat`: `query: ` / `passage: `; `BAAI`: the BGE query instruction and no document prefix).
+- `[update]` (optional): `version` (`MAJOR.MINOR.PATCH`, digits only) is the one release the daemon may install through the install method; optional `notes` (at most 200 chars).
 - `[[deprecated]]` (optional): models to retire (`id`, `message`, optional `replacement`). Users who pinned a model locally keep it.
 
 Any validation failure rejects the whole file and the previous good copy stays.
