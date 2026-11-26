@@ -1,5 +1,5 @@
 schema = 1
-version = 2
+version = 3
 expires = "2027-11-25"
 
 [defaults]
@@ -10,3 +10,7 @@ reranker = "mmarco-mminilmv2-l12-h384"
 id = "bge-reranker-base"
 message = "Replaced by mmarco-mminilmv2-l12-h384: multilingual, half the size, twice as fast."
 replacement = "mmarco-mminilmv2-l12-h384"
+
+[update]
+version = "0.4.3"
+notes = "MCP clients now list the server as \"paper\"."
