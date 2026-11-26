@@ -4,10 +4,11 @@ All notable changes to this project are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html); while the version is
 `0.x`, minor releases may change behaviour.
 
-## [Unreleased]
+## [0.4.3] — 2026-11-26
 
 ### Fixed
 - MCP clients list the server as "paper" with its version instead of "rmcp".
+- Release CI: the MCP Registry step waits until npm serves the new version.
 
 ## [0.4.2] — 2026-11-26
 

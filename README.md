@@ -21,7 +21,7 @@ API keys, no telemetry, no cloud.
 > 15+ formats · 100+ languages · hybrid keyword + vector search · MCP server for
 > Claude and other agents · runs fully offline.
 
-Latest release: **[0.4.2](https://github.com/kintsugi-tools/paperscope/releases/tag/v0.4.2)**
+Latest release: **[0.4.3](https://github.com/kintsugi-tools/paperscope/releases/tag/v0.4.3)**
 · [changelog](CHANGELOG.md)
 
 ## Install
