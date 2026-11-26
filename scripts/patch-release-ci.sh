@@ -210,6 +210,14 @@ for action in ("upload-artifact", "download-artifact"):
         text = text.replace(f"{action}@v8", f"{action}@v7")
         changed = True
 
+# 6. Push the Homebrew formula with a deploy key on kintsugi-tools/homebrew-tap
+# (write access to that one repository, tied to no person) instead of a token.
+# actions/checkout switches to SSH when ssh-key is set, so `git push` uses it.
+tap_token = "token: ${{ secrets.HOMEBREW_TAP_TOKEN }}"
+if tap_token in text:
+    text = text.replace(tap_token, "ssh-key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}")
+    changed = True
+
 if not changed:
     print(f"{path} is already patched")
     raise SystemExit(0)

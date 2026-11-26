@@ -16,7 +16,7 @@ ci = "github"
 # committed file differs from what it would generate.
 allow-dirty = ["ci"]
 # Package-manager publishing. Homebrew is published by dist from the release
-# workflow (secret HOMEBREW_TAP_TOKEN, contents:write on the tap only). The npm
+# workflow (secret HOMEBREW_TAP_DEPLOY_KEY: a write deploy key on the tap repo; patch-release-ci.sh swaps it in for the token dist generates). The npm
 # tarball is still only attached to the GitHub Release.
 publish-jobs = ["homebrew"]
 tap = "kintsugi-tools/homebrew-tap"

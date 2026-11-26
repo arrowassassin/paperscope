@@ -1,12 +1,15 @@
-name: Publish crate
+name: Publish crate and npm
 
-# Publish `paperscope` to crates.io when a release is published, so
-# `cargo install paperscope` and `paper update` (cargo installs) can see it.
-# It runs in the `config-signing` environment, so the maintainer approves it
-# (Actions -> the run -> Review deployments) before the token is exposed.
+# Publish `paperscope` to crates.io after the Release workflow succeeds for a
+# version tag, so `cargo install paperscope` and auto-update (cargo installs)
+# can see it. Not `release: published`: the release is created with
+# GITHUB_TOKEN, and GitHub does not start workflows from events that token
+# makes. Runs in the `config-signing` environment, so the maintainer approves
+# it (Actions -> the run -> Review deployments) before the token is exposed.
 on:
-  release:
-    types: [published]
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
   workflow_dispatch:
     inputs:
       tag:
@@ -18,10 +21,17 @@ permissions:
 
 jobs:
   publish:
+    # workflow_run: only a successful tag-push release (the Release workflow
+    # also runs on pull requests and branches, where head_branch is not a tag).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
     runs-on: ubuntu-latest
     environment: config-signing
     env:
-      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      TAG: ${{ github.event.workflow_run.head_branch || inputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -41,3 +51,34 @@ jobs:
           fi
           test -n "$CARGO_REGISTRY_TOKEN" || { echo "CARGO_REGISTRY_TOKEN is not set"; exit 1; }
           cargo publish --locked
+
+  # npm: publish the package the release already built (attached to the GitHub
+  # release as paperscope-npm-package.tar.gz), after the same approval.
+  npm:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
+    runs-on: ubuntu-latest
+    environment: config-signing
+    env:
+      TAG: ${{ github.event.workflow_run.head_branch || inputs.tag }}
+    steps:
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          if npm view "paperscope@${version}" version 2>/dev/null | grep -qx "${version}"; then
+            echo "::notice::paperscope ${version} is already on npm; nothing to do"
+            exit 0
+          fi
+          test -n "$NODE_AUTH_TOKEN" || { echo "NPM_TOKEN is not set"; exit 1; }
+          curl -fsSL -o package.tgz \
+            "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/paperscope-npm-package.tar.gz"
+          tar -xzOf package.tgz package/package.json | grep -q "\"version\": *\"${version}\"" \
+            || { echo "package.json version does not match ${version}"; exit 1; }
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
+          npm publish package.tgz --access public
