@@ -1,6 +1,8 @@
 //! Daemon core: IPC server, scheduler, watcher, resource guard, and auto-discovery.
 
 pub mod auto_discover;
+#[cfg(feature = "daemon")]
+pub mod auto_update;
 pub mod ipc;
 #[cfg(feature = "daemon")]
 pub mod remote;
@@ -340,6 +342,8 @@ pub async fn run_daemon(args: DaemonArgs) -> Result<i32> {
     // Fetch the remote config now and daily, follow its defaults, and finish
     // any interrupted re-embed (the re-embed holds `index_lock`). This also
     // downloads the effective reranker without delaying the first index pass.
+    #[cfg(feature = "daemon")]
+    auto_update::check_after_restart();
     #[cfg(feature = "daemon")]
     tokio::spawn(remote::run_loop(workspace.clone(), state.clone()));
 

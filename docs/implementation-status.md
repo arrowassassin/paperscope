@@ -365,9 +365,21 @@ the remote config's `[update]` approves (`core::update_state::auto_update_enable
 The remote config is read from the verified local cache
 only, never fetched by the CLI or MCP, and an expired one contributes nothing.
 
+## Auto-update
+
+The daemon (`src/daemon/auto_update.rs`) installs the version named in the signed remote config's
+`[update]` table, once a day after the config refresh, through the install method that owns the
+binary (brew, npm, cargo, or the shell installer). It never installs a version that is not newer than
+the running one, does nothing when `PAPER_OFFLINE=1`, `PAPER_NO_AUTO_UPDATE=1` or `auto_update = false`,
+and records the result in `update.state`. A failure keeps the manual command and is not retried the
+same day; an unpublished version or a missing Rust toolchain is "unavailable". cargo runs under
+`nice` and only when the machine is idle. After a successful install the daemon restarts through its
+service manager, and the next start confirms the running version (a mismatch is reported as failed
+with a shadowing hint; a shell install restores `paper.old`).
+
 ## Tests
 
-`cargo test` — 262 passing tests (plus 5 ignored: 3 model downloads, the reranker evaluation gate
+`cargo test` — 267 passing tests (plus 5 ignored: 3 model downloads, the reranker evaluation gate
 and one child-process helper for the setup-lock test), no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 

@@ -72,20 +72,20 @@ pub fn detect_install_method(
     InstallMethod::Unknown
 }
 
-fn cargo_home(home: Option<&Path>) -> Option<PathBuf> {
+pub(crate) fn cargo_home(home: Option<&Path>) -> Option<PathBuf> {
     std::env::var_os("CARGO_HOME")
         .map(PathBuf::from)
         .or_else(|| home.map(|h| h.join(".cargo")))
 }
 
-fn cargo_lists_paper(cargo_home: &Path) -> bool {
+pub(crate) fn cargo_lists_paper(cargo_home: &Path) -> bool {
     [".crates2.json", ".crates.toml"].iter().any(|name| {
         std::fs::read_to_string(cargo_home.join(name))
             .is_ok_and(|text| text.contains("\"paperscope "))
     })
 }
 
-fn receipt_path(home: Option<&Path>) -> Option<PathBuf> {
+pub(crate) fn receipt_path(home: Option<&Path>) -> Option<PathBuf> {
     let dir = if cfg!(windows) {
         dirs::data_local_dir()?
     } else {
@@ -95,6 +95,25 @@ fn receipt_path(home: Option<&Path>) -> Option<PathBuf> {
         }
     };
     Some(dir.join("paperscope").join("paperscope-receipt.json"))
+}
+
+/// How the running binary was installed.
+#[cfg(feature = "daemon")]
+pub(crate) fn current_install_method() -> InstallMethod {
+    let Some(exe) = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.canonicalize().ok())
+    else {
+        return InstallMethod::Unknown;
+    };
+    let home = dirs::home_dir();
+    let cargo = cargo_home(home.as_deref());
+    detect_install_method(
+        &exe,
+        cargo.as_deref(),
+        home.as_deref(),
+        cargo.as_deref().is_some_and(cargo_lists_paper),
+    )
 }
 
 /// Directories Paper owns, existing only. Never a shared parent such as
