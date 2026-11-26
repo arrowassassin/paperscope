@@ -77,8 +77,14 @@ Remote-config maintainer guide (keys, signing, CI): [remote-config.md](remote-co
   pending.
 - **Not** built: `.deb`/`.rpm`/`.apk`, AppImage, MSI/pkg; no code signing or
   notarization (no certificate is configured, so artifacts are unsigned but
-  checksummed); no SLSA provenance; no Homebrew-tap or npm publish job (the
-  formula and tarball are attached to the release for manual publishing).
+  checksummed); no SLSA provenance; no npm publish job (the tarball is attached to
+  the release for manual publishing).
+- Publishing: dist's `publish-homebrew-formula` job pushes `Formula/paper.rb`
+  (`formula = "paper"`, `tap = "kintsugi-tools/homebrew-tap"`, secret
+  `HOMEBREW_TAP_TOKEN`), and `publish-crate.yml` runs `cargo publish --locked`
+  after approval in the `config-signing` environment (secret
+  `CARGO_REGISTRY_TOKEN`). Auto-update only installs the version approved in
+  the signed remote config's `[update]` table, so all methods roll out together.
 - The stale hand-written `packaging/` templates were removed: they were never
   built by CI, carried placeholder SHA256 values, declared a system SQLite
   dependency the binary does not have, and referenced a `paper completion`
@@ -359,12 +365,27 @@ and `reranker` keys (a pin that remote defaults never move) and optional search
 values (`keyword_sufficiency_threshold`, `rerank_top`, `rrf_k`,
 `semantic_min_score`); only fields the user wrote are saved. `core::effective`
 resolves the models and holds the built-in defaults; `Config::search(remote)`
-resolves search values. The remote config is read from the verified local cache
+resolves search values. `auto_update = false` in `config.toml`, or a non-empty
+`PAPER_NO_AUTO_UPDATE` other than `0`, stops the daemon installing the version
+the remote config's `[update]` approves (`core::update_state::auto_update_enabled`).
+The remote config is read from the verified local cache
 only, never fetched by the CLI or MCP, and an expired one contributes nothing.
+
+## Auto-update
+
+The daemon (`src/daemon/auto_update.rs`) installs the version named in the signed remote config's
+`[update]` table, once a day after the config refresh, through the install method that owns the
+binary (brew, npm, cargo, or the shell installer). It never installs a version that is not newer than
+the running one, does nothing when `PAPER_OFFLINE=1`, `PAPER_NO_AUTO_UPDATE=1` or `auto_update = false`,
+and records the result in `update.state`. A failure keeps the manual command and is not retried the
+same day; an unpublished version or a missing Rust toolchain is "unavailable". cargo runs under
+`nice` and only when the machine is idle. After a successful install the daemon restarts through its
+service manager, and the next start confirms the running version (a mismatch is reported as failed
+with a shadowing hint; a shell install restores `paper.old`).
 
 ## Tests
 
-`cargo test` — 259 passing tests (plus 5 ignored: 3 model downloads, the reranker evaluation gate
+`cargo test` — 275 passing tests (plus 5 ignored: 3 model downloads, the reranker evaluation gate
 and one child-process helper for the setup-lock test), no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 

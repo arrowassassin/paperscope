@@ -20,7 +20,7 @@ API keys, no telemetry, no cloud.
 > 15+ formats · 100+ languages · hybrid keyword + vector search · MCP server for
 > Claude and other agents · runs fully offline.
 
-Latest release: **[0.4.0](https://github.com/kintsugi-tools/paperscope/releases/tag/v0.4.0)**
+Latest release: **[0.4.1](https://github.com/kintsugi-tools/paperscope/releases/tag/v0.4.1)**
 · [changelog](CHANGELOG.md)
 
 ## Install
@@ -78,6 +78,10 @@ copy that is shadowing you and how to fix it.
 `paper update` is for the installer, Homebrew and cargo installs. If you came in
 through npm, upgrade the way you installed: `npm i -g paperscope@latest`; through
 Homebrew, `brew upgrade paper`.
+
+### Updates
+
+Paper updates itself by default, once a version has been approved by the maintainer (it never jumps to an unapproved release). It uses the same method you installed with: the installer script, `brew upgrade paper`, or `cargo install`; npm installs are told the command to run. Opt out with `PAPER_NO_AUTO_UPDATE=1` or `auto_update = false` in `config.toml`.
 
 ## Try it
 

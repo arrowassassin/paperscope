@@ -656,6 +656,20 @@ impl PaperMcp {
             _ => serde_json::json!({ "running": false }),
         };
         let (remote_config, deprecations) = self.remote_status();
+        let today = chrono::Local::now().date_naive();
+        let remote = crate::core::effective::load_live_remote(today);
+        let u = crate::core::update_state::UpdateSummary::load(
+            &crate::core::Paths::new().base_dir(),
+            &crate::core::config::Config::load().unwrap_or_default(),
+            remote.as_ref(),
+        );
+        let update = serde_json::json!({
+            "current": u.current,
+            "approved": u.approved,
+            "outcome": u.outcome(),
+            "manual_command": u.state.as_ref().and_then(|s| s.manual_command.clone()),
+            "auto_update": u.auto_update,
+        });
         Self::json(serde_json::json!({
             "indexed_files": files,
             "chunks": chunks,
@@ -665,6 +679,7 @@ impl PaperMcp {
             "setup_in_progress": self.inner.setup_status(),
             "remote_config": remote_config,
             "deprecations": deprecations,
+            "update": update,
         }))
     }
 

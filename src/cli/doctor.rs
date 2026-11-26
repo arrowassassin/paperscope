@@ -41,6 +41,16 @@ pub async fn run() -> Result<i32> {
 
     print_remote_config(&ws);
 
+    for line in crate::core::update_state::UpdateSummary::load(
+        &ws.paths.base_dir(),
+        &ws.config,
+        ws.remote.as_ref(),
+    )
+    .doctor_lines()
+    {
+        println!("{line}");
+    }
+
     let manager = ModelManager::new();
     for model in manager.list() {
         println!(

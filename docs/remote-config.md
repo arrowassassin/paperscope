@@ -10,6 +10,8 @@ Installs follow the signed copy of `config/remote-config.toml` on the `remote-co
 
 ## One-time GitHub setup
 
+Release secrets: `HOMEBREW_TAP_TOKEN` (repository secret; fine-grained token with Contents: read and write on `kintsugi-tools/homebrew-tap` only) and `CARGO_REGISTRY_TOKEN` (`config-signing` environment secret; crates.io token scoped to publishing `paperscope`).
+
 1. Settings → Environments → New environment `config-signing`.
    - Required reviewers: yourself. Untick "Prevent self-review".
    - Deployment branches and tags: "Selected branches" → `main`.
@@ -21,6 +23,11 @@ Installs follow the signed copy of `config/remote-config.toml` on the `remote-co
 1. Edit `config/remote-config.toml` in a PR. Increase `version`, and push `expires` out. The PR check (`remote-config.yml`) confirms the file parses and the version went up.
 2. Merge to main. `sign-remote-config.yml` starts and waits for your approval: Actions → the run → Review deployments → Approve.
 3. After approval it signs with the environment key, verifies the result against `config/keys/*.pub`, and publishes the toml and `.sig` to the `remote-config` branch. That branch is what installs fetch. A merged but unapproved change is never served.
+
+### Per-release flow
+
+1. Tag the release from a terminal: `git tag -a vX.Y.Z origin/main -m "Paper vX.Y.Z" && git push origin vX.Y.Z`. Do not create the release in the GitHub UI: `release.yml` creates it and fails if one already exists. `release.yml` builds and publishes the GitHub Release and the Homebrew formula; `publish-crate.yml` then waits for your approval (same `config-signing` environment) and publishes the crate to crates.io.
+2. Once the release is live everywhere, open a PR that sets `[update] version` to the new release and raises `version` in `config/remote-config.toml`. Merge it and approve the signing run. Installs only update to the version named here, so nothing rolls out before you approve it.
 
 The workflow can also be started by hand (Actions → Sign remote config → Run workflow) to re-publish main's current file.
 
@@ -34,6 +41,7 @@ The workflow can also be started by hand (Actions → Sign remote config → Run
 - `[defaults]` `embedder`, `reranker`: model ids installs should use.
 - `[search]` (optional): `rerank_top` 1..=100, `semantic_min_score` 0.0..=1.0.
 - `[[models]]` (optional): extra models. `id` must not equal a built-in id; `arch` is `bert` (embedder, `dims = 384`) or `xlm-roberta-seq-cls` (reranker); the Hugging Face org must be `BAAI`, `intfloat`, `cross-encoder` or `sentence-transformers`; every file is pinned to a 40-hex commit and 64-hex sha256. Embedders may set `query_prefix` and `document_prefix` (each at most 64 chars); when absent they follow the Hugging Face org (`intfloat`: `query: ` / `passage: `; `BAAI`: the BGE query instruction and no document prefix).
+- `[update]` (optional): `version` (`MAJOR.MINOR.PATCH`, digits only) is the release you approve for auto-update: the daemon installs exactly this version through the install method, and only when it is newer than the running one. Optional `notes` (at most 200 chars) is shown with the update.
 - `[[deprecated]]` (optional): models to retire (`id`, `message`, optional `replacement`). Users who pinned a model locally keep it.
 
 Any validation failure rejects the whole file and the previous good copy stays.

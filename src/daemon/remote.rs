@@ -331,6 +331,7 @@ pub(super) async fn run_loop(workspace: Arc<Workspace>, state: Arc<DaemonState>)
         if let Err(e) = follow_defaults(&workspace, &state).await {
             tracing::warn!("following remote defaults failed: {e:#}");
         }
+        super::auto_update::run(&workspace).await;
     }
 }
 

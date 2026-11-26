@@ -84,7 +84,7 @@ sbom_job = """
           # (<name>.cdx.json on 0.5), so locate whatever it wrote instead of
           # assuming a filename.
           cargo cyclonedx --format json --override-filename sbom
-          found=$(find . -maxdepth 2 -name '*.json' ! -path './target/*' ! -path './.git/*' \
+          found=$(find . -maxdepth 2 -name '*.json' ! -path './target/*' ! -path './.git/*' \\
             | grep -Ei 'bom|cdx|sbom' | head -n1)
           if [ -z "$found" ]; then
             echo "::error::cargo-cyclonedx produced no JSON SBOM"
@@ -201,12 +201,14 @@ if musl_marker not in text:
     text = "".join(lines)
     changed = True
 
-# 5. Ensure consistent artifact action versions: cargo-dist generates the plan
-# job with upload-artifact@v7 while build jobs use download-artifact@v8, which
-# causes digest-mismatch on artifacts-plan-dist-manifest. Normalize both to v8.
-if "upload-artifact@v7" in text:
-    text = text.replace("upload-artifact@v7", "upload-artifact@v8")
-    changed = True
+# 5. Ensure consistent artifact action versions. cargo-dist may emit a mix of
+# @v7 and @v8; mixed versions cause a digest mismatch on
+# artifacts-plan-dist-manifest, and upload-artifact@v8 does not resolve on
+# GitHub. Normalize both actions to v7, the version the released workflow uses.
+for action in ("upload-artifact", "download-artifact"):
+    if f"{action}@v8" in text:
+        text = text.replace(f"{action}@v8", f"{action}@v7")
+        changed = True
 
 if not changed:
     print(f"{path} is already patched")

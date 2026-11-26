@@ -437,7 +437,7 @@ fn start_service() -> Result<()> {
 }
 
 #[cfg(target_os = "linux")]
-fn restart_service() -> Result<()> {
+pub(crate) fn restart_service() -> Result<()> {
     require_service_installed(&systemd_unit_path()?)?;
     run_checked(Command::new("systemctl").args(["--user", "restart", SYSTEMD_SERVICE_NAME]))
 }
@@ -537,7 +537,7 @@ fn start_service() -> Result<()> {
 }
 
 #[cfg(target_os = "macos")]
-fn restart_service() -> Result<()> {
+pub(crate) fn restart_service() -> Result<()> {
     let path = launchd_plist_path()?;
     require_service_installed(&path)?;
     let domain = format!("gui/{}", current_uid()?);
@@ -564,7 +564,7 @@ fn start_service() -> Result<()> {
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-fn restart_service() -> Result<()> {
+pub(crate) fn restart_service() -> Result<()> {
     bail!("OS service management is not yet supported on Windows; use Linux or macOS")
 }
 

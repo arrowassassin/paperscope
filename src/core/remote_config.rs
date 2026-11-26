@@ -32,6 +32,16 @@ pub struct RemoteConfig {
     pub models: Vec<RemoteModel>,
     #[serde(default)]
     pub deprecated: Vec<Deprecation>,
+    #[serde(default)]
+    pub update: Option<RemoteUpdate>,
+}
+
+/// The release the daemon may install (`[update]`).
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub struct RemoteUpdate {
+    pub version: String,
+    #[serde(default)]
+    pub notes: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq)]
@@ -157,6 +167,19 @@ pub fn verify_and_parse(
 }
 
 fn validate(cfg: &RemoteConfig) -> Result<(), RemoteConfigError> {
+    if let Some(u) = &cfg.update {
+        let parts: Vec<&str> = u.version.split('.').collect();
+        let digits = |p: &&str| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit());
+        if parts.len() != 3 || !parts.iter().all(digits) {
+            return invalid(format!(
+                "update version '{}' is not MAJOR.MINOR.PATCH",
+                u.version
+            ));
+        }
+        if u.notes.as_ref().is_some_and(|n| n.chars().count() > 200) {
+            return invalid("update notes are longer than 200 chars");
+        }
+    }
     let builtin = all_specs();
     let mut known: Vec<(String, ModelKind)> =
         builtin.iter().map(|s| (s.id.to_string(), s.kind)).collect();
@@ -294,7 +317,7 @@ pub fn compiled_keys() -> Vec<[u8; 32]> {
     keys
 }
 
-fn write_atomic(dir: &Path, name: &str, bytes: &[u8]) -> std::io::Result<()> {
+pub(crate) fn write_atomic(dir: &Path, name: &str, bytes: &[u8]) -> std::io::Result<()> {
     let mut temp = tempfile::Builder::new()
         .prefix(".remote-config-")
         .suffix(".tmp")
@@ -664,6 +687,26 @@ mod tests {
         let after = compiled_keys();
         std::env::remove_var("PAPER_REMOTE_CONFIG_TEST_PUBKEY");
         assert_eq!(before, after);
+    }
+
+    #[test]
+    fn update_section_parses_and_validates() {
+        let ok = check(&base("[update]\nversion = \"0.4.2\"\nnotes = \"hi\"")).unwrap();
+        assert_eq!(
+            ok.update,
+            Some(RemoteUpdate {
+                version: "0.4.2".into(),
+                notes: Some("hi".into())
+            })
+        );
+        assert!(check(&base("")).unwrap().update.is_none());
+        for v in ["latest", "0.4", "v0.4.2", "0.4.2-beta", "0.4.", "1.2.3.4"] {
+            assert_invalid(&base(&format!("[update]\nversion = \"{v}\"")));
+        }
+        let long = "x".repeat(201);
+        assert_invalid(&base(&format!(
+            "[update]\nversion = \"0.4.2\"\nnotes = \"{long}\""
+        )));
     }
 
     #[test]
