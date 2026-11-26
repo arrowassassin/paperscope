@@ -80,5 +80,50 @@ jobs:
             "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/paperscope-npm-package.tar.gz"
           tar -xzOf package.tgz package/package.json | grep -q "\"version\": *\"${version}\"" \
             || { echo "package.json version does not match ${version}"; exit 1; }
+          # The MCP Registry proves npm ownership through this field; it must
+          # equal "name" in server.json.
+          mkdir pkg && tar -xzf package.tgz -C pkg
+          jq '.mcpName = "io.github.kintsugi-tools/paperscope"' pkg/package/package.json > pkg/p.json
+          mv pkg/p.json pkg/package/package.json
           echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
-          npm publish package.tgz --access public
+          npm publish ./pkg/package --access public
+
+  # List the release in the official MCP Registry (registry.modelcontextprotocol.io).
+  # GitHub OIDC proves the io.github.kintsugi-tools namespace; no stored token.
+  mcp-registry:
+    needs: npm
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      TAG: ${{ github.event.workflow_run.head_branch || inputs.tag }}
+      MCP_PUBLISHER_VERSION: v1.8.1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Download and verify mcp-publisher
+        run: |
+          set -euo pipefail
+          archive="mcp-publisher_linux_amd64.tar.gz"
+          base_url="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}"
+          curl -fsSL -o "$archive" "$base_url/$archive"
+          curl -fsSL -o "$archive.sigstore.json" "$base_url/$archive.sigstore.json"
+          cosign verify-blob \
+            --bundle "$archive.sigstore.json" \
+            --certificate-identity "https://github.com/modelcontextprotocol/registry/.github/workflows/release.yml@refs/tags/${MCP_PUBLISHER_VERSION}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "$archive"
+          tar xzf "$archive" mcp-publisher
+      - name: Set version
+        run: |
+          version="${TAG#v}"
+          jq --arg v "$version" '.version = $v | .packages[0].version = $v' server.json > s.json && mv s.json server.json
+      - name: Publish
+        run: |
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish

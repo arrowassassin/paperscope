@@ -1,0 +1,32 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.kintsugi-tools/paperscope",
+  "title": "Paper",
+  "description": "Local document search with exact file, page and line citations. Offline, no telemetry.",
+  "repository": {
+    "url": "https://github.com/kintsugi-tools/paperscope",
+    "source": "github"
+  },
+  "websiteUrl": "https://kintsugi.tools/paperscope.html",
+  "version": "0.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "paperscope",
+      "version": "0.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "serve"
+        },
+        {
+          "type": "positional",
+          "value": "--mcp"
+        }
+      ]
+    }
+  ]
+}
