@@ -792,6 +792,9 @@ impl ServerHandler for PaperMcp {
             // The server still answers the `initialize` handshake, so it must
             // name the newest revision that still has one.
             .with_protocol_version(ProtocolVersion::LATEST_WITH_INITIALIZE)
+            .with_server_info(
+                Implementation::new("paper", env!("CARGO_PKG_VERSION")).with_title("Paper"),
+            )
             .with_instructions(
                 "Paper searches the user's own documents locally. Always cite results with \
                  their path and line numbers. Use index_documents / add_index_root to let the \

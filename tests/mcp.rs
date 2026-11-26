@@ -12,6 +12,8 @@ struct McpClient {
     next_id: i64,
     /// The protocol version the server answered the handshake with.
     negotiated_version: String,
+    /// The `serverInfo` object from the handshake.
+    server_info: Value,
 }
 
 impl McpClient {
@@ -44,6 +46,7 @@ impl McpClient {
             stdout,
             next_id: 0,
             negotiated_version: String::new(),
+            server_info: Value::Null,
         };
         let result = client.request(
             "initialize",
@@ -57,6 +60,7 @@ impl McpClient {
             .as_str()
             .unwrap_or_default()
             .to_string();
+        client.server_info = result["serverInfo"].clone();
         client.notify("notifications/initialized", json!({}));
         client
     }
@@ -153,6 +157,14 @@ fn mcp_negotiates_the_protocol_version_of_the_client() {
     // The tools still work after the newer handshake.
     let hits = new.call_tool("search_documents", json!({"query": "fridge warranty"}));
     assert!(!hits.as_array().unwrap().is_empty());
+}
+
+#[test]
+fn mcp_reports_itself_as_paper_not_the_sdk_default() {
+    let (home, docs) = fixture();
+    let client = McpClient::spawn(home.path(), &docs);
+    assert_eq!(client.server_info["name"], "paper");
+    assert_eq!(client.server_info["version"], env!("CARGO_PKG_VERSION"));
 }
 
 #[test]
