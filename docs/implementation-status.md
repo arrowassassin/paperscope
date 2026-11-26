@@ -81,7 +81,7 @@ Remote-config maintainer guide (keys, signing, CI): [remote-config.md](remote-co
   the release for manual publishing).
 - Publishing: dist's `publish-homebrew-formula` job pushes `Formula/paper.rb`
   (`formula = "paper"`, `tap = "kintsugi-tools/homebrew-tap"`, secret
-  `HOMEBREW_TAP_TOKEN`), and `publish-crate.yml` runs `cargo publish --locked`
+  `HOMEBREW_TAP_DEPLOY_KEY`, a deploy key on the tap repo), and `publish-crate.yml` runs `cargo publish --locked`
   after approval in the `config-signing` environment (secret
   `CARGO_REGISTRY_TOKEN`). Auto-update only installs the version approved in
   the signed remote config's `[update]` table, so all methods roll out together.

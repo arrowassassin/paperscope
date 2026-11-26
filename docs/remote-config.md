@@ -10,7 +10,7 @@ Installs follow the signed copy of `config/remote-config.toml` on the `remote-co
 
 ## One-time GitHub setup
 
-Release secrets: `HOMEBREW_TAP_TOKEN` (repository secret; fine-grained token with Contents: read and write on `kintsugi-tools/homebrew-tap` only) and `CARGO_REGISTRY_TOKEN` (`config-signing` environment secret; crates.io token scoped to publishing `paperscope`).
+Release secrets: `HOMEBREW_TAP_DEPLOY_KEY` (repository secret: the private half of an SSH deploy key added with write access under `kintsugi-tools/homebrew-tap` → Settings → Deploy keys; `scripts/patch-release-ci.sh` wires it into the generated workflow) and `CARGO_REGISTRY_TOKEN` (`config-signing` environment secret; crates.io token scoped to publishing `paperscope`).
 
 1. Settings → Environments → New environment `config-signing`.
    - Required reviewers: yourself. Untick "Prevent self-review".
