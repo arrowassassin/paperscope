@@ -367,7 +367,7 @@ only, never fetched by the CLI or MCP, and an expired one contributes nothing.
 
 ## Tests
 
-`cargo test` — 262 passing tests (plus 5 ignored: 3 model downloads, the reranker evaluation gate
+`cargo test` — 266 passing tests (plus 5 ignored: 3 model downloads, the reranker evaluation gate
 and one child-process helper for the setup-lock test), no network access, no model downloads.
 Model integration tests are `#[ignore]`d and download real weights:
 

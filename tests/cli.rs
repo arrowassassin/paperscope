@@ -270,3 +270,82 @@ fn doctor_shows_remote_config_sources_and_deprecations() {
         "{text}"
     );
 }
+
+const UPDATE_CONFIG: &str = r#"
+schema = 1
+version = 8
+expires = "2099-01-01"
+[update]
+version = "99.0.0"
+"#;
+
+fn failed_state(home: &Path) {
+    paper::core::update_state::write_update_state(
+        home,
+        &paper::core::update_state::UpdateState {
+            outcome: "failed".into(),
+            approved: Some("99.0.0".into()),
+            method: "npm".into(),
+            manual_command: Some("npm install -g paperscope@99.0.0".into()),
+            detail: Some("EACCES".into()),
+            at: "2026-11-26T10:00:00+00:00".into(),
+        },
+    )
+    .unwrap();
+}
+
+#[test]
+fn doctor_shows_update_line_and_manual_command() {
+    let fx = Fixture::new();
+    let key = common::install_signed_config(fx.home.path(), UPDATE_CONFIG);
+    failed_state(fx.home.path());
+    let out = paper_trusting(fx.home.path(), &key, &["doctor"]);
+    let text = String::from_utf8_lossy(&out.stdout);
+    let cur = env!("CARGO_PKG_VERSION");
+    assert!(
+        text.contains(&format!(
+            "  update:     {cur} \u{2192} 99.0.0 update failed\n"
+        )),
+        "{text}"
+    );
+    assert!(
+        text.contains("              run: npm install -g paperscope@99.0.0\n"),
+        "{text}"
+    );
+}
+
+#[test]
+fn cli_notes_available_update_on_stderr_only() {
+    let fx = Fixture::new();
+    let plain = fx.run(&["search", "fridge warranty", "--json"]);
+    let key = common::install_signed_config(fx.home.path(), UPDATE_CONFIG);
+    failed_state(fx.home.path());
+    let out = paper_trusting(
+        fx.home.path(),
+        &key,
+        &["search", "fridge warranty", "--json"],
+    );
+    let err = String::from_utf8_lossy(&out.stderr);
+    let note = "note: Paper 99.0.0 is available \u{2014} run: npm install -g paperscope@99.0.0";
+    assert_eq!(err.matches(note).count(), 1, "{err}");
+    assert_eq!(out.stdout, plain.stdout);
+    assert!(!String::from_utf8_lossy(&out.stdout).contains("available"));
+}
+
+#[test]
+fn no_update_note_when_up_to_date() {
+    let fx = Fixture::new();
+    let body = UPDATE_CONFIG.replace("99.0.0", env!("CARGO_PKG_VERSION"));
+    let key = common::install_signed_config(fx.home.path(), &body);
+    let out = paper_trusting(fx.home.path(), &key, &["search", "fridge warranty"]);
+    assert!(!String::from_utf8_lossy(&out.stderr).contains("available"));
+    let out = paper_trusting(fx.home.path(), &key, &["doctor"]);
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        text.contains(&format!(
+            "  update:     {} (up to date)\n",
+            env!("CARGO_PKG_VERSION")
+        )),
+        "{text}"
+    );
+}
