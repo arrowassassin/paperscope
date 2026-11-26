@@ -4,6 +4,11 @@ All notable changes to this project are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html); while the version is
 `0.x`, minor releases may change behaviour.
 
+## [Unreleased]
+
+### Fixed
+- MCP clients list the server as "paper" with its version instead of "rmcp".
+
 ## [0.4.2] — 2026-11-26
 
 ### Added
